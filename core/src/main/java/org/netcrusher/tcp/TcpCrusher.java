@@ -22,6 +22,29 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
+/**
+ * <p>TcpCrusher - a TCP proxy for test purposes. To create a new instance use TcpCrusherBuilder</p>
+ *
+ * <pre>
+ * NioReactor reactor = new NioReactor();
+ * TcpCrusher crusher = TcpCrusherBuilder.builder()
+ *     .withReactor(reactor)
+ *     .withLocalAddress("localhost", 10080)
+ *     .withRemoteAddress("google.com", 80)
+ *     .build();
+ * crusher.open();
+ *
+ * // do some test on localhost:10080
+ * crusher.crush();
+ * // do other test on localhost:10080
+ *
+ * crusher.close();
+ * reactor.close();
+ * </pre>
+ *
+ * @see TcpCrusherBuilder
+ * @see NioReactor
+ */
 public class TcpCrusher implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpCrusher.class);
@@ -119,9 +142,9 @@ public class TcpCrusher implements Closeable {
     }
 
     /**
-     * Reopens crusher proxy
+     * Reopens (closes and the opens again) crusher proxy
      */
-    public synchronized void reopen() throws IOException {
+    public synchronized void crush() throws IOException {
         close();
         open();
     }

@@ -24,7 +24,7 @@ TcpCrusher crusher = TcpCrusherBuilder.builder()
 SomeResource resource = new SomeResource("localhost", 10080);
 
 // emulate disconnect
-crusher.reopen();
+crusher.crush();
 
 // check how the application goes
 Assert.assertTrue(resource.isValid());
@@ -47,8 +47,8 @@ DatagramCrusher crusher = DatagramCrusherBuilder.builder()
 
 // start getting RFC-868 timestamp on localhost:10188
 
-// emulate disconnect
-crusher.reopen();
+// emulate disconnect - listening socket on localhost:10188 will be reopened
+crusher.crush();
 
 // check everything is still allright
 

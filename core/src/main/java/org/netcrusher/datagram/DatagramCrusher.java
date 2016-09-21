@@ -1,11 +1,35 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.common.NioReactor;
+import org.netcrusher.tcp.TcpCrusherBuilder;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
+/**
+ * <p>DatagramCrusher - a UDP proxy for test purposes. To create a new instance use DatagramCrusherBuilder</p>
+ *
+ * <pre>
+ * NioReactor reactor = new NioReactor();
+ * DatagramCrusher crusher = DatagramCrusherBuilder.builder()
+ *     .withReactor(reactor)
+ *     .withLocalAddress("localhost", 10081)
+ *     .withRemoteAddress("time-nw.nist.gov", 37)
+ *     .build();
+ * crusher.open();
+ *
+ * // do some test on localhost:10081
+ * crusher.crush();
+ * // do other test on localhost:10081
+ *
+ * crusher.close();
+ * reactor.close();
+ * </pre>
+ *
+ * @see TcpCrusherBuilder
+ * @see NioReactor
+ */
 public class DatagramCrusher implements Closeable {
 
     private final InetSocketAddress localAddress;
@@ -35,6 +59,10 @@ public class DatagramCrusher implements Closeable {
         this.opened = false;
     }
 
+    /**
+     * Opens the proxy. Listening socket will opened and binded.
+     * @throws IOException On problem with opening/binding
+     */
     public synchronized void open() throws IOException {
         if (opened) {
             throw new IllegalStateException("DatagramCrusher is already active");
@@ -45,6 +73,9 @@ public class DatagramCrusher implements Closeable {
         this.opened = true;
     }
 
+    /**
+     * Closes the proxy. Listening socket will be closed
+     */
     @Override
     public synchronized void close() {
         if (!opened) {
@@ -56,7 +87,10 @@ public class DatagramCrusher implements Closeable {
         this.opened = false;
     }
 
-    public synchronized void reopen() throws IOException {
+    /**
+     * Reopens (closes and the opens again) crusher proxy
+     */
+    public synchronized void crush() throws IOException {
         close();
         open();
     }

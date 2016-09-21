@@ -3,6 +3,9 @@ package org.netcrusher.tcp;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 
+/**
+ * Circular queue for ByteBuffer cells with restricted capacity
+ */
 public class TcpTransferQueue implements Serializable {
 
     private final ByteBuffer[] buffers;
