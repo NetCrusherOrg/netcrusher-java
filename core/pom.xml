@@ -7,22 +7,23 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.netcrusher</groupId>
-    <artifactId>core</artifactId>
+    <artifactId>netcrusher-core</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>core</name>
-    <url>https://github.com/mazurkin/netcrusher</url>
-    <description>Netcrusher checks your application in case of network failures and throughput limitation</description>
+    <name>${project.groupId}:${project.artifactId}</name>
+    <url>https://github.com/NetCrusherOrg/netcrusher-java</url>
+    <description>NetCrusher is a TCP/UDP proxy that allows yout to test your services for failover</description>
 
     <scm>
-        <connection>scm:git:git@github.com:mazurkin/netcrusher.git</connection>
-        <developerConnection>scm:git:git@github.com:mazurkin/netcrusher.git</developerConnection>
+        <connection>scm:git:git@github.com:NetCrusherOrg/netcrusher-java.git</connection>
+        <developerConnection>scm:git:git@github.com:NetCrusherOrg/netcrusher-java.git</developerConnection>
+        <url>https://github.com/NetCrusherOrg/netcrusher-java</url>
     </scm>
 
     <organization>
-        <name>Netcrusher proxy framework</name>
-        <url>https://github.com/mazurkin/netcrusher</url>
+        <name>NetCrusher for Java</name>
+        <url>https://github.com/NetCrusherOrg/netcrusher-java</url>
     </organization>
 
     <licenses>
@@ -39,8 +40,8 @@
             <id>mazurkin</id>
             <name>Nikolay Mazurkin</name>
             <email>mazurkin@gmail.com</email>
-            <organization>individual</organization>
-            <organizationUrl>https://github.com/mazurkin</organizationUrl>
+            <organization>NetCrusher Team</organization>
+            <organizationUrl>https://github.com/NetCrusherOrg</organizationUrl>
         </developer>
     </developers>
 
@@ -88,12 +89,50 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.5.1</version>
                 <configuration>
                     <source>${project.java.version}</source>
                     <target>${project.java.version}</target>
                     <compilerVersion>${project.java.version}</compilerVersion>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <additionalparam>-Xdoclint:none</additionalparam>
                 </configuration>
             </plugin>
         </plugins>
