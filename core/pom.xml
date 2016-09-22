@@ -19,6 +19,7 @@
         <connection>scm:git:git@github.com:NetCrusherOrg/netcrusher-java.git</connection>
         <developerConnection>scm:git:git@github.com:NetCrusherOrg/netcrusher-java.git</developerConnection>
         <url>https://github.com/NetCrusherOrg/netcrusher-java</url>
+        <tag>HEAD</tag>
     </scm>
 
     <organization>
@@ -44,6 +45,17 @@
             <organizationUrl>https://github.com/NetCrusherOrg</organizationUrl>
         </developer>
     </developers>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
+        </repository>
+    </distributionManagement>
 
     <properties>
         <!-- project -->
@@ -133,6 +145,17 @@
                 </executions>
                 <configuration>
                     <additionalparam>-Xdoclint:none</additionalparam>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>2.5</version>
+                <configuration>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                    <useReleaseProfile>false</useReleaseProfile>
+                    <releaseProfiles>release</releaseProfiles>
+                    <goals>deploy</goals>
                 </configuration>
             </plugin>
         </plugins>
