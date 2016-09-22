@@ -56,3 +56,17 @@ crusher.crush();
 crusher.close();
 reactor.close();
 ```
+
+# Maven
+
+```xml
+<dependency>
+    <groupId>com.github.netcrusherorg</groupId>
+    <artifactId>netcrusher-core</artifactId>
+    <version>0.1</version>
+</dependency>
+```
+
+# Other projects
+
+[Jepsen](http://jepsen.io) - Distributed Systems Safety Analysis
