@@ -43,6 +43,11 @@
         </developer>
     </developers>
 
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/NetCrusherOrg/netcrusher-java/issues</url>
+    </issueManagement>
+
     <properties>
         <!-- project -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -111,14 +116,17 @@
         <profile>
             <id>release</id>
             <distributionManagement>
-                <snapshotRepository>
-                    <id>ossrh</id>
-                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-                </snapshotRepository>
                 <repository>
                     <id>ossrh</id>
+                    <name>Sonatype Production Repository</name>
                     <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
                 </repository>
+                <snapshotRepository>
+                    <id>ossrh</id>
+                    <name>Sontatype Snapshot Repository</name>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+                </snapshotRepository>
+                <downloadUrl>https://oss.sonatype.org/content/groups/staging</downloadUrl>
             </distributionManagement>
             <build>
                 <plugins>
