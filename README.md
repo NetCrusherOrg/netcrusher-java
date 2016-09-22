@@ -19,6 +19,7 @@ TcpCrusher crusher = TcpCrusherBuilder.builder()
     .withLocalAddress("localhost", 10080)
     .withRemoteAddress("google.com", 80)
     .build();
+crusher.open();
 
 // now you connect to localhost:10080
 SomeResource resource = new SomeResource("localhost", 10080);
@@ -44,6 +45,7 @@ DatagramCrusher crusher = DatagramCrusherBuilder.builder()
     .withLocalAddress("localhost", 10188)
     .withRemoteAddress("time-nw.nist.gov", 37)
     .build();
+crusher.open();
 
 // start getting RFC-868 timestamp on localhost:10188
 
