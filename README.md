@@ -63,7 +63,7 @@ reactor.close();
 <dependency>
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.1</version>
+    <version>0.4</version>
 </dependency>
 ```
 
