@@ -5,7 +5,7 @@
 
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
@@ -107,6 +107,7 @@
                     <autoVersionSubmodules>true</autoVersionSubmodules>
                     <goals>deploy</goals>
                     <releaseProfiles>release</releaseProfiles>
+                    <pushChanges>true</pushChanges>
                 </configuration>
             </plugin>
         </plugins>
