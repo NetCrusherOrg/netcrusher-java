@@ -5,7 +5,7 @@
 
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.4-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>${project.groupId}:${project.artifactId}</name>
@@ -102,7 +102,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-release-plugin</artifactId>
-                <version>2.5</version>
+                <version>2.5.3</version>
                 <configuration>
                     <autoVersionSubmodules>true</autoVersionSubmodules>
                     <goals>deploy</goals>
@@ -118,12 +118,12 @@
             <id>release</id>
             <distributionManagement>
                 <repository>
-                    <id>ossrh</id>
+                    <id>ossrh-release</id>
                     <name>Sonatype Production Repository</name>
                     <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
                 </repository>
                 <snapshotRepository>
-                    <id>ossrh</id>
+                    <id>ossrh-snapshot</id>
                     <name>Sontatype Snapshot Repository</name>
                     <url>https://oss.sonatype.org/content/repositories/snapshots</url>
                 </snapshotRepository>
