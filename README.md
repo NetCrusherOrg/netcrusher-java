@@ -67,6 +67,11 @@ reactor.close();
 </dependency>
 ```
 
+# License
+
+Apache License Version 2.0, http://www.apache.org/licenses/LICENSE-2.0.html
+
 # Other projects
 
-[Jepsen](http://jepsen.io) - Distributed Systems Safety Analysis
+* [Jepsen](http://jepsen.io) - Distributed Systems Safety Analysis
+* [Java-NIO-TCP-Proxy](https://github.com/terma/java-nio-tcp-proxy/wiki) - Simple TCP proxy
