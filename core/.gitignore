@@ -1,6 +1,11 @@
 /.idea
 /out
 /target
+
 /*.iml
 /*.log
 /*.sh
+
+pom.xml.releaseBackup
+release.properties
+
