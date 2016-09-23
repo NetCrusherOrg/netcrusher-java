@@ -41,10 +41,13 @@ public class TcpPair implements Closeable {
 
     private final InetSocketAddress outerListenAddr;
 
+    private volatile boolean freezed;
+
     public TcpPair(TcpCrusher crusher, SocketChannel inner, SocketChannel outer,
                    int bufferCount, int bufferSize) throws IOException {
         this.key = UUID.randomUUID().toString();
         this.crusher = crusher;
+        this.freezed = false;
 
         this.inner = inner;
         this.outer = outer;
@@ -107,18 +110,59 @@ public class TcpPair implements Closeable {
 
     /**
      * Start transfer after pair is created
+     * @see TcpPair#freeze()
      */
-    protected void init() {
-        NioUtils.setupInterestOps(innerKey, SelectionKey.OP_READ);
-        NioUtils.setupInterestOps(outerKey, SelectionKey.OP_READ);
+    public synchronized void resume() throws IOException {
+        if (freezed) {
+            crusher.getReactor().executeReactorOp(() -> {
+                int ops;
 
-        crusher.getReactor().reload();
+                ops = innerTransfer.getIncoming().size() > 0 ?
+                    SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
+                innerKey.interestOps(ops);
+
+                ops = outerTransfer.getIncoming().size() > 0 ?
+                    SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
+                outerKey.interestOps(ops);
+
+                return null;
+            });
+
+            freezed = false;
+        }
+    }
+
+    /**
+     * Freezes any transfer. Sockets are still open but data are not sent
+     * @see TcpPair#resume()
+     */
+    public synchronized void freeze() throws IOException {
+        if (!freezed) {
+            crusher.getReactor().executeReactorOp(() -> {
+                innerKey.interestOps(0);
+                outerKey.interestOps(0);
+
+                return null;
+            });
+
+            freezed = true;
+        }
+    }
+
+    /**
+     * Is pair freezed
+     * @return Return true if freeze() on this pair was called before
+     * @see TcpPair#resume()
+     * @see TcpPair#freeze()
+     */
+    public boolean isFreezed() {
+        return freezed;
     }
 
     /**
      * Closes this paired connection
      */
-    public void close() {
+    public synchronized void close() {
         NioUtils.closeChannel(inner);
         NioUtils.closeChannel(outer);
 

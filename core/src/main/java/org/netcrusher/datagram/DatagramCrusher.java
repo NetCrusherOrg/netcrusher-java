@@ -69,6 +69,7 @@ public class DatagramCrusher implements Closeable {
         }
 
         this.inner = new DatagramInner(reactor, localAddress, remoteAddress, socketOptions, maxIdleDurationMs);
+        this.inner.resume();
 
         this.opened = true;
     }
@@ -93,6 +94,34 @@ public class DatagramCrusher implements Closeable {
     public synchronized void crush() throws IOException {
         close();
         open();
+    }
+
+    /**
+     * Freezes crusher proxy. Sockets are still open but packets are not sent
+     * @see DatagramCrusher#resume()
+     * @throws IOException On IO error
+     */
+    public synchronized void freeze() throws IOException {
+        inner.freeze();
+    }
+
+    /**
+     * Resumes crusher proxy after freezing
+     * @see DatagramCrusher#freeze()
+     * @throws IOException On IO error
+     */
+    public synchronized void resume() throws IOException {
+        inner.resume();
+    }
+
+    /**
+     * Is the crusher freezed
+     * @return Return true if freeze() on the crusher was called before
+     * @see DatagramCrusher#resume()
+     * @see DatagramCrusher#freeze()
+     */
+    public boolean isFreezed() {
+        return inner.isFreezed();
     }
 
 }

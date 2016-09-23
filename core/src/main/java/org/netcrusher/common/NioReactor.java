@@ -4,11 +4,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Iterator;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,12 +34,14 @@ public class NioReactor implements AutoCloseable {
 
     private final ScheduledExecutorService scheduledExecutorService;
 
+    private final Queue<NioReactorOp<?>> ops;
+
     private volatile boolean opened;
 
     public NioReactor() throws IOException {
         this.selector = Selector.open();
-
         this.monitor = new Object();
+        this.ops = new ConcurrentLinkedQueue<>();
 
         this.thread = new Thread(this::loop);
         this.thread.setName("TcpCrusher context event loop");
@@ -84,6 +92,12 @@ public class NioReactor implements AutoCloseable {
             interrupted = true;
         }
 
+        try {
+            this.selector.close();
+        } catch (IOException e) {
+            LOGGER.error("Fail to close selector", e);
+        }
+
         this.opened = false;
         LOGGER.debug("Context is closed");
 
@@ -95,15 +109,29 @@ public class NioReactor implements AutoCloseable {
     public SelectionKey register(SelectableChannel channel, int options, SelectionKeyCallback callback)
             throws IOException
     {
-        synchronized (monitor) {
-            selector.wakeup();
-            return channel.register(selector, options, callback);
-        }
+        return executeReactorOp(() -> channel.register(selector, options, callback));
     }
 
-    public void reload() {
-        synchronized (monitor) {
+    public <T> T executeReactorOp(Callable<T> callable) throws IOException {
+        if (Thread.currentThread().equals(thread)) {
+            try {
+                return callable.call();
+            } catch (Exception e) {
+                throw new IOException("Fail to execute reactor op", e);
+            }
+        } else {
+            NioReactorOp<T> op = new NioReactorOp<>(callable);
+            ops.add(op);
+
             selector.wakeup();
+
+            try {
+                return op.getFuture().get();
+            } catch (InterruptedException e) {
+                throw new InterruptedIOException("Registering on selector was interrupted");
+            } catch (ExecutionException e) {
+                throw new IOException("Registering on selector failed", e);
+            }
         }
     }
 
@@ -122,13 +150,11 @@ public class NioReactor implements AutoCloseable {
             int count;
             try {
                 count = selector.select();
+            } catch (ClosedSelectorException e) {
+                break;
             } catch (IOException e) {
                 LOGGER.error("Error on select", e);
                 break;
-            }
-
-            synchronized (monitor) {
-                // http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6446653
             }
 
             if (count > 0) {
@@ -149,6 +175,11 @@ public class NioReactor implements AutoCloseable {
 
                     keyIterator.remove();
                 }
+            }
+
+            NioReactorOp<?> op;
+            while ((op = ops.poll()) != null) {
+                op.run();
             }
         }
 

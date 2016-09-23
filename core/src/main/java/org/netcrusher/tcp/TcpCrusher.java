@@ -150,6 +150,34 @@ public class TcpCrusher implements Closeable {
     }
 
     /**
+     * Freezes crusher proxy. Call freeze() on every tranfer pair
+     * @see TcpCrusher#resume()
+     * @see TcpPair#resume()
+     * @see TcpPair#freeze()
+     * @see TcpPair#isFreezed()
+     * @throws IOException On IO error
+     */
+    public synchronized void freeze() throws IOException {
+        for (TcpPair pair : pairs.values()) {
+            pair.freeze();
+        }
+    }
+
+    /**
+     * Resumes crusher proxy after freezing. Call resume() on every tranfer pair
+     * @see TcpCrusher#freeze()
+     * @see TcpPair#freeze()
+     * @see TcpPair#resume()
+     * @see TcpPair#isFreezed()
+     * @throws IOException On IO error
+     */
+    public synchronized void resume() throws IOException {
+        for (TcpPair pair : pairs.values()) {
+            pair.resume();
+        }
+    }
+
+    /**
      * Check is the crusher active
      * @return Return 'true' if crusher proxy is active
      */
@@ -210,7 +238,7 @@ public class TcpCrusher implements Closeable {
     protected void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
         try {
             TcpPair pair = new TcpPair(this, socketChannel1, socketChannel2, bufferCount, bufferSize);
-            pair.init();
+            pair.resume();
 
             LOGGER.debug("Pair '{}' is created for <{}>-<{}>", pair.getKey(), localAddress, remoteAddress);
 

@@ -43,6 +43,8 @@ public class DatagramInner implements Closeable {
 
     private final long maxIdleDurationMs;
 
+    private volatile boolean freezed;
+
     public DatagramInner(NioReactor reactor,
                          InetSocketAddress localAddress,
                          InetSocketAddress remoteAddress,
@@ -55,6 +57,7 @@ public class DatagramInner implements Closeable {
         this.outers = new HashMap<>(32);
         this.incoming = new LinkedList<>();
         this.maxIdleDurationMs = maxIdleDurationMs;
+        this.freezed = false;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         this.channel.configureBlocking(true);
@@ -64,9 +67,43 @@ public class DatagramInner implements Closeable {
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = reactor.register(channel, SelectionKey.OP_READ, this::callback);
+        this.selectionKey = reactor.register(channel, 0, this::callback);
 
         LOGGER.debug("Inner on <{}> is started", localAddress);
+    }
+
+    protected void resume() throws IOException {
+        if (freezed) {
+            reactor.executeReactorOp(() -> {
+                int ops = incoming.size() > 0 ?
+                    SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
+                selectionKey.interestOps(ops);
+
+                outers.values().forEach(DatagramOuter::resume);
+
+                return null;
+            });
+
+            freezed = false;
+        }
+    }
+
+    protected void freeze() throws IOException {
+        if (!freezed) {
+            reactor.executeReactorOp(() -> {
+                selectionKey.interestOps(0);
+
+                outers.values().forEach(DatagramOuter::freeze);
+
+                return null;
+            });
+
+            freezed = true;
+        }
+    }
+
+    protected boolean isFreezed() {
+        return freezed;
     }
 
     @Override
@@ -83,10 +120,6 @@ public class DatagramInner implements Closeable {
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
-        if (!selectionKey.isValid()) {
-            throw new IOException("Selection key is not valid");
-        }
-
         if (selectionKey.isReadable()) {
             handleReadable(selectionKey);
         }
@@ -143,6 +176,8 @@ public class DatagramInner implements Closeable {
             }
 
             outer = new DatagramOuter(this, address, remoteAddress, socketOptions);
+            outer.resume();
+
             outers.put(address, outer);
         }
 

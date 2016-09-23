@@ -53,9 +53,19 @@ public class DatagramOuter implements Closeable {
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = inner.getReactor().register(channel, SelectionKey.OP_READ, this::callback);
+        this.selectionKey = inner.getReactor().register(channel, 0, this::callback);
 
         LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, remoteAddress);
+    }
+
+    protected void resume() {
+        int ops = incoming.size() > 0 ?
+            SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
+        selectionKey.interestOps(ops);
+    }
+
+    protected void freeze() {
+        selectionKey.interestOps(0);
     }
 
     @Override
@@ -76,10 +86,6 @@ public class DatagramOuter implements Closeable {
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
-        if (!selectionKey.isValid()) {
-            throw new IOException("Selection key is not valid");
-        }
-
         if (selectionKey.isReadable()) {
             handleReadable(selectionKey);
         }
