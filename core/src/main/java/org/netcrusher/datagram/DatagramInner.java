@@ -57,7 +57,7 @@ public class DatagramInner implements Closeable {
         this.outers = new HashMap<>(32);
         this.incoming = new LinkedList<>();
         this.maxIdleDurationMs = maxIdleDurationMs;
-        this.freezed = false;
+        this.freezed = true;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         this.channel.configureBlocking(true);
@@ -115,6 +115,8 @@ public class DatagramInner implements Closeable {
         }
 
         outers.clear();
+
+        freezed = true;
 
         LOGGER.debug("Inner on <{}> is closed", localAddress);
     }

@@ -47,7 +47,7 @@ public class TcpPair implements Closeable {
                    int bufferCount, int bufferSize) throws IOException {
         this.key = UUID.randomUUID().toString();
         this.crusher = crusher;
-        this.freezed = false;
+        this.freezed = true;
 
         this.inner = inner;
         this.outer = outer;
@@ -167,6 +167,8 @@ public class TcpPair implements Closeable {
         NioUtils.closeChannel(outer);
 
         crusher.removePair(this.getKey());
+
+        freezed = true;
 
         LOGGER.debug("Pair '{}' is closed", this.getKey());
     }
