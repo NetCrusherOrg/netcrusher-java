@@ -2,6 +2,7 @@ package org.netcrusher.datagram;
 
 import org.netcrusher.common.NioReactor;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ProtocolFamily;
 import java.net.StandardProtocolFamily;
@@ -142,4 +143,16 @@ public final class DatagramCrusherBuilder {
         return new DatagramCrusher(localAddress, remoteAddress, socketOptions.copy(), reactor,
             maxIdleDurationMs);
     }
+
+    /**
+     * Builds a new DatagramCrusher instance and opens it for incoming packets
+     * @return DatagramCrusher instance
+     * @throws IOException Raises if opening fails
+     */
+    public DatagramCrusher buildAndOpen() throws IOException {
+        DatagramCrusher crusher = build();
+        crusher.open();
+        return crusher;
+    }
+
 }

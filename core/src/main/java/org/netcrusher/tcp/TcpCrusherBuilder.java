@@ -2,6 +2,7 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.common.NioReactor;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.util.function.Consumer;
@@ -217,4 +218,16 @@ public final class TcpCrusherBuilder {
         return new TcpCrusher(localAddress, remoteAddress, socketOptions.copy(), reactor,
             creationListener, deletionListener, bufferCount, bufferSize);
     }
+
+    /**
+     * Builds a new TcpCrusher instance and opens it for incoming connections
+     * @return TcpCrusher instance
+     * @throws IOException Raises if opening fails
+     */
+    public TcpCrusher buildAndOpen() throws IOException {
+        TcpCrusher crusher = build();
+        crusher.open();
+        return crusher;
+    }
+
 }
