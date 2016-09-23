@@ -135,8 +135,8 @@ public class DatagramOuter {
         int read = channel.read(bb);
         LOGGER.trace("Read {} bytes from outer", read);
 
-        ByteBuffer data = ByteBuffer.allocate(bb.limit());
         bb.flip();
+        ByteBuffer data = ByteBuffer.allocate(bb.limit());
         data.put(bb);
         data.flip();
 

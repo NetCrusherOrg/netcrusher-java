@@ -158,8 +158,8 @@ public class DatagramInner {
         if (address != null) {
             DatagramOuter outer = requestOuter(address);
 
-            ByteBuffer data = ByteBuffer.allocate(bb.limit());
             bb.flip();
+            ByteBuffer data = ByteBuffer.allocate(bb.limit());
             data.put(bb);
             data.flip();
 
