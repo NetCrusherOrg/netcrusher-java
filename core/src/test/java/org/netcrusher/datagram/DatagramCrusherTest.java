@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.common.NioReactor;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -22,24 +23,23 @@ public class DatagramCrusherTest {
 
     private NioReactor reactor;
 
-    private DatagramCrusher datagramCrusher;
+    private DatagramCrusher crusher;
 
     @Before
     public void setUp() throws Exception {
         reactor = new NioReactor();
 
-        datagramCrusher = DatagramCrusherBuilder.builder()
+        crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
             .withLocalAddress(LOCAL_ADDRESS)
             .withRemoteAddress(REMOTE_ADDRESS)
-            .build();
-        datagramCrusher.open();
+            .buildAndOpen();
     }
 
     @After
     public void tearDown() throws Exception {
-        if (datagramCrusher != null) {
-            datagramCrusher.close();
+        if (crusher != null) {
+            crusher.close();
         }
 
         if (reactor != null) {
@@ -49,25 +49,36 @@ public class DatagramCrusherTest {
 
     @Test
     public void testRFC868() throws Exception {
-        DatagramChannel channel = DatagramChannel.open();
+        check();
 
-        ByteBuffer buffer = ByteBuffer.allocate(8192);
-        buffer.order(ByteOrder.BIG_ENDIAN);
-        buffer.put((byte) 0x00);
-        channel.send(buffer, LOCAL_ADDRESS);
+        crusher.crush();
 
-        buffer.clear();
-        channel.receive(buffer);
+        check();
 
-        buffer.flip();
-        long seconds = Integer.toUnsignedLong(buffer.getInt());
+        crusher.freeze();
+        crusher.unfreeze();
 
-        Calendar calendar = new GregorianCalendar(1900, Calendar.JANUARY, 1, 0, 0, 0);
-        calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
-        long timeMs = calendar.getTimeInMillis() + seconds * 1000;
+        check();
+    }
 
-        Assert.assertTrue(Math.abs(System.currentTimeMillis() - timeMs) < 5000);
+    private void check() throws IOException {
+        try (DatagramChannel channel = DatagramChannel.open()) {
+            ByteBuffer buffer = ByteBuffer.allocate(8192);
+            buffer.order(ByteOrder.BIG_ENDIAN);
+            buffer.put((byte) 0x00);
+            channel.send(buffer, LOCAL_ADDRESS);
 
-        channel.close();
+            buffer.clear();
+            channel.receive(buffer);
+
+            buffer.flip();
+            long seconds = Integer.toUnsignedLong(buffer.getInt());
+
+            Calendar calendar = new GregorianCalendar(1900, Calendar.JANUARY, 1, 0, 0, 0);
+            calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
+            long timeMs = calendar.getTimeInMillis() + seconds * 1000;
+
+            Assert.assertTrue(Math.abs(System.currentTimeMillis() - timeMs) < 5000);
+        }
     }
 }

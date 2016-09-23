@@ -4,7 +4,6 @@ import org.netcrusher.common.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -13,7 +12,7 @@ import java.nio.channels.SelectionKey;
 import java.util.LinkedList;
 import java.util.Queue;
 
-public class DatagramOuter implements Closeable {
+public class DatagramOuter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramOuter.class);
 
@@ -35,6 +34,8 @@ public class DatagramOuter implements Closeable {
 
     private long lastOperationTimestamp;
 
+    private volatile boolean frozen;
+
     public DatagramOuter(DatagramInner inner,
                          InetSocketAddress clientAddress,
                          InetSocketAddress remoteAddress,
@@ -44,6 +45,7 @@ public class DatagramOuter implements Closeable {
         this.remoteAddress = remoteAddress;
         this.incoming = new LinkedList<>();
         this.lastOperationTimestamp = System.currentTimeMillis();
+        this.frozen = true;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         this.channel.configureBlocking(true);
@@ -58,21 +60,28 @@ public class DatagramOuter implements Closeable {
         LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, remoteAddress);
     }
 
-    protected void resume() {
-        int ops = incoming.size() > 0 ?
-            SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
-        selectionKey.interestOps(ops);
+    protected synchronized void unfreeze() {
+        if (frozen) {
+            int ops = incoming.size() > 0 ?
+                SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
+            selectionKey.interestOps(ops);
+
+            frozen = false;
+        }
     }
 
-    protected void freeze() {
-        selectionKey.interestOps(0);
+    protected synchronized void freeze() {
+        if (!frozen) {
+            selectionKey.interestOps(0);
+
+            frozen = true;
+        }
     }
 
-    @Override
-    public void close() {
+    protected synchronized void close() {
+        freeze();
+
         NioUtils.closeChannel(channel);
-
-        inner.removeOuter(clientAddress);
 
         LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, remoteAddress);
     }
@@ -105,6 +114,8 @@ public class DatagramOuter implements Closeable {
 
             if (!bb.hasRemaining()) {
                 incoming.poll();
+            } else {
+                LOGGER.warn("Datagram is splitted");
             }
 
             lastOperationTimestamp = System.currentTimeMillis();
@@ -127,12 +138,12 @@ public class DatagramOuter implements Closeable {
         data.put(bb);
         data.flip();
 
-        inner.send(new DatagramMessage(clientAddress, data));
+        inner.enqueue(new DatagramMessage(clientAddress, data));
 
         lastOperationTimestamp = System.currentTimeMillis();
     }
 
-    protected void send(ByteBuffer bb) {
+    protected void enqueue(ByteBuffer bb) {
         if (incoming.size() < PENDING_LIMIT) {
             incoming.add(bb);
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);

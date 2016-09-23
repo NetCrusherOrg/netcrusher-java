@@ -42,9 +42,11 @@ public class TcpBulkClient implements Closeable {
         this.rcvDigest = new byte[16];
 
         this.rcvThread = new Thread(this::rcvLoop);
+        this.rcvThread.setName("Rcv loop");
         this.rcvThread.start();
 
         this.sndThread = new Thread(this::sndLoop);
+        this.sndThread.setName("Snd loop");
         this.sndThread.start();
     }
 

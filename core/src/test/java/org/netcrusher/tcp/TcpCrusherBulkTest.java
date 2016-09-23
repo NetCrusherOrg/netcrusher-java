@@ -36,8 +36,7 @@ public class TcpCrusherBulkTest {
             .withReactor(reactor)
             .withLocalAddress(HOSTNAME, PORT_CRUSHER)
             .withRemoteAddress(HOSTNAME, PORT_SERVER)
-            .build();
-        crusher.open();
+            .buildAndOpen();
     }
 
     @After
@@ -57,6 +56,9 @@ public class TcpCrusherBulkTest {
 
     @Test
     public void testCrusher() throws Exception {
+        crusher.freeze();
+        crusher.unfreeze();
+
         TcpBulkClient client1 = TcpBulkClient.forAddress(new InetSocketAddress(HOSTNAME, PORT_CRUSHER), COUNT);
         client1.await(20000);
 

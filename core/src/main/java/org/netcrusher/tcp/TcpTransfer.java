@@ -42,7 +42,7 @@ public class TcpTransfer {
 
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("Started event handling for {} [incoming={}, outgoing={}]",
-                name, incoming.pending(), outgoing.pending());
+                new Object[] { name, incoming.pending(), outgoing.pending() });
         }
 
         if (selectionKey.isReadable()) {
@@ -55,7 +55,7 @@ public class TcpTransfer {
 
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("Finished event handling for {} [incoming={}, outgoing={}]",
-                name, incoming.pending(), outgoing.pending());
+                new Object[] { name, incoming.pending(), outgoing.pending() });
         }
     }
 

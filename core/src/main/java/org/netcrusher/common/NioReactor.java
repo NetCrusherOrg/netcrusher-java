@@ -3,6 +3,7 @@ package org.netcrusher.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.channels.ClosedSelectorException;
@@ -20,7 +21,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class NioReactor implements AutoCloseable {
+public class NioReactor implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NioReactor.class);
 
@@ -30,8 +31,6 @@ public class NioReactor implements AutoCloseable {
 
     private final Selector selector;
 
-    private final Object monitor;
-
     private final ScheduledExecutorService scheduledExecutorService;
 
     private final Queue<NioReactorOp<?>> ops;
@@ -40,7 +39,6 @@ public class NioReactor implements AutoCloseable {
 
     public NioReactor() throws IOException {
         this.selector = Selector.open();
-        this.monitor = new Object();
         this.ops = new ConcurrentLinkedQueue<>();
 
         this.thread = new Thread(this::loop);
@@ -110,6 +108,11 @@ public class NioReactor implements AutoCloseable {
             throws IOException
     {
         return executeReactorOp(() -> channel.register(selector, options, callback));
+    }
+
+    public void wakeup() throws IOException {
+        // fixes some strange behaviour on Windows: http://stackoverflow.com/a/39657002/827139
+        executeReactorOp(selector::selectNow);
     }
 
     public <T> T executeReactorOp(Callable<T> callable) throws IOException {

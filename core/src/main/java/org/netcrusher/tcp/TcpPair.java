@@ -41,13 +41,13 @@ public class TcpPair implements Closeable {
 
     private final InetSocketAddress outerListenAddr;
 
-    private volatile boolean freezed;
+    private volatile boolean frozen;
 
     public TcpPair(TcpCrusher crusher, SocketChannel inner, SocketChannel outer,
                    int bufferCount, int bufferSize) throws IOException {
         this.key = UUID.randomUUID().toString();
         this.crusher = crusher;
-        this.freezed = true;
+        this.frozen = true;
 
         this.inner = inner;
         this.outer = outer;
@@ -112,8 +112,8 @@ public class TcpPair implements Closeable {
      * Start transfer after pair is created
      * @see TcpPair#freeze()
      */
-    public synchronized void resume() throws IOException {
-        if (freezed) {
+    public synchronized void unfreeze() throws IOException {
+        if (frozen) {
             crusher.getReactor().executeReactorOp(() -> {
                 int ops;
 
@@ -128,16 +128,16 @@ public class TcpPair implements Closeable {
                 return null;
             });
 
-            freezed = false;
+            frozen = false;
         }
     }
 
     /**
      * Freezes any transfer. Sockets are still open but data are not sent
-     * @see TcpPair#resume()
+     * @see TcpPair#unfreeze()
      */
     public synchronized void freeze() throws IOException {
-        if (!freezed) {
+        if (!frozen) {
             crusher.getReactor().executeReactorOp(() -> {
                 innerKey.interestOps(0);
                 outerKey.interestOps(0);
@@ -145,30 +145,31 @@ public class TcpPair implements Closeable {
                 return null;
             });
 
-            freezed = true;
+            frozen = true;
         }
     }
 
     /**
      * Is pair freezed
      * @return Return true if freeze() on this pair was called before
-     * @see TcpPair#resume()
+     * @see TcpPair#unfreeze()
      * @see TcpPair#freeze()
      */
-    public boolean isFreezed() {
-        return freezed;
+    public boolean isFrozen() {
+        return frozen;
     }
 
     /**
      * Closes this paired connection
      */
-    public synchronized void close() {
+    @Override
+    public synchronized void close() throws IOException {
+        freeze();
+
         NioUtils.closeChannel(inner);
         NioUtils.closeChannel(outer);
 
         crusher.removePair(this.getKey());
-
-        freezed = true;
 
         LOGGER.debug("Pair '{}' is closed", this.getKey());
     }
@@ -176,7 +177,7 @@ public class TcpPair implements Closeable {
     private void callback(SelectionKey selectionKey,
                           AbstractSelectableChannel thisChannel,
                           TcpTransfer thisTransfer,
-                          AbstractSelectableChannel thatChannel)
+                          AbstractSelectableChannel thatChannel) throws IOException
     {
         try {
             thisTransfer.handleEvent(selectionKey);
@@ -197,11 +198,11 @@ public class TcpPair implements Closeable {
         }
     }
 
-    private void innerCallback(SelectionKey selectionKey) {
+    private void innerCallback(SelectionKey selectionKey) throws IOException {
         callback(selectionKey, inner, innerTransfer, outer);
     }
 
-    private void outerCallback(SelectionKey selectionKey) {
+    private void outerCallback(SelectionKey selectionKey) throws IOException {
         callback(selectionKey, outer, outerTransfer, inner);
     }
 

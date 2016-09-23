@@ -5,7 +5,6 @@ import org.netcrusher.common.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -17,7 +16,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
-public class DatagramInner implements Closeable {
+public class DatagramInner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramInner.class);
 
@@ -43,7 +42,7 @@ public class DatagramInner implements Closeable {
 
     private final long maxIdleDurationMs;
 
-    private volatile boolean freezed;
+    private volatile boolean frozen;
 
     public DatagramInner(NioReactor reactor,
                          InetSocketAddress localAddress,
@@ -57,7 +56,7 @@ public class DatagramInner implements Closeable {
         this.outers = new HashMap<>(32);
         this.incoming = new LinkedList<>();
         this.maxIdleDurationMs = maxIdleDurationMs;
-        this.freezed = true;
+        this.frozen = true;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         this.channel.configureBlocking(true);
@@ -72,24 +71,24 @@ public class DatagramInner implements Closeable {
         LOGGER.debug("Inner on <{}> is started", localAddress);
     }
 
-    protected void resume() throws IOException {
-        if (freezed) {
+    protected synchronized void unfreeze() throws IOException {
+        if (frozen) {
             reactor.executeReactorOp(() -> {
                 int ops = incoming.size() > 0 ?
                     SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
                 selectionKey.interestOps(ops);
 
-                outers.values().forEach(DatagramOuter::resume);
+                outers.values().forEach(DatagramOuter::unfreeze);
 
                 return null;
             });
 
-            freezed = false;
+            frozen = false;
         }
     }
 
-    protected void freeze() throws IOException {
-        if (!freezed) {
+    protected synchronized void freeze() throws IOException {
+        if (!frozen) {
             reactor.executeReactorOp(() -> {
                 selectionKey.interestOps(0);
 
@@ -98,25 +97,21 @@ public class DatagramInner implements Closeable {
                 return null;
             });
 
-            freezed = true;
+            frozen = true;
         }
     }
 
-    protected boolean isFreezed() {
-        return freezed;
+    protected boolean isFrozen() {
+        return frozen;
     }
 
-    @Override
-    public void close() {
-        NioUtils.closeChannel(channel);
+    protected synchronized void close() throws IOException {
+        freeze();
 
-        for (DatagramOuter outer : outers.values()) {
-            outer.close();
-        }
-
+        outers.values().forEach(DatagramOuter::close);
         outers.clear();
 
-        freezed = true;
+        NioUtils.closeChannel(channel);
 
         LOGGER.debug("Inner on <{}> is closed", localAddress);
     }
@@ -141,6 +136,8 @@ public class DatagramInner implements Closeable {
 
             if (!dm.getBuffer().hasRemaining()) {
                 incoming.poll();
+            } else {
+                LOGGER.warn("Datagram is splitted");
             }
         }
 
@@ -163,7 +160,7 @@ public class DatagramInner implements Closeable {
             data.put(bb);
             data.flip();
 
-            outer.send(data);
+            outer.enqueue(data);
 
             LOGGER.trace("Received {} bytes from inner <{}>", data.limit(), address);
         }
@@ -178,7 +175,7 @@ public class DatagramInner implements Closeable {
             }
 
             outer = new DatagramOuter(this, address, remoteAddress, socketOptions);
-            outer.resume();
+            outer.unfreeze();
 
             outers.put(address, outer);
         }
@@ -201,11 +198,11 @@ public class DatagramInner implements Closeable {
             }
 
             int countAfter = outers.size();
-            LOGGER.debug("Outer connections are cleared {} -> {}", countBefore, countAfter);
+            LOGGER.debug("Outer connections are cleared ({} -> {})", countBefore, countAfter);
         }
     }
 
-    protected void send(DatagramMessage message) {
+    protected void enqueue(DatagramMessage message) {
         if (incoming.size() < PENDING_LIMIT) {
             incoming.add(message);
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
@@ -216,10 +213,6 @@ public class DatagramInner implements Closeable {
 
     protected NioReactor getReactor() {
         return reactor;
-    }
-
-    protected void removeOuter(InetSocketAddress clientAddress) {
-        outers.remove(clientAddress);
     }
 
 }

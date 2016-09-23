@@ -35,6 +35,7 @@ public class TcpBulkServer implements Closeable {
         this.serverSocketChannel.bind(address);
 
         this.thread = new Thread(this::acceptLoop);
+        this.thread.setName("Accept loop");
         this.thread.start();
     }
 

@@ -69,7 +69,7 @@ public class DatagramCrusher implements Closeable {
         }
 
         this.inner = new DatagramInner(reactor, localAddress, remoteAddress, socketOptions, maxIdleDurationMs);
-        this.inner.resume();
+        this.inner.unfreeze();
 
         this.opened = true;
     }
@@ -78,31 +78,36 @@ public class DatagramCrusher implements Closeable {
      * Closes the proxy. Listening socket will be closed
      */
     @Override
-    public synchronized void close() {
-        if (!opened) {
-            return;
+    public synchronized void close() throws IOException {
+        if (opened) {
+            this.inner.freeze();
+            this.inner.close();
+
+            this.reactor.wakeup();
+
+            this.opened = false;
         }
-
-        this.inner.close();
-
-        this.opened = false;
     }
 
     /**
      * Reopens (closes and the opens again) crusher proxy
      */
     public synchronized void crush() throws IOException {
-        close();
-        open();
+        if (opened) {
+            close();
+            open();
+        }
     }
 
     /**
      * Freezes crusher proxy. Sockets are still open but packets are not sent
-     * @see DatagramCrusher#resume()
+     * @see DatagramCrusher#unfreeze()
      * @throws IOException On IO error
      */
     public synchronized void freeze() throws IOException {
-        inner.freeze();
+        if (opened) {
+            inner.freeze();
+        }
     }
 
     /**
@@ -110,18 +115,20 @@ public class DatagramCrusher implements Closeable {
      * @see DatagramCrusher#freeze()
      * @throws IOException On IO error
      */
-    public synchronized void resume() throws IOException {
-        inner.resume();
+    public synchronized void unfreeze() throws IOException {
+        if (opened) {
+            inner.unfreeze();
+        }
     }
 
     /**
      * Is the crusher freezed
      * @return Return true if freeze() on the crusher was called before
-     * @see DatagramCrusher#resume()
+     * @see DatagramCrusher#unfreeze()
      * @see DatagramCrusher#freeze()
      */
-    public boolean isFreezed() {
-        return inner.isFreezed();
+    public boolean isFrozen() {
+        return inner.isFrozen();
     }
 
 }
