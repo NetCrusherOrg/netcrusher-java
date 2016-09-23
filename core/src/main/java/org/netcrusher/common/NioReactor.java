@@ -25,7 +25,7 @@ public class NioReactor implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NioReactor.class);
 
-    private static final long THREAD_TERMINATION_TIMEOUT_MS = 1000;
+    private static final long THREAD_TERMINATION_TIMEOUT_MS = 3000;
 
     private final Thread thread;
 
@@ -42,7 +42,7 @@ public class NioReactor implements Closeable {
         this.ops = new ConcurrentLinkedQueue<>();
 
         this.thread = new Thread(this::loop);
-        this.thread.setName("TcpCrusher context event loop");
+        this.thread.setName("TcpCrusher reactor event loop");
         this.thread.setDaemon(false);
         this.thread.start();
 
@@ -54,7 +54,7 @@ public class NioReactor implements Closeable {
         });
 
         this.opened = true;
-        LOGGER.debug("Context has been created");
+        LOGGER.debug("Reactor has been created");
     }
 
     @Override
@@ -64,7 +64,7 @@ public class NioReactor implements Closeable {
         }
 
         boolean interrupted = false;
-        LOGGER.debug("Context is closing");
+        LOGGER.debug("Reactor is closing");
 
         if (thread.isAlive()) {
             thread.interrupt();
@@ -75,7 +75,7 @@ public class NioReactor implements Closeable {
             }
 
             if (thread.isAlive()) {
-                LOGGER.error("TcpCrusher event thread is still alive");
+                LOGGER.error("TcpCrusher reactor thread is still alive");
             }
         }
 
@@ -97,7 +97,7 @@ public class NioReactor implements Closeable {
         }
 
         this.opened = false;
-        LOGGER.debug("Context is closed");
+        LOGGER.debug("Reactor is closed");
 
         if (interrupted) {
             Thread.currentThread().interrupt();
@@ -131,9 +131,9 @@ public class NioReactor implements Closeable {
             try {
                 return op.getFuture().get();
             } catch (InterruptedException e) {
-                throw new InterruptedIOException("Registering on selector was interrupted");
+                throw new InterruptedIOException("Reactor operation was interrupted");
             } catch (ExecutionException e) {
-                throw new IOException("Registering on selector failed", e);
+                throw new IOException("Reactor operation has failed", e);
             }
         }
     }
@@ -147,7 +147,7 @@ public class NioReactor implements Closeable {
     }
 
     private void loop() {
-        LOGGER.debug("Context event loop started");
+        LOGGER.debug("Reactpr event loop started");
 
         while (!Thread.currentThread().isInterrupted()) {
             int count;
@@ -186,7 +186,7 @@ public class NioReactor implements Closeable {
             }
         }
 
-        LOGGER.debug("Context event loop has finished");
+        LOGGER.debug("Reactor event loop has finished");
     }
 
     public boolean isOpened() {

@@ -173,9 +173,9 @@ public class TcpPair implements Closeable {
         NioUtils.closeChannel(inner);
         NioUtils.closeChannel(outer);
 
-        crusher.removePair(this.getKey());
-
         LOGGER.debug("Pair '{}' is closed", this.getKey());
+
+        crusher.removePair(this.getKey());
     }
 
     private void callback(SelectionKey selectionKey,

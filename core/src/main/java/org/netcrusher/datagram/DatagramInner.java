@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
@@ -134,12 +135,12 @@ public class DatagramInner {
         DatagramMessage dm = incoming.peek();
         if (dm != null) {
             int written = channel.send(dm.getBuffer(), dm.getAddress());
-            LOGGER.trace("Send {} bytes from inner <{}>", written, dm.getAddress());
+            LOGGER.trace("Send {} bytes to inner <{}>", written, dm.getAddress());
 
             if (!dm.getBuffer().hasRemaining()) {
                 incoming.poll();
             } else {
-                LOGGER.warn("Datagram is splitted");
+                LOGGER.warn("Datagram will be splitted");
             }
         }
 
@@ -204,9 +205,9 @@ public class DatagramInner {
         }
     }
 
-    protected void enqueue(DatagramMessage message) {
+    protected void enqueue(InetSocketAddress address, ByteBuffer bb) {
         if (incoming.size() < PENDING_LIMIT) {
-            incoming.add(message);
+            incoming.add(new DatagramMessage(address, bb));
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
         } else {
             LOGGER.debug("Pending limit is exceeded. Packet is dropped");
@@ -215,6 +216,26 @@ public class DatagramInner {
 
     protected NioReactor getReactor() {
         return reactor;
+    }
+
+    private static final class DatagramMessage implements Serializable {
+
+        private final InetSocketAddress address;
+
+        private final ByteBuffer buffer;
+
+        public DatagramMessage(InetSocketAddress address, ByteBuffer buffer) {
+            this.address = address;
+            this.buffer = buffer;
+        }
+
+        public InetSocketAddress getAddress() {
+            return address;
+        }
+
+        public ByteBuffer getBuffer() {
+            return buffer;
+        }
     }
 
 }

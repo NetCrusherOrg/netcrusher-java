@@ -117,7 +117,7 @@ public class DatagramOuter {
             if (!bb.hasRemaining()) {
                 incoming.poll();
             } else {
-                LOGGER.warn("Datagram is splitted");
+                LOGGER.warn("Datagram will be splitted");
             }
 
             lastOperationTimestamp = System.currentTimeMillis();
@@ -140,7 +140,7 @@ public class DatagramOuter {
         data.put(bb);
         data.flip();
 
-        inner.enqueue(new DatagramMessage(clientAddress, data));
+        inner.enqueue(clientAddress, data);
 
         lastOperationTimestamp = System.currentTimeMillis();
     }

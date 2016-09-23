@@ -65,7 +65,11 @@ public class DatagramCrusherTest {
         try (DatagramChannel channel = DatagramChannel.open()) {
             ByteBuffer buffer = ByteBuffer.allocate(8192);
             buffer.order(ByteOrder.BIG_ENDIAN);
+
+            buffer.clear();
             buffer.put((byte) 0x00);
+
+            buffer.flip();
             channel.send(buffer, LOCAL_ADDRESS);
 
             buffer.clear();
