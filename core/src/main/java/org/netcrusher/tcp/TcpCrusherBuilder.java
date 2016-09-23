@@ -212,7 +212,7 @@ public final class TcpCrusherBuilder {
         }
 
         if (reactor == null) {
-            throw new IllegalArgumentException("Context is not set");
+            throw new IllegalArgumentException("Reactor is not set");
         }
 
         return new TcpCrusher(localAddress, remoteAddress, socketOptions.copy(), reactor,
