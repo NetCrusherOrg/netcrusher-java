@@ -106,6 +106,8 @@ public class TcpCrusher implements Closeable {
             throw new IllegalStateException("TcpCrusher is already active");
         }
 
+        LOGGER.debug("TcpCrusher <{}>-<{}> will be opened", localAddress, remoteAddress);
+
         this.serverSocketChannel = ServerSocketChannel.open();
         this.serverSocketChannel.configureBlocking(false);
         this.serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
@@ -131,6 +133,8 @@ public class TcpCrusher implements Closeable {
     @Override
     public synchronized void close() throws IOException {
         if (opened) {
+            LOGGER.debug("TcpCrusher <{}>-<{}> will be closed", localAddress, remoteAddress);
+
             freeze();
 
             closeAllPairs();
@@ -177,7 +181,7 @@ public class TcpCrusher implements Closeable {
      */
     public synchronized void freeze() throws IOException {
         if (opened) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> is freezing", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> will be frozen", localAddress, remoteAddress);
 
             if (!frozen) {
                 reactor.executeReactorOp(() -> serverSelectionKey.interestOps(0));
@@ -187,6 +191,8 @@ public class TcpCrusher implements Closeable {
             for (TcpPair pair : pairs.values()) {
                 pair.freeze();
             }
+
+            LOGGER.debug("TcpCrusher <{}>-<{}> is frozen", localAddress, remoteAddress);
         }
     }
 
@@ -200,7 +206,7 @@ public class TcpCrusher implements Closeable {
      */
     public synchronized void unfreeze() throws IOException {
         if (opened) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> is unfreezing", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> will be unfrozen", localAddress, remoteAddress);
 
             for (TcpPair pair : pairs.values()) {
                 pair.unfreeze();
@@ -210,6 +216,8 @@ public class TcpCrusher implements Closeable {
                 reactor.executeReactorOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
                 frozen = false;
             }
+
+            LOGGER.debug("TcpCrusher <{}>-<{}> is unfrozen", localAddress, remoteAddress);
         }
     }
 

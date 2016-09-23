@@ -3,9 +3,9 @@
 NetCrusher is TCP/UDP proxy for java that sit in the middle between client and server and allows to check both sides on proper failover.
 
 * emulates network failures that lead to remote socket closing
-* emulates slow network (TBD)
-* emulates frozen connection (TBD)
+* emulates frozen connection
 * emulates broken data (TBD)
+* emulates slow network (TBD)
 
 NetCrusher is build on top of Java NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
 
@@ -18,8 +18,7 @@ TcpCrusher crusher = TcpCrusherBuilder.builder()
     .withReactor(reactor)
     .withLocalAddress("localhost", 10080)
     .withRemoteAddress("google.com", 80)
-    .build();
-crusher.open();
+    .buildAndOpen();
 
 // now you connect to localhost:10080
 SomeResource resource = new SomeResource("localhost", 10080);
@@ -44,8 +43,7 @@ DatagramCrusher crusher = DatagramCrusherBuilder.builder()
     .withReactor(reactor)
     .withLocalAddress("localhost", 10188)
     .withRemoteAddress("time-nw.nist.gov", 37)
-    .build();
-crusher.open();
+    .buildAndOpen();
 
 // start getting RFC-868 timestamp on localhost:10188
 
@@ -59,13 +57,19 @@ crusher.close();
 reactor.close();
 ```
 
+# Additional samples
+
+Checks additional samples in the project root folder:
+
+* [sample-hsqldb-bonecp](sample-hsqldb-bonecp/src/test/java/org/netcrusher)
+
 # Maven
 
 ```xml
 <dependency>
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.4</version>
+    <version>0.5</version>
 </dependency>
 ```
 

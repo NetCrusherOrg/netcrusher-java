@@ -139,8 +139,12 @@ public class TcpPair implements Closeable {
     public synchronized void freeze() throws IOException {
         if (!frozen) {
             crusher.getReactor().executeReactorOp(() -> {
-                innerKey.interestOps(0);
-                outerKey.interestOps(0);
+                if (innerKey.isValid()) {
+                    innerKey.interestOps(0);
+                }
+                if (outerKey.isValid()) {
+                    outerKey.interestOps(0);
+                }
 
                 return null;
             });

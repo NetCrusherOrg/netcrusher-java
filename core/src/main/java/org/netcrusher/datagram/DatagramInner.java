@@ -90,7 +90,9 @@ public class DatagramInner {
     protected synchronized void freeze() throws IOException {
         if (!frozen) {
             reactor.executeReactorOp(() -> {
-                selectionKey.interestOps(0);
+                if (selectionKey.isValid()) {
+                    selectionKey.interestOps(0);
+                }
 
                 outers.values().forEach(DatagramOuter::freeze);
 

@@ -72,7 +72,9 @@ public class DatagramOuter {
 
     protected synchronized void freeze() {
         if (!frozen) {
-            selectionKey.interestOps(0);
+            if (selectionKey.isValid()) {
+                selectionKey.interestOps(0);
+            }
 
             frozen = true;
         }
