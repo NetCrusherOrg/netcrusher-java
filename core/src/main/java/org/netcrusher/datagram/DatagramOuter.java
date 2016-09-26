@@ -7,16 +7,13 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
-import java.util.LinkedList;
-import java.util.Queue;
 
 public class DatagramOuter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramOuter.class);
-
-    private static final int PENDING_LIMIT = 64 * 1024;
 
     private final DatagramInner inner;
 
@@ -24,7 +21,7 @@ public class DatagramOuter {
 
     private final InetSocketAddress remoteAddress;
 
-    private final Queue<ByteBuffer> incoming;
+    private final DatagramQueue incoming;
 
     private final DatagramChannel channel;
 
@@ -43,7 +40,7 @@ public class DatagramOuter {
         this.inner = inner;
         this.clientAddress = clientAddress;
         this.remoteAddress = remoteAddress;
-        this.incoming = new LinkedList<>();
+        this.incoming = new DatagramQueue();
         this.lastOperationTimestamp = System.currentTimeMillis();
         this.frozen = true;
 
@@ -83,41 +80,58 @@ public class DatagramOuter {
     protected synchronized void close() {
         freeze();
 
+        if (!incoming.isEmpty()) {
+            LOGGER.warn("On closing outer has {} incoming datagrams with {} bytes in total",
+                incoming.size(), incoming.remaining());
+        }
+
         NioUtils.closeChannel(channel);
 
         LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, remoteAddress);
     }
 
-    public InetSocketAddress getRemoteAddress() {
-        return remoteAddress;
-    }
-
-    public InetSocketAddress getClientAddress() {
-        return clientAddress;
+    private void closeInternal() {
+        inner.removeOuter(clientAddress);
+        close();
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
-        if (selectionKey.isReadable()) {
-            handleReadable(selectionKey);
-        }
-
-        if (selectionKey.isWritable()) {
-            handleWritable(selectionKey);
+        try {
+            if (selectionKey.isReadable()) {
+                handleReadable(selectionKey);
+            }
+            if (selectionKey.isWritable()) {
+                handleWritable(selectionKey);
+            }
+        } catch (ClosedChannelException e) {
+            LOGGER.debug("Outer has closed itself");
+            closeInternal();
+        } catch (IOException e) {
+            LOGGER.error("Exception in outer", e);
+            closeInternal();
         }
     }
 
     private void handleWritable(SelectionKey selectionKey) throws IOException {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
-        ByteBuffer bb = incoming.peek();
-        if (bb != null) {
-            int written = channel.write(bb);
-            LOGGER.trace("Written {} bytes to outer", written);
+        DatagramQueue.Entry entry;
+        while ((entry = incoming.request()) != null) {
+            int written = channel.write(entry.getBuffer());
+            if (written == 0) {
+                incoming.retry(entry);
+                break;
+            }
 
-            if (!bb.hasRemaining()) {
-                incoming.poll();
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Written {} bytes to outer from <{}>", written, clientAddress);
+            }
+
+            if (entry.getBuffer().hasRemaining()) {
+                incoming.retry(entry);
+                LOGGER.warn("Datagram is splitted");
             } else {
-                LOGGER.warn("Datagram will be splitted");
+                incoming.release(entry);
             }
 
             lastOperationTimestamp = System.currentTimeMillis();
@@ -131,26 +145,31 @@ public class DatagramOuter {
     private void handleReadable(SelectionKey selectionKey) throws IOException {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
-        bb.clear();
-        int read = channel.read(bb);
-        LOGGER.trace("Read {} bytes from outer", read);
+        while (true) {
+            int read = channel.read(bb);
+            if (read < 0) {
+                throw new ClosedChannelException();
+            } else if (read == 0) {
+                break;
+            }
 
-        bb.flip();
-        ByteBuffer data = ByteBuffer.allocate(bb.limit());
-        data.put(bb);
-        data.flip();
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Read {} bytes from outer for <{}>", read, clientAddress);
+            }
 
-        inner.enqueue(clientAddress, data);
+            bb.flip();
+            inner.enqueue(clientAddress, bb);
+            bb.clear();
 
-        lastOperationTimestamp = System.currentTimeMillis();
+            lastOperationTimestamp = System.currentTimeMillis();
+        }
+
     }
 
-    protected void enqueue(ByteBuffer bb) {
-        if (incoming.size() < PENDING_LIMIT) {
-            incoming.add(bb);
+    protected void enqueue(ByteBuffer bbToCopy) {
+        boolean added = incoming.add(clientAddress, bbToCopy);
+        if (added) {
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
-        } else {
-            LOGGER.debug("Pending limit is exceeded. Packet is dropped");
         }
     }
 

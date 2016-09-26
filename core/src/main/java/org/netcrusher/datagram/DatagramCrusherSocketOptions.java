@@ -68,14 +68,14 @@ public class DatagramCrusherSocketOptions implements Serializable {
     }
 
     protected void setupSocketChannel(DatagramChannel datagramChannel) throws IOException {
-        datagramChannel.setOption(StandardSocketOptions.SO_BROADCAST, isBroadcast());
+        datagramChannel.setOption(StandardSocketOptions.SO_BROADCAST, broadcast);
 
-        if (getRcvBufferSize() > 0) {
-            datagramChannel.setOption(StandardSocketOptions.SO_RCVBUF, getRcvBufferSize());
+        if (rcvBufferSize > 0) {
+            datagramChannel.setOption(StandardSocketOptions.SO_RCVBUF, rcvBufferSize);
         }
 
-        if (getSndBufferSize() > 0) {
-            datagramChannel.setOption(StandardSocketOptions.SO_SNDBUF, getSndBufferSize());
+        if (sndBufferSize > 0) {
+            datagramChannel.setOption(StandardSocketOptions.SO_SNDBUF, sndBufferSize);
         }
     }
 

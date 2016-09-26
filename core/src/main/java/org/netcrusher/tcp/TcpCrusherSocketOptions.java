@@ -90,15 +90,15 @@ public class TcpCrusherSocketOptions implements Serializable {
     }
 
     public void setupSocketChannel(SocketChannel socketChannel) throws IOException {
-        socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, isKeepAlive());
-        socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, isTcpNoDelay());
+        socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, keepAlive);
+        socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, tcpNoDelay);
 
-        if (getRcvBufferSize() > 0) {
-            socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, getRcvBufferSize());
+        if (rcvBufferSize > 0) {
+            socketChannel.setOption(StandardSocketOptions.SO_RCVBUF, rcvBufferSize);
         }
 
-        if (getSndBufferSize() > 0) {
-            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, getSndBufferSize());
+        if (sndBufferSize > 0) {
+            socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, sndBufferSize);
         }
     }
 }

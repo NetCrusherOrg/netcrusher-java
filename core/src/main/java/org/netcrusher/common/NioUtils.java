@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
 
@@ -22,6 +23,13 @@ public final class NioUtils {
                 LOGGER.error("Fail to close socket channel", e);
             }
         }
+    }
+
+    public static ByteBuffer copy(ByteBuffer source) {
+        ByteBuffer target = ByteBuffer.allocate(source.remaining());
+        target.put(source);
+        target.flip();
+        return target;
     }
 
     public static void setupInterestOps(SelectionKey selectionKey, int options) {

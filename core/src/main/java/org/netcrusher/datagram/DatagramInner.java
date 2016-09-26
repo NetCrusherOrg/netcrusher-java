@@ -6,30 +6,30 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Map;
-import java.util.Queue;
 
 public class DatagramInner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramInner.class);
 
-    private static final int PENDING_LIMIT = 64 * 1024;
-
-    private final NioReactor reactor;
+    private final DatagramCrusher crusher;
 
     private final DatagramCrusherSocketOptions socketOptions;
+
+    private final NioReactor reactor;
 
     private final InetSocketAddress localAddress;
 
     private final InetSocketAddress remoteAddress;
+
+    private final long maxIdleDurationMs;
 
     private final DatagramChannel channel;
 
@@ -39,23 +39,22 @@ public class DatagramInner {
 
     private final Map<InetSocketAddress, DatagramOuter> outers;
 
-    private final Queue<DatagramMessage> incoming;
-
-    private final long maxIdleDurationMs;
+    private final DatagramQueue incoming;
 
     private volatile boolean frozen;
 
-    public DatagramInner(NioReactor reactor,
+    public DatagramInner(DatagramCrusher crusher,
                          InetSocketAddress localAddress,
                          InetSocketAddress remoteAddress,
                          DatagramCrusherSocketOptions socketOptions,
                          long maxIdleDurationMs) throws IOException {
-        this.reactor = reactor;
+        this.crusher = crusher;
+        this.reactor = crusher.getReactor();
         this.socketOptions = socketOptions;
         this.localAddress = localAddress;
         this.remoteAddress = remoteAddress;
         this.outers = new HashMap<>(32);
-        this.incoming = new LinkedList<>();
+        this.incoming = new DatagramQueue();
         this.maxIdleDurationMs = maxIdleDurationMs;
         this.frozen = true;
 
@@ -111,36 +110,63 @@ public class DatagramInner {
     protected synchronized void close() throws IOException {
         freeze();
 
+        if (!incoming.isEmpty()) {
+            LOGGER.warn("On closing inner has {} incoming datagrams with {} bytes in total",
+                incoming.size(), incoming.remaining());
+        }
+
         outers.values().forEach(DatagramOuter::close);
         outers.clear();
 
         NioUtils.closeChannel(channel);
 
+        reactor.wakeup();
+
         LOGGER.debug("Inner on <{}> is closed", localAddress);
     }
 
-    private void callback(SelectionKey selectionKey) throws IOException {
-        if (selectionKey.isReadable()) {
-            handleReadable(selectionKey);
-        }
+    private void closeInternal() throws IOException {
+        crusher.removeInner();
+        close();
+    }
 
-        if (selectionKey.isWritable()) {
-            handleWritable(selectionKey);
+    private void callback(SelectionKey selectionKey) throws IOException {
+        try {
+            if (selectionKey.isReadable()) {
+                handleReadable(selectionKey);
+            }
+            if (selectionKey.isWritable()) {
+                handleWritable(selectionKey);
+            }
+        } catch (ClosedChannelException e) {
+            LOGGER.debug("Inner has closed itself");
+            closeInternal();
+        } catch (IOException e) {
+            LOGGER.error("Exception in inner", e);
+            closeInternal();
         }
     }
 
     private void handleWritable(SelectionKey selectionKey) throws IOException {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
-        DatagramMessage dm = incoming.peek();
-        if (dm != null) {
-            int written = channel.send(dm.getBuffer(), dm.getAddress());
-            LOGGER.trace("Send {} bytes to inner <{}>", written, dm.getAddress());
+        DatagramQueue.Entry entry;
+        while ((entry = incoming.request()) != null) {
+            int written = channel.send(entry.getBuffer(), entry.getAddress());
+            if (written == 0) {
+                incoming.retry(entry);
+                break;
+            }
 
-            if (!dm.getBuffer().hasRemaining()) {
-                incoming.poll();
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Send {} bytes to client <{}>", written, entry.getAddress());
+            }
+
+            if (entry.getBuffer().hasRemaining()) {
+                LOGGER.warn("Datagram is splitted");
+                incoming.retry(entry);
             } else {
-                LOGGER.warn("Datagram will be splitted");
+                incoming.release(entry);
             }
         }
 
@@ -152,20 +178,21 @@ public class DatagramInner {
     private void handleReadable(SelectionKey selectionKey) throws IOException {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
-        bb.clear();
-        InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
+        while (true) {
+            InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
+            if (address == null) {
+                break;
+            }
 
-        if (address != null) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Received {} bytes from inner <{}>", bb.limit(), address);
+            }
+
             DatagramOuter outer = requestOuter(address);
 
             bb.flip();
-            ByteBuffer data = ByteBuffer.allocate(bb.limit());
-            data.put(bb);
-            data.flip();
-
-            outer.enqueue(data);
-
-            LOGGER.trace("Received {} bytes from inner <{}>", data.limit(), address);
+            outer.enqueue(bb);
+            bb.clear();
         }
     }
 
@@ -205,12 +232,10 @@ public class DatagramInner {
         }
     }
 
-    protected void enqueue(InetSocketAddress address, ByteBuffer bb) {
-        if (incoming.size() < PENDING_LIMIT) {
-            incoming.add(new DatagramMessage(address, bb));
+    protected void enqueue(InetSocketAddress address, ByteBuffer bbToCopy) {
+        boolean added = incoming.add(address, bbToCopy);
+        if (added) {
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
-        } else {
-            LOGGER.debug("Pending limit is exceeded. Packet is dropped");
         }
     }
 
@@ -218,24 +243,8 @@ public class DatagramInner {
         return reactor;
     }
 
-    private static final class DatagramMessage implements Serializable {
-
-        private final InetSocketAddress address;
-
-        private final ByteBuffer buffer;
-
-        public DatagramMessage(InetSocketAddress address, ByteBuffer buffer) {
-            this.address = address;
-            this.buffer = buffer;
-        }
-
-        public InetSocketAddress getAddress() {
-            return address;
-        }
-
-        public ByteBuffer getBuffer() {
-            return buffer;
-        }
+    protected void removeOuter(InetSocketAddress clientAddress) {
+        outers.remove(clientAddress);
     }
 
 }

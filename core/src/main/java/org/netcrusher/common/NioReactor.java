@@ -42,13 +42,13 @@ public class NioReactor implements Closeable {
         this.ops = new ConcurrentLinkedQueue<>();
 
         this.thread = new Thread(this::loop);
-        this.thread.setName("TcpCrusher reactor event loop");
+        this.thread.setName("NetCrusher reactor event loop");
         this.thread.setDaemon(false);
         this.thread.start();
 
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor((r) -> {
             Thread thread = new Thread(r);
-            thread.setName("TcpCrusher scheduled executor");
+            thread.setName("NetCrusher scheduled executor");
             thread.setDaemon(false);
             return thread;
         });
@@ -58,13 +58,21 @@ public class NioReactor implements Closeable {
     }
 
     @Override
-    public synchronized void close() {
+    public synchronized void close() throws IOException {
         if (!opened) {
             return;
         }
 
         boolean interrupted = false;
         LOGGER.debug("Reactor is closing");
+
+        wakeup();
+
+        int activeSelectionKeys = selector.keys().size();
+        if (activeSelectionKeys > 0) {
+            LOGGER.warn("Selector still has {} selection keys. Did you close all linked crushers before?",
+                activeSelectionKeys);
+        }
 
         if (thread.isAlive()) {
             thread.interrupt();
@@ -75,7 +83,7 @@ public class NioReactor implements Closeable {
             }
 
             if (thread.isAlive()) {
-                LOGGER.error("TcpCrusher reactor thread is still alive");
+                LOGGER.error("NetCrusher reactor thread is still alive");
             }
         }
 
@@ -91,12 +99,12 @@ public class NioReactor implements Closeable {
         }
 
         try {
-            this.selector.close();
+            selector.close();
         } catch (IOException e) {
             LOGGER.error("Fail to close selector", e);
         }
 
-        this.opened = false;
+        opened = false;
         LOGGER.debug("Reactor is closed");
 
         if (interrupted) {
@@ -147,7 +155,7 @@ public class NioReactor implements Closeable {
     }
 
     private void loop() {
-        LOGGER.debug("Reactpr event loop started");
+        LOGGER.debug("Reactor event loop started");
 
         while (!Thread.currentThread().isInterrupted()) {
             int count;

@@ -16,8 +16,7 @@ import java.net.InetSocketAddress;
  *     .withReactor(reactor)
  *     .withLocalAddress("localhost", 10081)
  *     .withRemoteAddress("time-nw.nist.gov", 37)
- *     .build();
- * crusher.open();
+ *     .buildAndOpen();
  *
  * // do some test on localhost:10081
  * crusher.crush();
@@ -32,13 +31,13 @@ import java.net.InetSocketAddress;
  */
 public class DatagramCrusher implements Closeable {
 
-    private final InetSocketAddress localAddress;
-
-    private final InetSocketAddress remoteAddress;
+    private final NioReactor reactor;
 
     private final DatagramCrusherSocketOptions socketOptions;
 
-    private final NioReactor reactor;
+    private final InetSocketAddress localAddress;
+
+    private final InetSocketAddress remoteAddress;
 
     private final long maxIdleDurationMs;
 
@@ -68,7 +67,7 @@ public class DatagramCrusher implements Closeable {
             throw new IllegalStateException("DatagramCrusher is already active");
         }
 
-        this.inner = new DatagramInner(reactor, localAddress, remoteAddress, socketOptions, maxIdleDurationMs);
+        this.inner = new DatagramInner(this, localAddress, remoteAddress, socketOptions, maxIdleDurationMs);
         this.inner.unfreeze();
 
         this.opened = true;
@@ -80,10 +79,8 @@ public class DatagramCrusher implements Closeable {
     @Override
     public synchronized void close() throws IOException {
         if (opened) {
-            this.inner.freeze();
             this.inner.close();
-
-            this.reactor.wakeup();
+            this.inner = null;
 
             this.opened = false;
         }
@@ -129,6 +126,15 @@ public class DatagramCrusher implements Closeable {
      */
     public boolean isFrozen() {
         return inner.isFrozen();
+    }
+
+    protected NioReactor getReactor() {
+        return reactor;
+    }
+
+    protected synchronized void removeInner() {
+        this.opened = false;
+        this.inner = null;
     }
 
 }

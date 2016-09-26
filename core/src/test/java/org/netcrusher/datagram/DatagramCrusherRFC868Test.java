@@ -15,7 +15,7 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 
-public class DatagramCrusherTest {
+public class DatagramCrusherRFC868Test {
 
     private static final InetSocketAddress LOCAL_ADDRESS = new InetSocketAddress("localhost", 10188);
 

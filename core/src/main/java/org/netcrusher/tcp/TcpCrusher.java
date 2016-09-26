@@ -31,8 +31,7 @@ import java.util.function.Consumer;
  *     .withReactor(reactor)
  *     .withLocalAddress("localhost", 10080)
  *     .withRemoteAddress("google.com", 80)
- *     .build();
- * crusher.open();
+ *     .buildAndOpen();
  *
  * // do some test on localhost:10080
  * crusher.crush();
