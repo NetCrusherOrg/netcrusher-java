@@ -58,8 +58,8 @@ public class TcpPair implements Closeable {
         this.outerClientAddr = (InetSocketAddress) outer.getLocalAddress();
         this.outerListenAddr = (InetSocketAddress) outer.getRemoteAddress();
 
-        this.innerKey = crusher.getReactor().register(inner, 0, this::innerCallback);
-        this.outerKey = crusher.getReactor().register(outer, 0, this::outerCallback);
+        this.innerKey = crusher.getReactor().registerSelector(inner, 0, this::innerCallback);
+        this.outerKey = crusher.getReactor().registerSelector(outer, 0, this::outerCallback);
 
         TcpTransferQueue innerToOuter = new TcpTransferQueue(bufferCount, bufferSize);
         TcpTransferQueue outerToInner = new TcpTransferQueue(bufferCount, bufferSize);
@@ -114,7 +114,7 @@ public class TcpPair implements Closeable {
      */
     public synchronized void unfreeze() throws IOException {
         if (frozen) {
-            crusher.getReactor().executeReactorOp(() -> {
+            crusher.getReactor().executeSelectorOp(() -> {
                 int ops;
 
                 ops = innerTransfer.getIncoming().size() > 0 ?
@@ -138,7 +138,7 @@ public class TcpPair implements Closeable {
      */
     public synchronized void freeze() throws IOException {
         if (!frozen) {
-            crusher.getReactor().executeReactorOp(() -> {
+            crusher.getReactor().executeSelectorOp(() -> {
                 if (innerKey.isValid()) {
                     innerKey.interestOps(0);
                 }
@@ -174,8 +174,11 @@ public class TcpPair implements Closeable {
         NioUtils.closeChannel(outer);
 
         LOGGER.debug("Pair '{}' is closed", this.getKey());
+    }
 
+    private void closeInternal() throws IOException {
         crusher.removePair(this.getKey());
+        close();
     }
 
     private void callback(SelectionKey selectionKey,
@@ -187,18 +190,18 @@ public class TcpPair implements Closeable {
             thisTransfer.handleEvent(selectionKey);
         } catch (EOFException e) {
             LOGGER.trace("EOF on transfer {}", thisTransfer.getName());
-            if (thisTransfer.getOutgoing().pending() == 0) {
-                close();
-            } else {
+            if (thisTransfer.getOutgoing().pending() > 0) {
                 NioUtils.closeChannel(thisChannel);
+            } else {
+                closeInternal();
             }
         } catch (IOException e) {
             LOGGER.error("Fail to handle event for socket channel", e);
-            close();
+            closeInternal();
         }
 
         if (thisChannel.isOpen() && !thatChannel.isOpen() && thisTransfer.getIncoming().pending() == 0) {
-            close();
+            closeInternal();
         }
     }
 

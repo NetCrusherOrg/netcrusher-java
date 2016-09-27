@@ -1,6 +1,5 @@
 package org.netcrusher.misc;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.net.InetSocketAddress;
@@ -16,7 +15,6 @@ import java.nio.channels.ServerSocketChannel;
 public class ServerSocketChannelCloseTest {
 
     @Test
-    @Ignore
     public void test() throws Exception {
         Selector selector = Selector.open();
 
@@ -63,7 +61,7 @@ public class ServerSocketChannelCloseTest {
         // so on the next bind I get an exception: java.net.BindException: Address already in use: bind
 
         // --- it helps!!!
-        // selector.selectNow();
+        selector.selectNow();
 
         // --- it helps!!! but I don't want to because there could multiple server sockets on the same selector
         // selector.close();

@@ -1,10 +1,12 @@
 package org.netcrusher.datagram.bulk;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.net.InetSocketAddress;
 
+@Ignore
 public class DatagramBulkTest {
 
     private static final int PORT1 = 10082;

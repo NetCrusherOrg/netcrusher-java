@@ -1,6 +1,8 @@
 package org.netcrusher.datagram;
 
+import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
+import org.netcrusher.filter.ByteBufferFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,6 +12,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
+import java.util.List;
 
 public class DatagramOuter {
 
@@ -17,11 +20,17 @@ public class DatagramOuter {
 
     private final DatagramInner inner;
 
+    private final NioReactor reactor;
+
     private final InetSocketAddress clientAddress;
 
     private final InetSocketAddress remoteAddress;
 
-    private final DatagramQueue incoming;
+    private final List<ByteBufferFilter> incomingFilters;
+
+    private final List<ByteBufferFilter> outgoingFilters;
+
+    private final DatagramQueue pending;
 
     private final DatagramChannel channel;
 
@@ -31,68 +40,91 @@ public class DatagramOuter {
 
     private long lastOperationTimestamp;
 
+    private boolean opened;
+
     private volatile boolean frozen;
 
     public DatagramOuter(DatagramInner inner,
+                         NioReactor reactor,
+                         DatagramCrusherSocketOptions socketOptions,
+                         List<ByteBufferFilter> incomingFilters,
+                         List<ByteBufferFilter> outgoingFilters,
                          InetSocketAddress clientAddress,
-                         InetSocketAddress remoteAddress,
-                         DatagramCrusherSocketOptions socketOptions) throws IOException {
+                         InetSocketAddress remoteAddress) throws IOException {
         this.inner = inner;
+        this.reactor = reactor;
         this.clientAddress = clientAddress;
         this.remoteAddress = remoteAddress;
-        this.incoming = new DatagramQueue();
+        this.pending = new DatagramQueue();
         this.lastOperationTimestamp = System.currentTimeMillis();
         this.frozen = true;
+        this.opened = true;
+
+        this.incomingFilters = incomingFilters;
+        this.outgoingFilters = outgoingFilters;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
-        this.channel.configureBlocking(true);
         socketOptions.setupSocketChannel(this.channel);
         this.channel.connect(remoteAddress);
         this.channel.configureBlocking(false);
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = inner.getReactor().register(channel, 0, this::callback);
+        this.selectionKey = reactor.registerSelector(channel, 0, this::callback);
 
         LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, remoteAddress);
     }
 
     protected synchronized void unfreeze() {
-        if (frozen) {
-            int ops = incoming.size() > 0 ?
-                SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
-            selectionKey.interestOps(ops);
+        if (opened) {
+            if (frozen) {
+                int ops = pending.isEmpty() ?
+                    SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+                selectionKey.interestOps(ops);
 
-            frozen = false;
+                frozen = false;
+            }
+        } else {
+            throw new IllegalStateException("Outer is closed");
         }
     }
 
     protected synchronized void freeze() {
-        if (!frozen) {
-            if (selectionKey.isValid()) {
-                selectionKey.interestOps(0);
-            }
+        if (opened) {
+            if (!frozen) {
+                if (selectionKey.isValid()) {
+                    selectionKey.interestOps(0);
+                }
 
-            frozen = true;
+                frozen = true;
+            }
+        } else {
+            throw new IllegalStateException("Outer is closed");
         }
     }
 
     protected synchronized void close() {
-        freeze();
+        if (opened) {
+            freeze();
 
-        if (!incoming.isEmpty()) {
-            LOGGER.warn("On closing outer has {} incoming datagrams with {} bytes in total",
-                incoming.size(), incoming.remaining());
+            if (!pending.isEmpty()) {
+                LOGGER.warn("On closing outer has {} incoming datagrams with {} bytes in total",
+                    pending.size(), pending.bytes());
+            }
+
+            NioUtils.closeChannel(channel);
+
+            opened = false;
+
+            LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, remoteAddress);
         }
-
-        NioUtils.closeChannel(channel);
-
-        LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, remoteAddress);
     }
 
-    private void closeInternal() {
-        inner.removeOuter(clientAddress);
-        close();
+    protected void closeInternal() {
+        reactor.execute(() -> {
+            inner.closeOuter(clientAddress);
+            return null;
+        });
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
@@ -104,7 +136,7 @@ public class DatagramOuter {
                 handleWritable(selectionKey);
             }
         } catch (ClosedChannelException e) {
-            LOGGER.debug("Outer has closed itself");
+            LOGGER.debug("Channel is closed");
             closeInternal();
         } catch (IOException e) {
             LOGGER.error("Exception in outer", e);
@@ -116,10 +148,10 @@ public class DatagramOuter {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
         DatagramQueue.Entry entry;
-        while ((entry = incoming.request()) != null) {
+        while ((entry = pending.request()) != null) {
             int written = channel.write(entry.getBuffer());
             if (written == 0) {
-                incoming.retry(entry);
+                pending.retry(entry);
                 break;
             }
 
@@ -128,16 +160,16 @@ public class DatagramOuter {
             }
 
             if (entry.getBuffer().hasRemaining()) {
-                incoming.retry(entry);
+                pending.retry(entry);
                 LOGGER.warn("Datagram is splitted");
             } else {
-                incoming.release(entry);
+                pending.release(entry);
             }
 
             lastOperationTimestamp = System.currentTimeMillis();
         }
 
-        if (incoming.isEmpty()) {
+        if (pending.isEmpty()) {
             NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
     }
@@ -149,7 +181,8 @@ public class DatagramOuter {
             int read = channel.read(bb);
             if (read < 0) {
                 throw new ClosedChannelException();
-            } else if (read == 0) {
+            }
+            if (read == 0) {
                 break;
             }
 
@@ -158,19 +191,42 @@ public class DatagramOuter {
             }
 
             bb.flip();
-            inner.enqueue(clientAddress, bb);
+            inner.enqueue(clientAddress, filterIncoming(bb));
             bb.clear();
 
             lastOperationTimestamp = System.currentTimeMillis();
         }
-
     }
 
     protected void enqueue(ByteBuffer bbToCopy) {
-        boolean added = incoming.add(clientAddress, bbToCopy);
+        boolean added = pending.add(clientAddress, filterOutgoing(bbToCopy));
         if (added) {
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
+    }
+
+    private ByteBuffer filterIncoming(ByteBuffer bb) {
+        ByteBuffer filtered = bb;
+
+        if (!incomingFilters.isEmpty()) {
+            for (ByteBufferFilter filter : incomingFilters) {
+                filtered = filter.filter(filtered);
+            }
+        }
+
+        return filtered;
+    }
+
+    private ByteBuffer filterOutgoing(ByteBuffer bb) {
+        ByteBuffer filtered = bb;
+
+        if (!outgoingFilters.isEmpty()) {
+            for (ByteBufferFilter filter : incomingFilters) {
+                filtered = filter.filter(filtered);
+            }
+        }
+
+        return filtered;
     }
 
     protected long getIdleDurationMs() {

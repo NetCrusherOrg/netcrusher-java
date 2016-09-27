@@ -1,6 +1,7 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.common.NioReactor;
+import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 
 import java.io.Closeable;
@@ -41,6 +42,8 @@ public class DatagramCrusher implements Closeable {
 
     private final long maxIdleDurationMs;
 
+    private final ByteBufferFilterRepository filters;
+
     private DatagramInner inner;
 
     private volatile boolean opened;
@@ -56,6 +59,7 @@ public class DatagramCrusher implements Closeable {
         this.reactor = reactor;
         this.maxIdleDurationMs = maxIdleDurationMs;
         this.opened = false;
+        this.filters = new ByteBufferFilterRepository();
     }
 
     /**
@@ -67,7 +71,8 @@ public class DatagramCrusher implements Closeable {
             throw new IllegalStateException("DatagramCrusher is already active");
         }
 
-        this.inner = new DatagramInner(this, localAddress, remoteAddress, socketOptions, maxIdleDurationMs);
+        this.inner = new DatagramInner(this, reactor, socketOptions, filters,
+            localAddress, remoteAddress, maxIdleDurationMs);
         this.inner.unfreeze();
 
         this.opened = true;
@@ -81,7 +86,6 @@ public class DatagramCrusher implements Closeable {
         if (opened) {
             this.inner.close();
             this.inner = null;
-
             this.opened = false;
         }
     }
@@ -93,6 +97,8 @@ public class DatagramCrusher implements Closeable {
         if (opened) {
             close();
             open();
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 
@@ -104,6 +110,8 @@ public class DatagramCrusher implements Closeable {
     public synchronized void freeze() throws IOException {
         if (opened) {
             inner.freeze();
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 
@@ -115,6 +123,8 @@ public class DatagramCrusher implements Closeable {
     public synchronized void unfreeze() throws IOException {
         if (opened) {
             inner.unfreeze();
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 
@@ -125,16 +135,18 @@ public class DatagramCrusher implements Closeable {
      * @see DatagramCrusher#freeze()
      */
     public boolean isFrozen() {
-        return inner.isFrozen();
+        if (opened) {
+            return inner.isFrozen();
+        } else {
+            return true;
+        }
     }
 
-    protected NioReactor getReactor() {
-        return reactor;
+    /**
+     * Get filter repository
+     * @return Filter repository
+     */
+    public ByteBufferFilterRepository getFilters() {
+        return filters;
     }
-
-    protected synchronized void removeInner() {
-        this.opened = false;
-        this.inner = null;
-    }
-
 }

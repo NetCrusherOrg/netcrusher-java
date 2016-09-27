@@ -2,6 +2,8 @@ package org.netcrusher.datagram;
 
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
+import org.netcrusher.filter.ByteBufferFilter;
+import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,9 +13,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
-import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DatagramInner {
 
@@ -21,9 +24,11 @@ public class DatagramInner {
 
     private final DatagramCrusher crusher;
 
+    private final NioReactor reactor;
+
     private final DatagramCrusherSocketOptions socketOptions;
 
-    private final NioReactor reactor;
+    private final ByteBufferFilterRepository filters;
 
     private final InetSocketAddress localAddress;
 
@@ -39,67 +44,76 @@ public class DatagramInner {
 
     private final Map<InetSocketAddress, DatagramOuter> outers;
 
-    private final DatagramQueue incoming;
+    private final DatagramQueue pending;
+
+    private boolean opened;
 
     private volatile boolean frozen;
 
     public DatagramInner(DatagramCrusher crusher,
+                         NioReactor reactor,
+                         DatagramCrusherSocketOptions socketOptions,
+                         ByteBufferFilterRepository filters,
                          InetSocketAddress localAddress,
                          InetSocketAddress remoteAddress,
-                         DatagramCrusherSocketOptions socketOptions,
                          long maxIdleDurationMs) throws IOException {
         this.crusher = crusher;
-        this.reactor = crusher.getReactor();
+        this.reactor = reactor;
+        this.filters = filters;
         this.socketOptions = socketOptions;
         this.localAddress = localAddress;
         this.remoteAddress = remoteAddress;
-        this.outers = new HashMap<>(32);
-        this.incoming = new DatagramQueue();
+        this.outers = new ConcurrentHashMap<>(32);
+        this.pending = new DatagramQueue();
         this.maxIdleDurationMs = maxIdleDurationMs;
         this.frozen = true;
+        this.opened = true;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
-        this.channel.configureBlocking(true);
         socketOptions.setupSocketChannel(this.channel);
         this.channel.bind(localAddress);
         this.channel.configureBlocking(false);
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = reactor.register(channel, 0, this::callback);
+        this.selectionKey = reactor.registerSelector(channel, 0, this::callback);
 
         LOGGER.debug("Inner on <{}> is started", localAddress);
     }
 
     protected synchronized void unfreeze() throws IOException {
-        if (frozen) {
-            reactor.executeReactorOp(() -> {
-                int ops = incoming.size() > 0 ?
-                    SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
-                selectionKey.interestOps(ops);
+        if (opened) {
+            if (frozen) {
+                reactor.executeSelectorOp(() -> {
+                    int ops = pending.isEmpty() ?
+                        SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+                    selectionKey.interestOps(ops);
 
-                outers.values().forEach(DatagramOuter::unfreeze);
+                    outers.values().forEach(DatagramOuter::unfreeze);
+                });
 
-                return null;
-            });
-
-            frozen = false;
+                frozen = false;
+            }
+        } else {
+            throw new IllegalStateException("Inner is closed");
         }
     }
 
     protected synchronized void freeze() throws IOException {
-        if (!frozen) {
-            reactor.executeReactorOp(() -> {
-                if (selectionKey.isValid()) {
-                    selectionKey.interestOps(0);
-                }
+        if (opened) {
+            if (!frozen) {
+                reactor.executeSelectorOp(() -> {
+                    if (selectionKey.isValid()) {
+                        selectionKey.interestOps(0);
+                    }
 
-                outers.values().forEach(DatagramOuter::freeze);
+                    outers.values().forEach(DatagramOuter::freeze);
+                });
 
-                return null;
-            });
-
-            frozen = true;
+                frozen = true;
+            }
+        } else {
+            throw new IllegalStateException("Inner is closed");
         }
     }
 
@@ -108,26 +122,39 @@ public class DatagramInner {
     }
 
     protected synchronized void close() throws IOException {
-        freeze();
+        if (opened) {
+            freeze();
 
-        if (!incoming.isEmpty()) {
-            LOGGER.warn("On closing inner has {} incoming datagrams with {} bytes in total",
-                incoming.size(), incoming.remaining());
+            if (!pending.isEmpty()) {
+                LOGGER.warn("On closing inner has {} incoming datagrams with {} bytes in total",
+                    pending.size(), pending.bytes());
+            }
+
+            outers.values().forEach(DatagramOuter::close);
+            outers.clear();
+
+            NioUtils.closeChannel(channel);
+
+            reactor.wakeupSelector();
+
+            opened = false;
+
+            LOGGER.debug("Inner on <{}> is closed", localAddress);
         }
-
-        outers.values().forEach(DatagramOuter::close);
-        outers.clear();
-
-        NioUtils.closeChannel(channel);
-
-        reactor.wakeup();
-
-        LOGGER.debug("Inner on <{}> is closed", localAddress);
     }
 
-    private void closeInternal() throws IOException {
-        crusher.removeInner();
-        close();
+    protected void closeInternal() {
+        reactor.execute(() -> {
+            crusher.close();
+            return null;
+        });
+    }
+
+    protected void closeOuter(InetSocketAddress clientAddress) {
+        DatagramOuter outer = outers.remove(clientAddress);
+        if (outer != null) {
+            outer.close();
+        }
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
@@ -139,7 +166,7 @@ public class DatagramInner {
                 handleWritable(selectionKey);
             }
         } catch (ClosedChannelException e) {
-            LOGGER.debug("Inner has closed itself");
+            LOGGER.debug("Channel is closed");
             closeInternal();
         } catch (IOException e) {
             LOGGER.error("Exception in inner", e);
@@ -151,10 +178,10 @@ public class DatagramInner {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
         DatagramQueue.Entry entry;
-        while ((entry = incoming.request()) != null) {
+        while ((entry = pending.request()) != null) {
             int written = channel.send(entry.getBuffer(), entry.getAddress());
             if (written == 0) {
-                incoming.retry(entry);
+                pending.retry(entry);
                 break;
             }
 
@@ -164,13 +191,13 @@ public class DatagramInner {
 
             if (entry.getBuffer().hasRemaining()) {
                 LOGGER.warn("Datagram is splitted");
-                incoming.retry(entry);
+                pending.retry(entry);
             } else {
-                incoming.release(entry);
+                pending.release(entry);
             }
         }
 
-        if (incoming.isEmpty()) {
+        if (pending.isEmpty()) {
             NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
     }
@@ -204,7 +231,12 @@ public class DatagramInner {
                 clearOuters(maxIdleDurationMs);
             }
 
-            outer = new DatagramOuter(this, address, remoteAddress, socketOptions);
+            List<ByteBufferFilter> incomingFilters = filters.getIncoming().createFilters(address);
+            List<ByteBufferFilter> outgoingFilters = filters.getOutgoing().createFilters(address);
+
+            outer = new DatagramOuter(this, reactor, socketOptions,
+                incomingFilters, outgoingFilters,
+                address, remoteAddress);
             outer.unfreeze();
 
             outers.put(address, outer);
@@ -228,23 +260,17 @@ public class DatagramInner {
             }
 
             int countAfter = outers.size();
-            LOGGER.debug("Outer connections are cleared ({} -> {})", countBefore, countAfter);
+            if (countAfter < countBefore) {
+                LOGGER.debug("Outer connections are cleared ({} -> {})", countBefore, countAfter);
+            }
         }
     }
 
     protected void enqueue(InetSocketAddress address, ByteBuffer bbToCopy) {
-        boolean added = incoming.add(address, bbToCopy);
+        boolean added = pending.add(address, bbToCopy);
         if (added) {
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
-    }
-
-    protected NioReactor getReactor() {
-        return reactor;
-    }
-
-    protected void removeOuter(InetSocketAddress clientAddress) {
-        outers.remove(clientAddress);
     }
 
 }

@@ -66,11 +66,11 @@ public class NioReactor implements Closeable {
         boolean interrupted = false;
         LOGGER.debug("Reactor is closing");
 
-        wakeup();
+        wakeupSelector();
 
         int activeSelectionKeys = selector.keys().size();
         if (activeSelectionKeys > 0) {
-            LOGGER.warn("Selector still has {} selection keys. Did you close all linked crushers before?",
+            LOGGER.warn("Selector still has {} selection keys. Have you closed all linked crushers before?",
                 activeSelectionKeys);
         }
 
@@ -112,18 +112,18 @@ public class NioReactor implements Closeable {
         }
     }
 
-    public SelectionKey register(SelectableChannel channel, int options, SelectionKeyCallback callback)
+    public SelectionKey registerSelector(SelectableChannel channel, int options, SelectionKeyCallback callback)
             throws IOException
     {
-        return executeReactorOp(() -> channel.register(selector, options, callback));
+        return executeSelectorOp(() -> channel.register(selector, options, callback));
     }
 
-    public void wakeup() throws IOException {
+    public void wakeupSelector() throws IOException {
         // fixes some strange behaviour on Windows: http://stackoverflow.com/a/39657002/827139
-        executeReactorOp(selector::selectNow);
+        executeSelectorOp(selector::selectNow);
     }
 
-    public <T> T executeReactorOp(Callable<T> callable) throws IOException {
+    public <T> T executeSelectorOp(Callable<T> callable) throws IOException {
         if (Thread.currentThread().equals(thread)) {
             try {
                 return callable.call();
@@ -146,8 +146,22 @@ public class NioReactor implements Closeable {
         }
     }
 
+    public void executeSelectorOp(Runnable runnable) throws IOException {
+        executeSelectorOp(() -> {
+            runnable.run();
+            return null;
+        });
+    }
+
+    public Future<?> schedule(long delayMs, Callable<?> callable) {
+        return scheduledExecutorService.schedule(callable, delayMs, TimeUnit.MILLISECONDS);
+    }
     public Future<?> schedule(long delayMs, Runnable runnable) {
         return scheduledExecutorService.schedule(runnable, delayMs, TimeUnit.MILLISECONDS);
+    }
+
+    public Future<?> execute(Callable<?> callable) {
+        return scheduledExecutorService.submit(callable);
     }
 
     public Future<?> execute(Runnable runnable) {

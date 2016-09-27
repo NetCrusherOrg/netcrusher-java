@@ -20,15 +20,15 @@ public class DatagramQueue implements Serializable {
 
     private final Deque<Entry> entries;
 
-    private long remaining;
+    private long bytes;
 
     public DatagramQueue() {
         this.entries = new LinkedList<>();
-        this.remaining = 0;
+        this.bytes = 0;
     }
 
-    public long remaining() {
-        return remaining;
+    public long bytes() {
+        return bytes;
     }
 
     public int size() {
@@ -40,11 +40,13 @@ public class DatagramQueue implements Serializable {
     }
 
     public boolean add(InetSocketAddress address, ByteBuffer bbToCopy) {
-        ByteBuffer bb = NioUtils.copy(bbToCopy);
-
-        Entry entry = new Entry(address, bb);
-
-        return add(entry);
+        if (bbToCopy.hasRemaining()) {
+            ByteBuffer bb = NioUtils.copy(bbToCopy);
+            Entry entry = new Entry(address, bb);
+            return add(entry);
+        } else {
+            return false;
+        }
     }
 
     public boolean add(Entry entry) {
@@ -53,14 +55,14 @@ public class DatagramQueue implements Serializable {
             return false;
         }
 
-        if (remaining > LIMIT_SIZE) {
-            LOGGER.warn("Pending limit is exceeded ({} bytes). Packet is dropped", remaining);
+        if (bytes > LIMIT_SIZE) {
+            LOGGER.warn("Pending limit is exceeded ({} bytes). Packet is dropped", bytes);
             return false;
         }
 
         if (entry.buffer.hasRemaining()) {
             entries.addLast(entry);
-            remaining += entry.buffer.remaining();
+            bytes += entry.buffer.remaining();
             return true;
         } else {
             release(entry);
@@ -71,7 +73,7 @@ public class DatagramQueue implements Serializable {
     public boolean retry(Entry entry) {
         if (entry.buffer.hasRemaining()) {
             entries.addFirst(entry);
-            remaining += entry.buffer.remaining();
+            bytes += entry.buffer.remaining();
             return true;
         } else {
             release(entry);
@@ -82,7 +84,7 @@ public class DatagramQueue implements Serializable {
     public Entry request() {
         Entry entry = entries.pollFirst();
         if (entry != null) {
-            remaining -= entry.buffer.remaining();
+            bytes -= entry.buffer.remaining();
         }
         return entry;
     }

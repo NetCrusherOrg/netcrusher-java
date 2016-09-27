@@ -2,7 +2,6 @@ package org.netcrusher.tcp;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.netcrusher.common.NioReactor;
 
@@ -57,11 +56,5 @@ public class TcpCrusherSimpleTest {
         crusher.close();
     }
 
-    @Test
-    @Ignore
-    public void testManual() throws Exception {
-        crusher.open();
-        Thread.sleep(300000);
-        crusher.close();
-    }
+
 }

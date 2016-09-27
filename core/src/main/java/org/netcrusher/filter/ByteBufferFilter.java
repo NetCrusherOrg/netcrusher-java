@@ -3,8 +3,8 @@ package org.netcrusher.filter;
 import java.nio.ByteBuffer;
 
 /**
- * <p>Filter for tranferred data. Filtering is made in selector's thread so all blocking I/O should be made in other
- * thread with the copy of the buffer.</p>
+ * <p>Filter for tranferred data. Filtering is made in reactor's thread so all blocking I/O should be made in other
+ * thread with the copy of the input buffer.</p>
  *
  *
  * <p>Filter that filters nothing:</p>

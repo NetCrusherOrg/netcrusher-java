@@ -117,7 +117,7 @@ public class TcpCrusher implements Closeable {
             this.serverSocketChannel.bind(localAddress);
         }
 
-        serverSelectionKey = reactor.register(serverSocketChannel, 0, (selectionKey) -> this.accept());
+        serverSelectionKey = reactor.registerSelector(serverSocketChannel, 0, (selectionKey) -> this.accept());
 
         LOGGER.debug("TcpCrusher <{}>-<{}> is opened", localAddress, remoteAddress);
 
@@ -139,9 +139,12 @@ public class TcpCrusher implements Closeable {
             closeAllPairs();
 
             serverSelectionKey.cancel();
-            NioUtils.closeChannel(serverSocketChannel);
+            serverSelectionKey = null;
 
-            reactor.wakeup();
+            NioUtils.closeChannel(serverSocketChannel);
+            serverSocketChannel = null;
+
+            reactor.wakeupSelector();
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is closed", localAddress, remoteAddress);
 
@@ -183,7 +186,7 @@ public class TcpCrusher implements Closeable {
             LOGGER.debug("TcpCrusher <{}>-<{}> will be frozen", localAddress, remoteAddress);
 
             if (!frozen) {
-                reactor.executeReactorOp(() -> serverSelectionKey.interestOps(0));
+                reactor.executeSelectorOp(() -> serverSelectionKey.interestOps(0));
                 frozen = true;
             }
 
@@ -212,7 +215,7 @@ public class TcpCrusher implements Closeable {
             }
 
             if (frozen) {
-                reactor.executeReactorOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
+                reactor.executeSelectorOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
                 frozen = false;
             }
 
@@ -255,7 +258,7 @@ public class TcpCrusher implements Closeable {
                 connectCheck = CompletableFuture.completedFuture(null);
             }
 
-            reactor.register(socketChannel2, SelectionKey.OP_CONNECT, (selectionKey) -> {
+            reactor.registerSelector(socketChannel2, SelectionKey.OP_CONNECT, (selectionKey) -> {
                 connectCheck.cancel(false);
 
                 if (!socketChannel2.finishConnect()) {
