@@ -133,25 +133,37 @@ public class DatagramOuter {
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
-        try {
-            if (selectionKey.isReadable()) {
+        if (selectionKey.isReadable()) {
+            try {
                 handleReadable(selectionKey);
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Channel is closed on read");
+                closeInternal();
+            } catch (EOFException e) {
+                LOGGER.debug("EOF on read");
+                closeInternal();
+            } catch (PortUnreachableException e) {
+                LOGGER.debug("Port in unreachable on read");
+                closeInternal();
+            } catch (IOException e) {
+                LOGGER.error("Exception in outer on read", e);
+                closeInternal();
             }
-            if (selectionKey.isWritable()) {
+        }
+
+        if (selectionKey.isWritable()) {
+            try {
                 handleWritable(selectionKey);
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Channel is closed on write");
+                closeInternal();
+            } catch (PortUnreachableException e) {
+                LOGGER.debug("Port in unreachable on write");
+                closeInternal();
+            } catch (IOException e) {
+                LOGGER.error("Exception in outer on write", e);
+                closeInternal();
             }
-        } catch (ClosedChannelException e) {
-            LOGGER.debug("Channel is closed");
-            closeInternal();
-        } catch (EOFException e) {
-            LOGGER.debug("EOF is reached");
-            closeInternal();
-        } catch (PortUnreachableException e) {
-            LOGGER.debug("Port is unreachable");
-            closeInternal();
-        } catch (IOException e) {
-            LOGGER.error("Exception in outer", e);
-            closeInternal();
         }
     }
 

@@ -7,10 +7,8 @@ import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.PortUnreachableException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
@@ -160,25 +158,28 @@ public class DatagramInner {
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
-        try {
-            if (selectionKey.isReadable()) {
+        if (selectionKey.isReadable()) {
+            try {
                 handleReadable(selectionKey);
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Channel is closed on read");
+                closeInternal();
+            } catch (IOException e) {
+                LOGGER.error("Exception in inner on read", e);
+                closeInternal();
             }
-            if (selectionKey.isWritable()) {
+        }
+
+        if (selectionKey.isWritable()) {
+            try {
                 handleWritable(selectionKey);
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Channel is closed on write");
+                closeInternal();
+            } catch (IOException e) {
+                LOGGER.error("Exception in inner on write", e);
+                closeInternal();
             }
-        } catch (ClosedChannelException e) {
-            LOGGER.debug("Channel is closed");
-            closeInternal();
-        } catch (EOFException e) {
-            LOGGER.debug("EOF is reached");
-            closeInternal();
-        } catch (PortUnreachableException e) {
-            LOGGER.debug("Port is unreachable");
-            closeInternal();
-        } catch (IOException e) {
-            LOGGER.error("Exception in inner", e);
-            closeInternal();
         }
     }
 

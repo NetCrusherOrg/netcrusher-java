@@ -9,7 +9,7 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 
-public class DatagramCrusherNoPortTest {
+public class DatagramCrusherDeafPortTest {
 
     private static final int CRUSHER_PORT = 10283;
 
@@ -54,6 +54,8 @@ public class DatagramCrusherNoPortTest {
         bb.position(0);
 
         channel.write(bb);
+
+        Thread.sleep(1000);
 
         channel.close();
     }
