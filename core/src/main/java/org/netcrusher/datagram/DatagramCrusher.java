@@ -129,7 +129,7 @@ public class DatagramCrusher implements Closeable {
     }
 
     /**
-     * Is the crusher freezed
+     * Is the crusher frozen
      * @return Return true if freeze() on the crusher was called before
      * @see DatagramCrusher#unfreeze()
      * @see DatagramCrusher#freeze()

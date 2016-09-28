@@ -2,6 +2,7 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
+import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +67,8 @@ public class TcpCrusher implements Closeable {
 
     private final int bufferSize;
 
+    private final ByteBufferFilterRepository filters;
+
     private ServerSocketChannel serverSocketChannel;
 
     private SelectionKey serverSelectionKey;
@@ -89,6 +92,7 @@ public class TcpCrusher implements Closeable {
         this.socketOptions = socketOptions;
         this.opened = false;
         this.pairs = new ConcurrentHashMap<>(32);
+        this.filters = new ByteBufferFilterRepository();
         this.bufferCount = bufferCount;
         this.bufferSize = bufferSize;
         this.creationListener = creationListener;
@@ -158,8 +162,10 @@ public class TcpCrusher implements Closeable {
     public synchronized void closeAllPairs() throws IOException {
         if (opened) {
             for (TcpPair pair : getPairs()) {
-                pair.close();
+                closePair(pair.getKey());
             }
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 
@@ -170,6 +176,8 @@ public class TcpCrusher implements Closeable {
         if (opened) {
             close();
             open();
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 
@@ -186,7 +194,12 @@ public class TcpCrusher implements Closeable {
             LOGGER.debug("TcpCrusher <{}>-<{}> will be frozen", localAddress, remoteAddress);
 
             if (!frozen) {
-                reactor.executeSelectorOp(() -> serverSelectionKey.interestOps(0));
+                reactor.executeSelectorOp(() -> {
+                    if (serverSelectionKey.isValid()) {
+                        serverSelectionKey.interestOps(0);
+                    }
+                });
+
                 frozen = true;
             }
 
@@ -195,6 +208,8 @@ public class TcpCrusher implements Closeable {
             }
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is frozen", localAddress, remoteAddress);
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 
@@ -216,10 +231,13 @@ public class TcpCrusher implements Closeable {
 
             if (frozen) {
                 reactor.executeSelectorOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
+
                 frozen = false;
             }
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is unfrozen", localAddress, remoteAddress);
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 
@@ -277,7 +295,9 @@ public class TcpCrusher implements Closeable {
 
     protected void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
         try {
-            TcpPair pair = new TcpPair(this, socketChannel1, socketChannel2, bufferCount, bufferSize);
+            TcpPair pair = new TcpPair(this, reactor, filters,
+                socketChannel1, socketChannel2,
+                bufferCount, bufferSize);
             pair.unfreeze();
 
             LOGGER.debug("Pair '{}' is created for <{}>-<{}>",
@@ -299,25 +319,15 @@ public class TcpCrusher implements Closeable {
         }
     }
 
-    protected void removePair(String pairKey) {
+    protected void closePair(String pairKey) throws IOException {
         TcpPair pair = pairs.remove(pairKey);
+        if (pair != null) {
+            pair.close();
 
-        if (pair != null && deletionListener != null) {
-            reactor.execute(() -> deletionListener.accept(pair));
+            if (deletionListener != null) {
+                reactor.execute(() -> deletionListener.accept(pair));
+            }
         }
-    }
-
-    protected NioReactor getReactor() {
-        return reactor;
-    }
-
-    /**
-     * Get transfer pair by it's key
-     * @param pairKey The key of the requested pair
-     * @return Transfer pair
-     */
-    public TcpPair getPair(String pairKey) {
-        return pairs.get(pairKey);
     }
 
     /**
@@ -342,6 +352,14 @@ public class TcpCrusher implements Closeable {
      */
     public InetSocketAddress getRemoteAddress() {
         return remoteAddress;
+    }
+
+    /**
+     * Get filter repository
+     * @return Filter repository
+     */
+    public ByteBufferFilterRepository getFilters() {
+        return filters;
     }
 
 }

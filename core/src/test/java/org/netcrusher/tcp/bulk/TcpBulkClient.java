@@ -29,17 +29,14 @@ public class TcpBulkClient implements Closeable {
 
     private final Thread sndThread;
 
-    private final byte[] rcvDigest;
+    private byte[] rcvDigest;
 
-    private final byte[] sndDigest;
+    private byte[] sndDigest;
 
     protected TcpBulkClient(SocketChannel channel, long count) {
         this.channel = channel;
         this.count = count;
         this.random = new Random();
-
-        this.sndDigest = new byte[16];
-        this.rcvDigest = new byte[16];
 
         this.rcvThread = new Thread(this::rcvLoop);
         this.rcvThread.setName("Rcv loop");
@@ -131,7 +128,7 @@ public class TcpBulkClient implements Closeable {
             elapsed -= read;
         }
 
-        md.digest(rcvDigest);
+        rcvDigest = md.digest();
 
         LOGGER.debug("Read loop has finished");
     }
@@ -167,7 +164,7 @@ public class TcpBulkClient implements Closeable {
             elapsed -= limit;
         }
 
-        md.digest(sndDigest);
+        sndDigest = md.digest();
 
         LOGGER.debug("Write loop has finished");
     }

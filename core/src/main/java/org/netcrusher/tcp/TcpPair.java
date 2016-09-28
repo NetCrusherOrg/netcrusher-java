@@ -1,6 +1,9 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
+import org.netcrusher.filter.ByteBufferFilter;
+import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -8,9 +11,11 @@ import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
+import java.util.List;
 import java.util.UUID;
 
 public class TcpPair implements Closeable {
@@ -33,6 +38,8 @@ public class TcpPair implements Closeable {
 
     private final TcpCrusher crusher;
 
+    private final NioReactor reactor;
+
     private final InetSocketAddress innerClientAddr;
 
     private final InetSocketAddress innerListenAddr;
@@ -41,31 +48,160 @@ public class TcpPair implements Closeable {
 
     private final InetSocketAddress outerListenAddr;
 
+    private boolean opened;
+
     private volatile boolean frozen;
 
-    public TcpPair(TcpCrusher crusher, SocketChannel inner, SocketChannel outer,
+    public TcpPair(TcpCrusher crusher, NioReactor reactor, ByteBufferFilterRepository filters,
+                   SocketChannel inner, SocketChannel outer,
                    int bufferCount, int bufferSize) throws IOException {
         this.key = UUID.randomUUID().toString();
         this.crusher = crusher;
+        this.reactor = reactor;
         this.frozen = true;
+        this.opened = true;
 
         this.inner = inner;
         this.outer = outer;
 
         this.innerClientAddr = (InetSocketAddress) inner.getRemoteAddress();
         this.innerListenAddr = (InetSocketAddress) inner.getLocalAddress();
-
         this.outerClientAddr = (InetSocketAddress) outer.getLocalAddress();
         this.outerListenAddr = (InetSocketAddress) outer.getRemoteAddress();
 
-        this.innerKey = crusher.getReactor().registerSelector(inner, 0, this::innerCallback);
-        this.outerKey = crusher.getReactor().registerSelector(outer, 0, this::outerCallback);
+        this.innerKey = reactor.registerSelector(inner, 0, this::innerCallback);
+        this.outerKey = reactor.registerSelector(outer, 0, this::outerCallback);
 
-        TcpTransferQueue innerToOuter = new TcpTransferQueue(bufferCount, bufferSize);
-        TcpTransferQueue outerToInner = new TcpTransferQueue(bufferCount, bufferSize);
+        TcpQueue innerToOuter = new TcpQueue(bufferCount, bufferSize);
+        TcpQueue outerToInner = new TcpQueue(bufferCount, bufferSize);
 
-        this.innerTransfer = new TcpTransfer("INNER", this.outerKey, outerToInner, innerToOuter);
-        this.outerTransfer = new TcpTransfer("OUTER", this.innerKey, innerToOuter, outerToInner);
+        List<ByteBufferFilter> outgoingFilters = filters.getOutgoing().createFilters(innerClientAddr);
+        this.innerTransfer = new TcpTransfer("INNER", this.outerKey, outerToInner, innerToOuter,
+            outgoingFilters);
+
+        List<ByteBufferFilter> incomingFilters = filters.getIncoming().createFilters(innerClientAddr);
+        this.outerTransfer = new TcpTransfer("OUTER", this.innerKey, innerToOuter, outerToInner,
+            incomingFilters);
+    }
+
+    /**
+     * Start transfer after pair is created
+     * @see TcpPair#freeze()
+     */
+    public synchronized void unfreeze() throws IOException {
+        if (opened) {
+            if (frozen) {
+                reactor.executeSelectorOp(() -> {
+                    int ops;
+
+                    ops = innerTransfer.getIncoming().isEmpty() ?
+                        SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+                    innerKey.interestOps(ops);
+
+                    ops = outerTransfer.getIncoming().isEmpty() ?
+                        SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+                    outerKey.interestOps(ops);
+
+                    return null;
+                });
+
+                frozen = false;
+            }
+        } else {
+            throw new IllegalStateException("Pair is closed");
+        }
+    }
+
+    /**
+     * Freezes any transfer. Sockets are still open but data are not sent
+     * @see TcpPair#unfreeze()
+     */
+    public synchronized void freeze() throws IOException {
+        if (opened) {
+            if (!frozen) {
+                reactor.executeSelectorOp(() -> {
+                    if (innerKey.isValid()) {
+                        innerKey.interestOps(0);
+                    }
+
+                    if (outerKey.isValid()) {
+                        outerKey.interestOps(0);
+                    }
+
+                    return null;
+                });
+
+                frozen = true;
+            }
+        } else {
+            throw new IllegalStateException("Pair is closed");
+        }
+    }
+
+    /**
+     * Is the pair frozen
+     * @return Return true if freeze() on this pair was called before
+     * @see TcpPair#unfreeze()
+     * @see TcpPair#freeze()
+     */
+    public boolean isFrozen() {
+        return frozen;
+    }
+
+    /**
+     * Closes this paired connection
+     */
+    @Override
+    public synchronized void close() throws IOException {
+        if (opened) {
+            freeze();
+
+            NioUtils.closeChannel(inner);
+            NioUtils.closeChannel(outer);
+
+            opened = false;
+
+            LOGGER.debug("Pair '{}' is closed", this.getKey());
+        }
+    }
+
+    private void closeInternal() throws IOException {
+        reactor.execute(() -> {
+            crusher.closePair(this.getKey());
+            return null;
+        });
+    }
+
+    private void callback(SelectionKey selectionKey,
+                          AbstractSelectableChannel thisChannel,
+                          TcpTransfer thisTransfer,
+                          AbstractSelectableChannel thatChannel) throws IOException
+    {
+        try {
+            thisTransfer.handleEvent(selectionKey);
+        } catch (EOFException | ClosedChannelException e) {
+            LOGGER.trace("EOF on transfer or channel is closed on {}", thisTransfer.getName());
+            if (thisTransfer.getOutgoing().pending() > 0) {
+                NioUtils.closeChannel(thisChannel);
+            } else {
+                closeInternal();
+            }
+        } catch (IOException e) {
+            LOGGER.error("IO exception on {}", thisTransfer.getName(), e);
+            closeInternal();
+        }
+
+        if (thisChannel.isOpen() && !thatChannel.isOpen() && thisTransfer.getIncoming().pending() == 0) {
+            closeInternal();
+        }
+    }
+
+    private void innerCallback(SelectionKey selectionKey) throws IOException {
+        callback(selectionKey, inner, innerTransfer, outer);
+    }
+
+    private void outerCallback(SelectionKey selectionKey) throws IOException {
+        callback(selectionKey, outer, outerTransfer, inner);
     }
 
     /**
@@ -106,111 +242,6 @@ public class TcpPair implements Closeable {
      */
     public InetSocketAddress getOuterListenAddr() {
         return outerListenAddr;
-    }
-
-    /**
-     * Start transfer after pair is created
-     * @see TcpPair#freeze()
-     */
-    public synchronized void unfreeze() throws IOException {
-        if (frozen) {
-            crusher.getReactor().executeSelectorOp(() -> {
-                int ops;
-
-                ops = innerTransfer.getIncoming().size() > 0 ?
-                    SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
-                innerKey.interestOps(ops);
-
-                ops = outerTransfer.getIncoming().size() > 0 ?
-                    SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
-                outerKey.interestOps(ops);
-
-                return null;
-            });
-
-            frozen = false;
-        }
-    }
-
-    /**
-     * Freezes any transfer. Sockets are still open but data are not sent
-     * @see TcpPair#unfreeze()
-     */
-    public synchronized void freeze() throws IOException {
-        if (!frozen) {
-            crusher.getReactor().executeSelectorOp(() -> {
-                if (innerKey.isValid()) {
-                    innerKey.interestOps(0);
-                }
-                if (outerKey.isValid()) {
-                    outerKey.interestOps(0);
-                }
-
-                return null;
-            });
-
-            frozen = true;
-        }
-    }
-
-    /**
-     * Is pair freezed
-     * @return Return true if freeze() on this pair was called before
-     * @see TcpPair#unfreeze()
-     * @see TcpPair#freeze()
-     */
-    public boolean isFrozen() {
-        return frozen;
-    }
-
-    /**
-     * Closes this paired connection
-     */
-    @Override
-    public synchronized void close() throws IOException {
-        freeze();
-
-        NioUtils.closeChannel(inner);
-        NioUtils.closeChannel(outer);
-
-        LOGGER.debug("Pair '{}' is closed", this.getKey());
-    }
-
-    private void closeInternal() throws IOException {
-        crusher.removePair(this.getKey());
-        close();
-    }
-
-    private void callback(SelectionKey selectionKey,
-                          AbstractSelectableChannel thisChannel,
-                          TcpTransfer thisTransfer,
-                          AbstractSelectableChannel thatChannel) throws IOException
-    {
-        try {
-            thisTransfer.handleEvent(selectionKey);
-        } catch (EOFException e) {
-            LOGGER.trace("EOF on transfer {}", thisTransfer.getName());
-            if (thisTransfer.getOutgoing().pending() > 0) {
-                NioUtils.closeChannel(thisChannel);
-            } else {
-                closeInternal();
-            }
-        } catch (IOException e) {
-            LOGGER.error("Fail to handle event for socket channel", e);
-            closeInternal();
-        }
-
-        if (thisChannel.isOpen() && !thatChannel.isOpen() && thisTransfer.getIncoming().pending() == 0) {
-            closeInternal();
-        }
-    }
-
-    private void innerCallback(SelectionKey selectionKey) throws IOException {
-        callback(selectionKey, inner, innerTransfer, outer);
-    }
-
-    private void outerCallback(SelectionKey selectionKey) throws IOException {
-        callback(selectionKey, outer, outerTransfer, inner);
     }
 
 }

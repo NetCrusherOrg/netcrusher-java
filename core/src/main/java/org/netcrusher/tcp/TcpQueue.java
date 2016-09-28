@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 /**
  * Circular queue for ByteBuffer cells with restricted capacity
  */
-public class TcpTransferQueue implements Serializable {
+public class TcpQueue implements Serializable {
 
     private final ByteBuffer[] buffers;
 
@@ -20,7 +20,7 @@ public class TcpTransferQueue implements Serializable {
 
     private long pending;
 
-    public TcpTransferQueue(int bufferCount, int bufferSize) {
+    public TcpQueue(int bufferCount, int bufferSize) {
         if (bufferCount <= 1) {
             throw new IllegalArgumentException("Buffer capacity is invalid");
         }

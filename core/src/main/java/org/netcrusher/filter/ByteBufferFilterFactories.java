@@ -24,8 +24,9 @@ public class ByteBufferFilterFactories {
      * Add a new factory to the list
      * @param factory Filter factory instance
      */
-    public void add(ByteBufferFilterFactory factory) {
+    public ByteBufferFilterFactories append(ByteBufferFilterFactory factory) {
         list.add(factory);
+        return this;
     }
 
     /**

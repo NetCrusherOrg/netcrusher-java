@@ -1,6 +1,7 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.common.NioUtils;
+import org.netcrusher.filter.ByteBufferFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +12,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.WritableByteChannel;
+import java.util.List;
 
 public class TcpTransfer {
 
@@ -20,15 +22,20 @@ public class TcpTransfer {
 
     private final SelectionKey otherSideKey;
 
-    private final TcpTransferQueue incoming;
+    private final TcpQueue incoming;
 
-    private final TcpTransferQueue outgoing;
+    private final TcpQueue outgoing;
 
-    public TcpTransfer(String name, SelectionKey otherSideKey, TcpTransferQueue incoming, TcpTransferQueue outgoing) {
+    private final List<ByteBufferFilter> filters;
+
+    public TcpTransfer(String name, SelectionKey otherSideKey,
+                       TcpQueue incoming, TcpQueue outgoing,
+                       List<ByteBufferFilter> filters) {
         this.name = name;
         this.otherSideKey = otherSideKey;
         this.incoming = incoming;
         this.outgoing = outgoing;
+        this.filters = filters;
     }
 
     public String getName() {
@@ -36,30 +43,15 @@ public class TcpTransfer {
     }
 
     protected void handleEvent(SelectionKey selectionKey) throws IOException {
-        if (!selectionKey.isValid()) {
-            throw new IOException("Selection key is not valid");
-        }
-
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Started event handling for {} [incoming={}, outgoing={}]",
-                new Object[] { name, incoming.pending(), outgoing.pending() });
-        }
-
         if (selectionKey.isReadable()) {
             handleReadable(selectionKey, outgoing);
         }
-
         if (selectionKey.isWritable()) {
             handleWritable(selectionKey, incoming);
         }
-
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Finished event handling for {} [incoming={}, outgoing={}]",
-                new Object[] { name, incoming.pending(), outgoing.pending() });
-        }
     }
 
-    private void handleWritable(SelectionKey selectionKey, TcpTransferQueue queue) throws IOException {
+    private void handleWritable(SelectionKey selectionKey, TcpQueue queue) throws IOException {
         while (true) {
             ByteBuffer bb = queue.requestTailBuffer();
             if (bb == null) {
@@ -80,7 +72,7 @@ public class TcpTransfer {
         }
     }
 
-    private void handleReadable(SelectionKey selectionKey, TcpTransferQueue queue) throws IOException {
+    private void handleReadable(SelectionKey selectionKey, TcpQueue queue) throws IOException {
         while (true) {
             ByteBuffer bb = queue.requestHeadBuffer();
             if (bb == null) {
@@ -126,11 +118,11 @@ public class TcpTransfer {
         }
     }
 
-    protected TcpTransferQueue getIncoming() {
+    protected TcpQueue getIncoming() {
         return incoming;
     }
 
-    protected TcpTransferQueue getOutgoing() {
+    protected TcpQueue getOutgoing() {
         return outgoing;
     }
 

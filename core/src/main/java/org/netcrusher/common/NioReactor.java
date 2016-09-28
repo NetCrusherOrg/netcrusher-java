@@ -137,7 +137,7 @@ public class NioReactor implements Closeable {
             selector.wakeup();
 
             try {
-                return op.getFuture().get();
+                return op.await();
             } catch (InterruptedException e) {
                 throw new InterruptedIOException("Reactor operation was interrupted");
             } catch (ExecutionException e) {

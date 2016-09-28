@@ -66,6 +66,9 @@ public class TcpCrusherBulkTest {
         TcpBulkClient client2 = server.getClients().iterator().next();
         client2.await(20000);
 
+        Assert.assertNotNull(client1.getRcvDigest());
+        Assert.assertNotNull(client2.getRcvDigest());
+
         Assert.assertArrayEquals(client1.getRcvDigest(), client2.getSndDigest());
         Assert.assertArrayEquals(client2.getRcvDigest(), client1.getSndDigest());
 

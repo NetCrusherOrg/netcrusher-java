@@ -2,6 +2,7 @@ package org.netcrusher.common;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class NioReactorOp<T> implements Runnable {
 
@@ -24,8 +25,8 @@ public class NioReactorOp<T> implements Runnable {
         }
     }
 
-    public CompletableFuture<T> getFuture() {
-        return future;
+    public T await() throws InterruptedException, ExecutionException {
+        return future.get();
     }
 
 }

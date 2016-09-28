@@ -6,8 +6,10 @@ import org.netcrusher.filter.ByteBufferFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.PortUnreachableException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
@@ -72,7 +74,10 @@ public class DatagramOuter {
 
         this.selectionKey = reactor.registerSelector(channel, 0, this::callback);
 
-        LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, remoteAddress);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Outer for <{}> to <{}> is started with {} incoming and {} outgoing filters",
+                new Object[]{clientAddress, remoteAddress, incomingFilters.size(), outgoingFilters.size()});
+        }
     }
 
     protected synchronized void unfreeze() {
@@ -138,6 +143,12 @@ public class DatagramOuter {
         } catch (ClosedChannelException e) {
             LOGGER.debug("Channel is closed");
             closeInternal();
+        } catch (EOFException e) {
+            LOGGER.debug("EOF is reached");
+            closeInternal();
+        } catch (PortUnreachableException e) {
+            LOGGER.debug("Port is unreachable");
+            closeInternal();
         } catch (IOException e) {
             LOGGER.error("Exception in outer", e);
             closeInternal();
@@ -180,7 +191,7 @@ public class DatagramOuter {
         while (true) {
             int read = channel.read(bb);
             if (read < 0) {
-                throw new ClosedChannelException();
+                throw new EOFException();
             }
             if (read == 0) {
                 break;
@@ -221,7 +232,7 @@ public class DatagramOuter {
         ByteBuffer filtered = bb;
 
         if (!outgoingFilters.isEmpty()) {
-            for (ByteBufferFilter filter : incomingFilters) {
+            for (ByteBufferFilter filter : outgoingFilters) {
                 filtered = filter.filter(filtered);
             }
         }

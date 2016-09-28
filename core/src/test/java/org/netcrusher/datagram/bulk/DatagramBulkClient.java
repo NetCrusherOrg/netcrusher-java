@@ -4,8 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.PortUnreachableException;
+import java.net.SocketAddress;
 import java.net.StandardProtocolFamily;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -22,9 +25,9 @@ public class DatagramBulkClient implements Closeable {
 
     private static final int SND_BUFFER_SIZE = 1400;
 
-    private final DatagramChannel incoming;
+    private final String name;
 
-    private final DatagramChannel outgoing;
+    private final DatagramChannel channel;
 
     private final long count;
 
@@ -34,32 +37,33 @@ public class DatagramBulkClient implements Closeable {
 
     private final Thread sndThread;
 
-    private final byte[] rcvDigest;
+    private byte[] rcvDigest;
 
-    private final byte[] sndDigest;
+    private byte[] sndDigest;
 
-    public DatagramBulkClient(InetSocketAddress localAddress, InetSocketAddress remoteAddress, long count)
-            throws IOException
+    public DatagramBulkClient(String name,
+                              InetSocketAddress localAddress,
+                              InetSocketAddress remoteAddress,
+                              long count) throws IOException
     {
-        this.incoming = DatagramChannel.open(StandardProtocolFamily.INET);
-        this.incoming.configureBlocking(true);
-        this.incoming.bind(localAddress);
+        this.channel = DatagramChannel.open(StandardProtocolFamily.INET);
+        this.channel.configureBlocking(true);
+        this.channel.bind(localAddress);
+        this.channel.connect(remoteAddress);
 
-        this.outgoing = DatagramChannel.open(StandardProtocolFamily.INET);
-        this.outgoing.configureBlocking(true);
-        this.outgoing.connect(remoteAddress);
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("Bulk client {}: BIND<{}> CONNECT<{}>", new Object[]{name, localAddress, remoteAddress});
+        }
 
+        this.name = name;
         this.count = count;
         this.random = new Random();
 
-        this.sndDigest = new byte[16];
-        this.rcvDigest = new byte[16];
-
         this.rcvThread = new Thread(this::rcvLoop);
-        this.rcvThread.setName("Rcv loop");
+        this.rcvThread.setName("Rcv loop [" + name + "]");
 
         this.sndThread = new Thread(this::sndLoop);
-        this.sndThread.setName("Snd loop");
+        this.sndThread.setName("Snd loop [" + name + "]");
     }
 
     public void open() {
@@ -69,8 +73,7 @@ public class DatagramBulkClient implements Closeable {
 
     @Override
     public void close() throws IOException {
-        incoming.close();
-        outgoing.close();
+        channel.close();
 
         boolean interrupted = false;
 
@@ -95,7 +98,14 @@ public class DatagramBulkClient implements Closeable {
 
     public void await(long timeoutMs) throws InterruptedException {
         sndThread.join(timeoutMs);
+        if (sndThread.isAlive()) {
+            LOGGER.warn("Write thread {} is still alive", name);
+        }
+
         rcvThread.join(timeoutMs);
+        if (rcvThread.isAlive()) {
+            LOGGER.warn("Read thread {} is still alive", name);
+        }
     }
 
     public byte[] getSndDigest() {
@@ -107,17 +117,19 @@ public class DatagramBulkClient implements Closeable {
     }
 
     public void rcvLoop() {
-        LOGGER.debug("Read loop started");
+        LOGGER.debug("Read loop {} started", name);
 
         ByteBuffer bb = ByteBuffer.allocate(RCV_BUFFER_SIZE);
         MessageDigest md = createMessageDigest();
 
-        for (long elapsed = count; elapsed > 0 && !Thread.currentThread().isInterrupted(); ) {
+        long processed = 0;
+        while (processed < count && !Thread.currentThread().isInterrupted()) {
             bb.clear();
 
+            SocketAddress socketAddress;
             try {
-                incoming.receive(bb);
-            } catch (ClosedChannelException e) {
+                socketAddress = channel.receive(bb);
+            } catch (ClosedChannelException | EOFException e) {
                 LOGGER.debug("Socket is closed");
                 break;
             } catch (IOException e) {
@@ -125,48 +137,68 @@ public class DatagramBulkClient implements Closeable {
                 break;
             }
 
+            if (socketAddress == null) {
+                throw new IllegalStateException("Socket is null");
+            }
+
             bb.flip();
-            elapsed -= bb.limit();
+            processed += bb.limit();
 
             md.update(bb);
         }
 
-        md.digest(rcvDigest);
+        rcvDigest = md.digest();
 
-        LOGGER.debug("Read loop has finished");
+        LOGGER.debug("Read loop {} has finished with {} bytes", name, processed);
     }
 
     public void sndLoop() {
-        LOGGER.debug("Write loop started");
+        LOGGER.debug("Write loop {} started", name);
 
         ByteBuffer bb = ByteBuffer.allocate(SND_BUFFER_SIZE);
         MessageDigest md = createMessageDigest();
 
-        for (long elapsed = count; elapsed > 0 && !Thread.currentThread().isInterrupted(); ) {
+        long processed = 0;
+        while (processed < count && !Thread.currentThread().isInterrupted()) {
             random.nextBytes(bb.array());
 
-            int limit = (int) Math.min(bb.capacity(), elapsed);
+            int limit = (int) Math.min(bb.capacity(), count - processed);
             bb.limit(limit);
             bb.position(0);
             md.update(bb);
 
             bb.position(0);
             try {
-                outgoing.write(bb);
-            } catch (ClosedChannelException e) {
+                channel.write(bb);
+            } catch (ClosedChannelException | EOFException e) {
                 LOGGER.debug("Socket is closed");
+                break;
+            } catch (PortUnreachableException e) {
+                LOGGER.debug("Port is unreachable", e);
                 break;
             } catch (IOException e) {
                 LOGGER.error("Exception on write", e);
                 break;
             }
 
-            elapsed -= limit;
+            if (bb.hasRemaining()) {
+                throw new IllegalStateException("Datagram is splitted");
+            }
+
+            // we need to slow down otherwise packets will be lost
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                LOGGER.debug("Thread is interrupted");
+                break;
+            }
+
+            processed += limit;
         }
 
-        md.digest(sndDigest);
+        sndDigest = md.digest();
 
-        LOGGER.debug("Write loop has finished");
+        LOGGER.debug("Write loop {} has finished with {} bytes", name, processed);
     }
 
     private static MessageDigest createMessageDigest() {
