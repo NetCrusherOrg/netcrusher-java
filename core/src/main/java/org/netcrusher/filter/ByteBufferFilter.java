@@ -17,22 +17,16 @@ import java.nio.ByteBuffer;
  * <p>Filter that inverses all bytes:</p>
  * <pre>
  * ByteBuffer filter(ByteBuffer bb) {
- *     final int size = bb.limit();
- *
  *     if (bb.hasArray()) {
  *         final byte[] data = bb.array();
- *         for (int i = 0; i < size; i++) {
+ *         for (int i = bb.arrayOffset(), limit = bb.arrayOffset() + bb.limit(); i < limit; i++) {
  *             data[i] = (byte) ~data[i];
  *         }
  *     } else {
- *         for (int i = 0; i < size; i++) {
+ *         for (int i = 0, limit = bb.limit; i < limit; i++) {
  *             bb.put(i, (byte) ~bb.get(i));
  *         }
  *     }
- *
- *     bb.position(0);
- *     bb.limit(size);
- *
  *     return bb;
  * }
  *</pre>

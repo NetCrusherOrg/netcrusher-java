@@ -14,7 +14,7 @@ public class InverseFilter1 implements ByteBufferFilter {
             throw new IllegalArgumentException("Filter works with byte array buffer only");
         }
 
-        byte[] bytes = bb.array(); // byte array buffer is expected
+        final byte[] bytes = bb.array(); // byte array buffer is expected
 
         for (int i = bb.arrayOffset(), limit = bb.arrayOffset() + bb.limit(); i < limit; i++) {
             bytes[i] = (byte) ~bytes[i];
