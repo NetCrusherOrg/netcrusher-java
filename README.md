@@ -4,7 +4,8 @@ NetCrusher is TCP/UDP proxy for java that sit in the middle between client and s
 
 * emulates network failures that lead to remote socket closing
 * emulates frozen connection
-* emulates broken data (TBD)
+* allows to check the state of connections
+* allows to filter/dump data
 * emulates slow network (TBD)
 
 NetCrusher is build on top of Java NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
@@ -16,8 +17,8 @@ NioReactor reactor = new NioReactor();
 
 TcpCrusher crusher = TcpCrusherBuilder.builder()
     .withReactor(reactor)
-    .withLocalAddress("localhost", 10080)
-    .withRemoteAddress("google.com", 80)
+    .withBindAddress("localhost", 10080)
+    .withConnectAddress("google.com", 80)
     .buildAndOpen();
 
 // now you connect to localhost:10080
@@ -41,8 +42,8 @@ NioReactor reactor = new NioReactor();
 
 DatagramCrusher crusher = DatagramCrusherBuilder.builder()
     .withReactor(reactor)
-    .withLocalAddress("localhost", 10188)
-    .withRemoteAddress("time-nw.nist.gov", 37)
+    .withBindAddress("localhost", 10188)
+    .withConnectAddress("time-nw.nist.gov", 37)
     .buildAndOpen();
 
 // start getting RFC-868 timestamp on localhost:10188
