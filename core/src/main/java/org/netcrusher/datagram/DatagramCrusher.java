@@ -140,7 +140,7 @@ public class DatagramCrusher implements Closeable {
     }
 
     /**
-     * Check is crusher frozen
+     * Check is the crusher frozen
      * @return Frozen flag
      */
     public boolean isFrozen() {

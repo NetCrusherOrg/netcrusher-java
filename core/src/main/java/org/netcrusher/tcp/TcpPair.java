@@ -19,6 +19,8 @@ public class TcpPair {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpPair.class);
 
+    private static final long LINGER_PERIOD_MS = 10000;
+
     private final SocketChannel inner;
 
     private final SelectionKey innerKey;
@@ -143,12 +145,12 @@ public class TcpPair {
 
                 int incomingBytes = innerTransfer.getIncoming().calculateReadyBytes();
                 if (incomingBytes > 0) {
-                    LOGGER.debug("On closing pair for {} has {} incoming bytes", incomingBytes);
+                    LOGGER.debug("The pair for {} has {} incoming bytes when closing", incomingBytes);
                 }
 
                 int outgoingBytes = innerTransfer.getOutgoing().calculateReadyBytes();
                 if (outgoingBytes > 0) {
-                    LOGGER.debug("On closing pair for {} has {} outgoing bytes", outgoingBytes);
+                    LOGGER.debug("The pair for {} has {} outgoing bytes when closing", outgoingBytes);
                 }
             }
         }
@@ -172,6 +174,10 @@ public class TcpPair {
             LOGGER.trace("EOF on transfer or channel is closed on {}", thisTransfer.getName());
             if (thisTransfer.getOutgoing().calculateReadyBytes() > 0) {
                 NioUtils.closeChannel(thisChannel);
+                reactor.schedule(LINGER_PERIOD_MS, () -> {
+                    this.closeInternal();
+                    return null;
+                });
             } else {
                 closeInternal();
             }

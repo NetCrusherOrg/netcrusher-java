@@ -9,25 +9,26 @@ import java.nio.ByteBuffer;
  *
  * <p>Filter that filters nothing:</p>
  * <pre>
- * ByteBuffer filter(ByteBuffer bb) {
- *     return bb;
+ * void filter(ByteBuffer bb) {
+ *     // no op
  * }
  * </pre>
  *
  * <p>Filter that inverses all bytes:</p>
  * <pre>
- * ByteBuffer filter(ByteBuffer bb) {
+ * void filter(ByteBuffer bb) {
  *     if (bb.hasArray()) {
- *         final byte[] data = bb.array();
- *         for (int i = bb.arrayOffset(), limit = bb.arrayOffset() + bb.limit(); i < limit; i++) {
- *             data[i] = (byte) ~data[i];
+ *         final byte[] bytes = bb.array();
+ *         final int offset = bb.arrayOffset() + bb.position();
+ *         final int limit = bb.arrayOffset() + bb.limit();
+ *         for (int i = offset; i < limit; i++) {
+ *             bytes[i] = (byte) ~bytes[i];
  *         }
  *     } else {
  *         for (int i = 0, limit = bb.limit; i < limit; i++) {
  *             bb.put(i, (byte) ~bb.get(i));
  *         }
  *     }
- *     return true;
  * }
  *</pre>
  */
