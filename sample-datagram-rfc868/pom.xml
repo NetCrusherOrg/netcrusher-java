@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.netcrusherorg</groupId>
-    <artifactId>sample-hsqldb-bonecp</artifactId>
+    <artifactId>sample-datagram-rfc868</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
 
@@ -91,20 +91,6 @@
             <groupId>com.github.netcrusherorg</groupId>
             <artifactId>netcrusher-core</artifactId>
             <version>0.6-SNAPSHOT</version>
-        </dependency>
-        <!-- hsqldb -->
-        <dependency>
-            <groupId>org.hsqldb</groupId>
-            <artifactId>hsqldb</artifactId>
-            <version>2.3.4</version>
-            <scope>test</scope>
-        </dependency>
-        <!-- bonecp -->
-        <dependency>
-            <groupId>com.jolbox</groupId>
-            <artifactId>bonecp</artifactId>
-            <version>0.8.0.RELEASE</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 

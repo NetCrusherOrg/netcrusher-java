@@ -51,6 +51,14 @@ public class DatagramCrusherRFC868Test {
     public void testRFC868() throws Exception {
         check();
 
+        Assert.assertEquals(1, crusher.getOuters().size());
+        DatagramOuter outer = crusher.getOuters().iterator().next();
+        Assert.assertNotNull(outer);
+        Assert.assertEquals(1, outer.getTotalSentDatagrams());
+        Assert.assertEquals(1, outer.getTotalReadDatagrams());
+        Assert.assertEquals(1, outer.getTotalSentBytes());
+        Assert.assertEquals(4, outer.getTotalReadBytes());
+
         crusher.crush();
 
         check();
