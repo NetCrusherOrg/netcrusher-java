@@ -67,7 +67,7 @@ public class DatagramCrusherSocketOptions implements Serializable {
         this.protocolFamily = protocolFamily;
     }
 
-    protected void setupSocketChannel(DatagramChannel datagramChannel) throws IOException {
+    void setupSocketChannel(DatagramChannel datagramChannel) throws IOException {
         datagramChannel.setOption(StandardSocketOptions.SO_BROADCAST, broadcast);
 
         if (rcvBufferSize > 0) {

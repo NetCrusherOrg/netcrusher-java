@@ -31,8 +31,8 @@ public class DatagramCrusherRFC868Test {
 
         crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
-            .withLocalAddress(LOCAL_ADDRESS)
-            .withRemoteAddress(REMOTE_ADDRESS)
+            .withBindAddress(LOCAL_ADDRESS)
+            .withConnectAddress(REMOTE_ADDRESS)
             .buildAndOpen();
     }
 

@@ -49,15 +49,15 @@ public class TcpCrusher implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpCrusher.class);
 
-    private final InetSocketAddress localAddress;
+    private final InetSocketAddress bindAddress;
 
-    private final InetSocketAddress remoteAddress;
+    private final InetSocketAddress connectAddress;
 
     private final TcpCrusherSocketOptions socketOptions;
 
     private final NioReactor reactor;
 
-    private final Map<String, TcpPair> pairs;
+    private final Map<InetSocketAddress, TcpPair> pairs;
 
     private final Consumer<TcpPair> creationListener;
 
@@ -77,17 +77,18 @@ public class TcpCrusher implements Closeable {
 
     private volatile boolean frozen;
 
-    protected TcpCrusher(InetSocketAddress localAddress,
-                         InetSocketAddress remoteAddress,
-                         TcpCrusherSocketOptions socketOptions,
-                         NioReactor reactor,
-                         Consumer<TcpPair> creationListener,
-                         Consumer<TcpPair> deletionListener,
-                         int bufferCount,
-                         int bufferSize)
+    TcpCrusher(
+            InetSocketAddress bindAddress,
+            InetSocketAddress connectAddress,
+            TcpCrusherSocketOptions socketOptions,
+            NioReactor reactor,
+            Consumer<TcpPair> creationListener,
+            Consumer<TcpPair> deletionListener,
+            int bufferCount,
+            int bufferSize)
     {
-        this.localAddress = localAddress;
-        this.remoteAddress = remoteAddress;
+        this.bindAddress = bindAddress;
+        this.connectAddress = connectAddress;
         this.reactor = reactor;
         this.socketOptions = socketOptions;
         this.opened = false;
@@ -109,21 +110,21 @@ public class TcpCrusher implements Closeable {
             throw new IllegalStateException("TcpCrusher is already active");
         }
 
-        LOGGER.debug("TcpCrusher <{}>-<{}> will be opened", localAddress, remoteAddress);
+        LOGGER.debug("TcpCrusher <{}>-<{}> will be opened", bindAddress, connectAddress);
 
         this.serverSocketChannel = ServerSocketChannel.open();
         this.serverSocketChannel.configureBlocking(false);
         this.serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
 
         if (socketOptions.getBacklog() > 0) {
-            this.serverSocketChannel.bind(localAddress, socketOptions.getBacklog());
+            this.serverSocketChannel.bind(bindAddress, socketOptions.getBacklog());
         } else {
-            this.serverSocketChannel.bind(localAddress);
+            this.serverSocketChannel.bind(bindAddress);
         }
 
         serverSelectionKey = reactor.registerSelector(serverSocketChannel, 0, (selectionKey) -> this.accept());
 
-        LOGGER.debug("TcpCrusher <{}>-<{}> is opened", localAddress, remoteAddress);
+        LOGGER.debug("TcpCrusher <{}>-<{}> is opened", bindAddress, connectAddress);
 
         opened = true;
 
@@ -136,7 +137,7 @@ public class TcpCrusher implements Closeable {
     @Override
     public synchronized void close() throws IOException {
         if (opened) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> will be closed", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> will be closed", bindAddress, connectAddress);
 
             freeze();
 
@@ -150,7 +151,7 @@ public class TcpCrusher implements Closeable {
 
             reactor.wakeupSelector();
 
-            LOGGER.debug("TcpCrusher <{}>-<{}> is closed", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
 
             opened = false;
         }
@@ -162,10 +163,25 @@ public class TcpCrusher implements Closeable {
     public synchronized void closeAllPairs() throws IOException {
         if (opened) {
             for (TcpPair pair : getPairs()) {
-                closePair(pair.getKey());
+                closePair(pair.getClientAddress());
             }
         } else {
             throw new IllegalStateException("Crusher is not opened");
+        }
+    }
+
+    /**
+     * Close the pair by client address
+     * @param clientAddress Client address
+     * @throws IOException
+     */
+    public void closePair(InetSocketAddress clientAddress) throws IOException {
+        TcpPair pair = pairs.remove(clientAddress);
+        if (pair != null) {
+            pair.close();
+            if (deletionListener != null) {
+                reactor.execute(() -> deletionListener.accept(pair));
+            }
         }
     }
 
@@ -191,7 +207,7 @@ public class TcpCrusher implements Closeable {
      */
     public synchronized void freeze() throws IOException {
         if (opened) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> will be frozen", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> will be frozen", bindAddress, connectAddress);
 
             if (!frozen) {
                 reactor.executeSelectorOp(() -> {
@@ -207,7 +223,7 @@ public class TcpCrusher implements Closeable {
                 pair.freeze();
             }
 
-            LOGGER.debug("TcpCrusher <{}>-<{}> is frozen", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> is frozen", bindAddress, connectAddress);
         } else {
             throw new IllegalStateException("Crusher is not opened");
         }
@@ -223,7 +239,7 @@ public class TcpCrusher implements Closeable {
      */
     public synchronized void unfreeze() throws IOException {
         if (opened) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> will be unfrozen", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> will be unfrozen", bindAddress, connectAddress);
 
             for (TcpPair pair : pairs.values()) {
                 pair.unfreeze();
@@ -235,18 +251,10 @@ public class TcpCrusher implements Closeable {
                 frozen = false;
             }
 
-            LOGGER.debug("TcpCrusher <{}>-<{}> is unfrozen", localAddress, remoteAddress);
+            LOGGER.debug("TcpCrusher <{}>-<{}> is unfrozen", bindAddress, connectAddress);
         } else {
             throw new IllegalStateException("Crusher is not opened");
         }
-    }
-
-    /**
-     * Check is the crusher active
-     * @return Return 'true' if crusher proxy is active
-     */
-    public boolean isOpened() {
-        return opened;
     }
 
     protected void accept() throws IOException {
@@ -254,20 +262,20 @@ public class TcpCrusher implements Closeable {
         socketChannel1.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel1);
 
-        LOGGER.debug("Incoming connection is accepted on <{}>", localAddress);
+        LOGGER.debug("Incoming connection is accepted on <{}>", bindAddress);
 
         SocketChannel socketChannel2 = SocketChannel.open();
         socketChannel2.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel2);
 
-        boolean connected = socketChannel2.connect(remoteAddress);
+        boolean connected = socketChannel2.connect(connectAddress);
         if (!connected) {
             final Future<?> connectCheck;
             if (socketOptions.getConnectionTimeoutMs() > 0) {
                 connectCheck = reactor.schedule(socketOptions.getConnectionTimeoutMs(), () -> {
                     if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
                         LOGGER.warn("Fail to connect to <{}> in {}ms",
-                            remoteAddress, socketOptions.getConnectionTimeoutMs());
+                            connectAddress, socketOptions.getConnectionTimeoutMs());
                         NioUtils.closeChannel(socketChannel1);
                         NioUtils.closeChannel(socketChannel2);
                     }
@@ -280,7 +288,7 @@ public class TcpCrusher implements Closeable {
                 connectCheck.cancel(false);
 
                 if (!socketChannel2.finishConnect()) {
-                    LOGGER.warn("Fail to finish outgoing connection to <{}>", remoteAddress);
+                    LOGGER.warn("Fail to finish outgoing connection to <{}>", connectAddress);
                     NioUtils.closeChannel(socketChannel1);
                     NioUtils.closeChannel(socketChannel2);
                     return;
@@ -300,10 +308,9 @@ public class TcpCrusher implements Closeable {
                 bufferCount, bufferSize);
             pair.unfreeze();
 
-            LOGGER.debug("Pair '{}' is created for <{}>-<{}>",
-                new Object[] { pair.getKey(), localAddress, remoteAddress });
+            LOGGER.debug("Pair is created for <{}>", pair.getClientAddress());
 
-            pairs.put(pair.getKey(), pair);
+            pairs.put(pair.getClientAddress(), pair);
 
             if (creationListener != null) {
                 reactor.execute(() -> creationListener.accept(pair));
@@ -319,15 +326,12 @@ public class TcpCrusher implements Closeable {
         }
     }
 
-    protected void closePair(String pairKey) throws IOException {
-        TcpPair pair = pairs.remove(pairKey);
-        if (pair != null) {
-            pair.close();
-
-            if (deletionListener != null) {
-                reactor.execute(() -> deletionListener.accept(pair));
-            }
-        }
+    /**
+     * Check is the crusher active
+     * @return Return 'true' if crusher proxy is active
+     */
+    public boolean isOpened() {
+        return opened;
     }
 
     /**
@@ -342,16 +346,16 @@ public class TcpCrusher implements Closeable {
      * Get local listening address
      * @return Inet address
      */
-    public InetSocketAddress getLocalAddress() {
-        return localAddress;
+    public InetSocketAddress getBindAddress() {
+        return bindAddress;
     }
 
     /**
      * Get remote listening address
      * @return Inet address
      */
-    public InetSocketAddress getRemoteAddress() {
-        return remoteAddress;
+    public InetSocketAddress getConnectAddress() {
+        return connectAddress;
     }
 
     /**

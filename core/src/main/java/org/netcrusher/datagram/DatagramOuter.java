@@ -14,7 +14,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class DatagramOuter {
 
@@ -26,11 +27,11 @@ public class DatagramOuter {
 
     private final InetSocketAddress clientAddress;
 
-    private final InetSocketAddress remoteAddress;
+    private final InetSocketAddress connectAddress;
 
-    private final List<ByteBufferFilter> incomingFilters;
+    private final ByteBufferFilter[] incomingFilters;
 
-    private final List<ByteBufferFilter> outgoingFilters;
+    private final ByteBufferFilter[] outgoingFilters;
 
     private final DatagramQueue pending;
 
@@ -40,34 +41,49 @@ public class DatagramOuter {
 
     private final ByteBuffer bb;
 
-    private long lastOperationTimestamp;
+    private final AtomicLong totalSentBytes;
+
+    private final AtomicLong totalReadBytes;
+
+    private final AtomicInteger totalSentDatagrams;
+
+    private final AtomicInteger totalReadDatagrams;
 
     private boolean opened;
 
     private volatile boolean frozen;
 
-    public DatagramOuter(DatagramInner inner,
-                         NioReactor reactor,
-                         DatagramCrusherSocketOptions socketOptions,
-                         List<ByteBufferFilter> incomingFilters,
-                         List<ByteBufferFilter> outgoingFilters,
-                         InetSocketAddress clientAddress,
-                         InetSocketAddress remoteAddress) throws IOException {
+    private long lastOperationTimestamp;
+
+    DatagramOuter(
+            DatagramInner inner,
+            NioReactor reactor,
+            DatagramCrusherSocketOptions socketOptions,
+            ByteBufferFilter[] incomingFilters,
+            ByteBufferFilter[] outgoingFilters,
+            InetSocketAddress clientAddress,
+            InetSocketAddress connectAddress) throws IOException
+    {
         this.inner = inner;
         this.reactor = reactor;
         this.clientAddress = clientAddress;
-        this.remoteAddress = remoteAddress;
+        this.connectAddress = connectAddress;
         this.pending = new DatagramQueue();
         this.lastOperationTimestamp = System.currentTimeMillis();
         this.frozen = true;
         this.opened = true;
+
+        this.totalReadBytes = new AtomicLong(0);
+        this.totalSentBytes = new AtomicLong(0);
+        this.totalReadDatagrams = new AtomicInteger(0);
+        this.totalSentDatagrams = new AtomicInteger(0);
 
         this.incomingFilters = incomingFilters;
         this.outgoingFilters = outgoingFilters;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
-        this.channel.connect(remoteAddress);
+        this.channel.connect(connectAddress);
         this.channel.configureBlocking(false);
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
@@ -75,12 +91,11 @@ public class DatagramOuter {
         this.selectionKey = reactor.registerSelector(channel, 0, this::callback);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Outer for <{}> to <{}> is started with {} incoming and {} outgoing filters",
-                new Object[]{clientAddress, remoteAddress, incomingFilters.size(), outgoingFilters.size()});
+            LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, connectAddress);
         }
     }
 
-    protected synchronized void unfreeze() {
+    synchronized void unfreeze() {
         if (opened) {
             if (frozen) {
                 int ops = pending.isEmpty() ?
@@ -94,7 +109,7 @@ public class DatagramOuter {
         }
     }
 
-    protected synchronized void freeze() {
+    synchronized void freeze() {
         if (opened) {
             if (!frozen) {
                 if (selectionKey.isValid()) {
@@ -108,11 +123,11 @@ public class DatagramOuter {
         }
     }
 
-    protected synchronized void close() {
+    synchronized void close() {
         if (opened) {
             freeze();
 
-            if (!pending.isEmpty()) {
+            if (pending.bytes() > 0) {
                 LOGGER.warn("On closing outer has {} incoming datagrams with {} bytes in total",
                     pending.size(), pending.bytes());
             }
@@ -121,11 +136,11 @@ public class DatagramOuter {
 
             opened = false;
 
-            LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, remoteAddress);
+            LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, connectAddress);
         }
     }
 
-    protected void closeInternal() {
+    private void closeInternal() {
         reactor.execute(() -> {
             inner.closeOuter(clientAddress);
             return null;
@@ -172,14 +187,17 @@ public class DatagramOuter {
 
         DatagramQueue.Entry entry;
         while ((entry = pending.request()) != null) {
-            int written = channel.write(entry.getBuffer());
-            if (written == 0) {
+            int sent = channel.write(entry.getBuffer());
+            if (sent == 0) {
                 pending.retry(entry);
                 break;
             }
 
+            totalSentBytes.addAndGet(sent);
+            totalSentDatagrams.incrementAndGet();
+
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Written {} bytes to outer from <{}>", written, clientAddress);
+                LOGGER.trace("Written {} bytes to outer from <{}>", sent, clientAddress);
             }
 
             if (entry.getBuffer().hasRemaining()) {
@@ -209,51 +227,91 @@ public class DatagramOuter {
                 break;
             }
 
+            totalReadBytes.addAndGet(read);
+            totalReadDatagrams.incrementAndGet();
+
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Read {} bytes from outer for <{}>", read, clientAddress);
             }
 
             bb.flip();
-            inner.enqueue(clientAddress, filterIncoming(bb));
+
+            filter(bb, incomingFilters);
+
+            if (bb.hasRemaining()) {
+                inner.enqueue(clientAddress, bb);
+            }
+
             bb.clear();
 
             lastOperationTimestamp = System.currentTimeMillis();
         }
     }
 
-    protected void enqueue(ByteBuffer bbToCopy) {
-        boolean added = pending.add(clientAddress, filterOutgoing(bbToCopy));
-        if (added) {
-            NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
-        }
-    }
-
-    private ByteBuffer filterIncoming(ByteBuffer bb) {
-        ByteBuffer filtered = bb;
-
-        if (!incomingFilters.isEmpty()) {
-            for (ByteBufferFilter filter : incomingFilters) {
-                filtered = filter.filter(filtered);
+    void enqueue(ByteBuffer bb) {
+        filter(bb, outgoingFilters);
+        if (bb.hasRemaining()) {
+            boolean added = pending.add(bb);
+            if (added) {
+                NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
             }
         }
-
-        return filtered;
     }
 
-    private ByteBuffer filterOutgoing(ByteBuffer bb) {
-        ByteBuffer filtered = bb;
-
-        if (!outgoingFilters.isEmpty()) {
-            for (ByteBufferFilter filter : outgoingFilters) {
-                filtered = filter.filter(filtered);
+    private void filter(ByteBuffer bb, ByteBufferFilter[] filters) {
+        if (filters != null) {
+            for (ByteBufferFilter filter : filters) {
+                filter.filter(bb);
             }
         }
-
-        return filtered;
     }
 
-    protected long getIdleDurationMs() {
+    /**
+     * Get inner client address for this connection
+     * @return Address
+     */
+    public InetSocketAddress getClientAddress() {
+        return clientAddress;
+    }
+
+    /**
+     * How long was the connection idle
+     * @return Idle duration is milliseconds
+     */
+    public long getIdleDurationMs() {
         return System.currentTimeMillis() - lastOperationTimestamp;
+    }
+
+    /**
+     * How many bytes was sent from outer
+     * @return Bytes
+     */
+    public long getTotalSentBytes() {
+        return totalSentBytes.get();
+    }
+
+    /**
+     * How many bytes was received by outer
+     * @return Bytes
+     */
+    public long getTotalReadBytes() {
+        return totalReadBytes.get();
+    }
+
+    /**
+     * How many datagrams was sent by outer
+     * @return Datagram count
+     */
+    public int getTotalSentDatagrams() {
+        return totalSentDatagrams.get();
+    }
+
+    /**
+     * How many datagrams was received by outer
+     * @return Datagram count
+     */
+    public int getTotalReadDatagrams() {
+        return totalReadDatagrams.get();
     }
 }
 

@@ -31,20 +31,20 @@ public class TcpBulkTest {
 
     @Test
     public void test() throws Exception {
-        TcpBulkClient client1 = TcpBulkClient.forAddress(new InetSocketAddress(HOSTNAME, PORT_SERVER), COUNT);
+        TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_SERVER), COUNT);
         client1.await(10000);
 
         Assert.assertEquals(1, server.getClients().size());
         TcpBulkClient client2 = server.getClients().iterator().next();
         client2.await(10000);
 
+        client1.close();
+        client2.close();
+
         Assert.assertNotNull(client1.getRcvDigest());
         Assert.assertNotNull(client2.getRcvDigest());
 
         Assert.assertArrayEquals(client1.getRcvDigest(), client2.getSndDigest());
         Assert.assertArrayEquals(client2.getRcvDigest(), client1.getSndDigest());
-
-        client1.close();
-        client2.close();
     }
 }

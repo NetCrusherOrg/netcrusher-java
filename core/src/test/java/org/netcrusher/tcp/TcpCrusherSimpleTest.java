@@ -19,8 +19,8 @@ public class TcpCrusherSimpleTest {
 
         crusher = TcpCrusherBuilder.builder()
             .withReactor(reactor)
-            .withLocalAddress("localhost", LISTEN_PORT)
-            .withRemoteAddress("google.com", 80)
+            .withBindAddress("localhost", LISTEN_PORT)
+            .withConnectAddress("google.com", 80)
             .withConnectionTimeoutMs(5000)
             .withBacklog(100)
             .build();

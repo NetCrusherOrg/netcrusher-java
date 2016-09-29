@@ -5,6 +5,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.common.NioReactor;
+import org.netcrusher.filter.NopeFilter;
 import org.netcrusher.tcp.bulk.TcpBulkClient;
 import org.netcrusher.tcp.bulk.TcpBulkServer;
 
@@ -18,7 +19,7 @@ public class TcpCrusherBulkTest {
 
     private static final String HOSTNAME = "127.0.0.1";
 
-    private static final long COUNT = 64 * 1024 * 1024;
+    private static final long COUNT = 256 * 1024 * 1024;
 
     private NioReactor reactor;
 
@@ -34,9 +35,15 @@ public class TcpCrusherBulkTest {
 
         crusher = TcpCrusherBuilder.builder()
             .withReactor(reactor)
-            .withLocalAddress(HOSTNAME, PORT_CRUSHER)
-            .withRemoteAddress(HOSTNAME, PORT_SERVER)
+            .withBindAddress(HOSTNAME, PORT_CRUSHER)
+            .withConnectAddress(HOSTNAME, PORT_SERVER)
             .buildAndOpen();
+
+        crusher.getFilters().getOutgoing()
+            .append(NopeFilter.FACTORY);
+
+        crusher.getFilters().getIncoming()
+            .append(NopeFilter.FACTORY);
     }
 
     @After
@@ -59,20 +66,29 @@ public class TcpCrusherBulkTest {
         crusher.freeze();
         crusher.unfreeze();
 
-        TcpBulkClient client1 = TcpBulkClient.forAddress(new InetSocketAddress(HOSTNAME, PORT_CRUSHER), COUNT);
+        TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_CRUSHER), COUNT);
         client1.await(20000);
 
         Assert.assertEquals(1, server.getClients().size());
         TcpBulkClient client2 = server.getClients().iterator().next();
         client2.await(20000);
 
+        Assert.assertEquals(1, crusher.getPairs().size());
+        TcpPair pair = crusher.getPairs().iterator().next();
+        Assert.assertNotNull(pair);
+        Assert.assertNotNull(pair.getClientAddress());
+        Assert.assertEquals(COUNT, pair.getInnerTransfer().getTotalRead());
+        Assert.assertEquals(COUNT, pair.getInnerTransfer().getTotalSent());
+        Assert.assertEquals(COUNT, pair.getOuterTransfer().getTotalRead());
+        Assert.assertEquals(COUNT, pair.getOuterTransfer().getTotalSent());
+
+        client1.close();
+        client2.close();
+
         Assert.assertNotNull(client1.getRcvDigest());
         Assert.assertNotNull(client2.getRcvDigest());
 
         Assert.assertArrayEquals(client1.getRcvDigest(), client2.getSndDigest());
         Assert.assertArrayEquals(client2.getRcvDigest(), client1.getSndDigest());
-
-        client1.close();
-        client2.close();
     }
 }

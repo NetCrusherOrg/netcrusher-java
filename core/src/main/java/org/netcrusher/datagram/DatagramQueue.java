@@ -39,6 +39,10 @@ public class DatagramQueue implements Serializable {
         return entries.isEmpty();
     }
 
+    public boolean add(ByteBuffer bbToCopy) {
+        return add(null, bbToCopy);
+    }
+
     public boolean add(InetSocketAddress address, ByteBuffer bbToCopy) {
         if (bbToCopy.hasRemaining()) {
             ByteBuffer bb = NioUtils.copy(bbToCopy);

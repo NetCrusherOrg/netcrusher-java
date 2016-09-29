@@ -21,9 +21,9 @@ public class DatagramBulkClient implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramBulkClient.class);
 
-    private static final int RCV_BUFFER_SIZE = 16384;
+    public static final int RCV_BUFFER_SIZE = 64 * 1024;
 
-    private static final int SND_BUFFER_SIZE = 1400;
+    public static final int SND_BUFFER_SIZE = 1400;
 
     private final String name;
 

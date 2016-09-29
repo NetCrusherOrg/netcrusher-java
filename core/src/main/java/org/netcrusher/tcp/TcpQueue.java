@@ -1,143 +1,143 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.filter.ByteBufferFilter;
+
 import java.io.Serializable;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
-/**
- * Circular queue for ByteBuffer cells with restricted capacity
- */
 public class TcpQueue implements Serializable {
 
-    private final ByteBuffer[] buffers;
+    private final Deque<ByteBuffer> ready;
 
-    private final boolean[] reads;
+    private final Deque<ByteBuffer> stage;
 
-    private final int capacity;
+    private final ByteBuffer[] array;
 
-    private int offset;
+    private final ByteBufferFilter[] filters;
 
-    private int size;
+    public TcpQueue(ByteBufferFilter[] filters, int bufferCount, int bufferSize) {
+        this.ready = new ArrayDeque<>(bufferCount);
+        this.stage = new ArrayDeque<>(bufferCount);
+        this.array = new ByteBuffer[bufferCount];
+        this.filters = filters;
 
-    private long pending;
-
-    public TcpQueue(int bufferCount, int bufferSize) {
-        if (bufferCount <= 1) {
-            throw new IllegalArgumentException("Buffer capacity is invalid");
+        for (int i = 0; i < bufferCount; i++) {
+            ByteBuffer bb = ByteBuffer.allocate(bufferSize);
+            this.stage.add(bb);
         }
-        if (bufferSize < 16) {
-            throw new IllegalArgumentException("Buffer size is invalid");
-        }
-
-        this.capacity = bufferCount;
-
-        this.buffers = new ByteBuffer[capacity];
-        for (int i = 0; i < capacity; i++) {
-            this.buffers[i] = ByteBuffer.allocateDirect(bufferSize);
-        }
-
-        this.reads = new boolean[capacity];
-
-        clear();
     }
 
     public void clear() {
-        this.offset = 0;
-        this.size = 0;
-        this.pending = 0;
+        stage.addAll(ready);
+        ready.clear();
+        stage.forEach(ByteBuffer::clear);
     }
 
-    public int size() {
+    public int calculateReadyBytes() {
+        int size = 0;
+
+        for (ByteBuffer bb : ready) {
+            size += bb.remaining();
+        }
+
+        ByteBuffer bbToSteal = stage.peekFirst();
+        if (bbToSteal != null) {
+            size += bbToSteal.position();
+        }
+
         return size;
     }
 
-    public long pending() {
-        return pending;
-    }
+    public int calculateStageBytes() {
+        int size = 0;
 
-    public boolean isEmpty() {
-        return size == 0;
-    }
-
-    public boolean isFull() {
-        return size == capacity;
-    }
-
-    private int getHeadIndex() {
-        return cycle(offset + size - 1);
-    }
-
-    public ByteBuffer requestHeadBuffer() {
-        if (!isEmpty() && !reads[getHeadIndex()]) {
-            return buffers[getHeadIndex()];
-        } else if (isFull()) {
-            return null;
-        } else {
-            size = size + 1;
-
-            int index = getHeadIndex();
-            reads[index] = false;
-
-            ByteBuffer result = buffers[index];
-            result.clear();
-
-            return result;
-        }
-    }
-
-    public void releaseHeadBuffer() {
-        if (isEmpty()) {
-            throw new IllegalStateException("Queue is empty");
+        for (ByteBuffer bb : stage) {
+            size += bb.remaining();
         }
 
-        int index = getHeadIndex();
-        if (reads[index]) {
-            throw new IllegalStateException("Head buffer is already available to read");
-        } else {
-            reads[index] = true;
-            buffers[index].flip();
-        }
+        return size;
     }
 
-    public ByteBuffer requestTailBuffer() {
-        if (isEmpty()) {
-            return null;
-        } else {
-            ByteBuffer result = buffers[offset];
+    public int countReady() {
+        return ready.size();
+    }
 
-            if (!reads[offset]) {
-                if (size > 1) {
-                    throw new IllegalStateException("Buffer is not readable nor the last one");
-                }
-                if (result.position() > 0) {
-                    reads[offset] = true;
-                    result.flip();
-                } else {
-                    return null;
-                }
+    public int countStage() {
+        return stage.size();
+    }
+
+    public int requestReady() {
+        ByteBuffer bbToSteal = stage.peekFirst();
+        if (bbToSteal != null && bbToSteal.position() > 0) {
+            steal();
+        }
+
+        ready.toArray(array);
+        return ready.size();
+    }
+
+    public void cleanReady() {
+        while (!ready.isEmpty()) {
+            ByteBuffer bb = ready.getFirst();
+            if (bb.hasRemaining()) {
+                break;
+            } else {
+                donate();
             }
-
-            return result;
         }
     }
 
-    public void releaseTailBuffer() {
-        if (isEmpty()) {
-            throw new IllegalStateException("Queue is empty");
+    public int requestStage() {
+        stage.toArray(array);
+        return stage.size();
+    }
+
+    public void cleanStage() {
+        while (!stage.isEmpty()) {
+            ByteBuffer bb = stage.getFirst();
+            if (bb.hasRemaining()) {
+                break;
+            } else {
+                steal();
+            }
+        }
+    }
+
+    public ByteBuffer[] getArray() {
+        return array;
+    }
+
+    private void steal() {
+        ByteBuffer bb = stage.removeFirst();
+
+        bb.flip();
+
+        filter(bb);
+
+        if (bb.hasRemaining()) {
+            ready.addLast(bb);
         } else {
-            size = size - 1;
-            offset = cycle(offset + 1);
+            bb.clear();
+            stage.add(bb);
         }
     }
 
-    public void changePending(long delta) {
-        this.pending += delta;
+    private void donate() {
+        ByteBuffer bb = ready.removeFirst();
+
+        bb.clear();
+
+        stage.addLast(bb);
     }
 
-    private int cycle(int offset) {
-        if (offset < capacity) {
-            return offset;
-        } else {
-            return offset % capacity;
+    private void filter(ByteBuffer bb) {
+        if (filters != null) {
+            for (ByteBufferFilter filter : filters) {
+                filter.filter(bb);
+            }
         }
     }
+
 }

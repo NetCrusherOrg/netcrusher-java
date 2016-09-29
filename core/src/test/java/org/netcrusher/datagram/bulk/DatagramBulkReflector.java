@@ -18,7 +18,7 @@ public class DatagramBulkReflector implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramBulkReflector.class);
 
-    private static final int RCV_BUFFER_SIZE = 16384;
+    private static final int RCV_BUFFER_SIZE = 64 * 1024;
 
     private final String name;
 
@@ -26,10 +26,7 @@ public class DatagramBulkReflector implements Closeable {
 
     private final Thread thread;
 
-    public DatagramBulkReflector(String name,
-                                 InetSocketAddress localAddress,
-                                 long count) throws IOException
-    {
+    public DatagramBulkReflector(String name, InetSocketAddress localAddress) throws IOException {
         this.channel = DatagramChannel.open(StandardProtocolFamily.INET);
         this.channel.configureBlocking(true);
         this.channel.bind(localAddress);

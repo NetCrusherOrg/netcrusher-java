@@ -27,7 +27,7 @@ import java.nio.ByteBuffer;
  *             bb.put(i, (byte) ~bb.get(i));
  *         }
  *     }
- *     return bb;
+ *     return true;
  * }
  *</pre>
  */
@@ -36,9 +36,7 @@ public interface ByteBufferFilter {
     /**
      * Callback that filters input byte buffer and return output byte buffer
      * @param bb Input byte buffer with position set to 0 and limit set to buffer size
-     * @return Output byte buffer with position set to 0 and limit set buffer size. If filtering was made in-place
-     * then the input byte buffer allowed to be returned
      */
-    ByteBuffer filter(ByteBuffer bb);
+    void filter(ByteBuffer bb);
 
 }

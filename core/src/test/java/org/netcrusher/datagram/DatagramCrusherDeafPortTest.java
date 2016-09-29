@@ -27,8 +27,8 @@ public class DatagramCrusherDeafPortTest {
 
         crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
-            .withLocalAddress(HOSTNAME, CRUSHER_PORT)
-            .withRemoteAddress(HOSTNAME, DEAF_PORT)
+            .withBindAddress(HOSTNAME, CRUSHER_PORT)
+            .withConnectAddress(HOSTNAME, DEAF_PORT)
             .buildAndOpen();
     }
 

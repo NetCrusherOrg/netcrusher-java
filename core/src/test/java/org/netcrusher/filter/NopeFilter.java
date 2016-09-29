@@ -9,8 +9,8 @@ public class NopeFilter implements ByteBufferFilter {
     public static final ByteBufferFilterFactory FACTORY = (address) -> INSTANCE;
 
     @Override
-    public ByteBuffer filter(ByteBuffer bb) {
-        return bb;
+    public void filter(ByteBuffer bb) {
+        // no op
     }
 
 }

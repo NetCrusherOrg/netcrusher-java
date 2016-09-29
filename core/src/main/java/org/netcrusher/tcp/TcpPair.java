@@ -7,7 +7,6 @@ import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -15,20 +14,16 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
-import java.util.List;
-import java.util.UUID;
 
-public class TcpPair implements Closeable {
+public class TcpPair {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpPair.class);
 
-    private final String key;
-
-    private final AbstractSelectableChannel inner;
+    private final SocketChannel inner;
 
     private final SelectionKey innerKey;
 
-    private final AbstractSelectableChannel outer;
+    private final SocketChannel outer;
 
     private final SelectionKey outerKey;
 
@@ -40,22 +35,21 @@ public class TcpPair implements Closeable {
 
     private final NioReactor reactor;
 
-    private final InetSocketAddress innerClientAddr;
-
-    private final InetSocketAddress innerListenAddr;
-
-    private final InetSocketAddress outerClientAddr;
-
-    private final InetSocketAddress outerListenAddr;
+    private final InetSocketAddress clientAddress;
 
     private boolean opened;
 
     private volatile boolean frozen;
 
-    public TcpPair(TcpCrusher crusher, NioReactor reactor, ByteBufferFilterRepository filters,
-                   SocketChannel inner, SocketChannel outer,
-                   int bufferCount, int bufferSize) throws IOException {
-        this.key = UUID.randomUUID().toString();
+    TcpPair(
+            TcpCrusher crusher,
+            NioReactor reactor,
+            ByteBufferFilterRepository filters,
+            SocketChannel inner,
+            SocketChannel outer,
+            int bufferCount,
+            int bufferSize) throws IOException
+    {
         this.crusher = crusher;
         this.reactor = reactor;
         this.frozen = true;
@@ -64,24 +58,18 @@ public class TcpPair implements Closeable {
         this.inner = inner;
         this.outer = outer;
 
-        this.innerClientAddr = (InetSocketAddress) inner.getRemoteAddress();
-        this.innerListenAddr = (InetSocketAddress) inner.getLocalAddress();
-        this.outerClientAddr = (InetSocketAddress) outer.getLocalAddress();
-        this.outerListenAddr = (InetSocketAddress) outer.getRemoteAddress();
+        this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
 
         this.innerKey = reactor.registerSelector(inner, 0, this::innerCallback);
         this.outerKey = reactor.registerSelector(outer, 0, this::outerCallback);
 
-        TcpQueue innerToOuter = new TcpQueue(bufferCount, bufferSize);
-        TcpQueue outerToInner = new TcpQueue(bufferCount, bufferSize);
+        ByteBufferFilter[] outgoingFilters = filters.getOutgoing().createFilters(clientAddress);
+        TcpQueue innerToOuter = new TcpQueue(outgoingFilters, bufferCount, bufferSize);
+        ByteBufferFilter[] incomingFilters = filters.getIncoming().createFilters(clientAddress);
+        TcpQueue outerToInner = new TcpQueue(incomingFilters, bufferCount, bufferSize);
 
-        List<ByteBufferFilter> outgoingFilters = filters.getOutgoing().createFilters(innerClientAddr);
-        this.innerTransfer = new TcpTransfer("INNER", this.outerKey, outerToInner, innerToOuter,
-            outgoingFilters);
-
-        List<ByteBufferFilter> incomingFilters = filters.getIncoming().createFilters(innerClientAddr);
-        this.outerTransfer = new TcpTransfer("OUTER", this.innerKey, innerToOuter, outerToInner,
-            incomingFilters);
+        this.innerTransfer = new TcpTransfer("INNER", this.outerKey, outerToInner, innerToOuter);
+        this.outerTransfer = new TcpTransfer("OUTER", this.innerKey, innerToOuter, outerToInner);
     }
 
     /**
@@ -94,11 +82,11 @@ public class TcpPair implements Closeable {
                 reactor.executeSelectorOp(() -> {
                     int ops;
 
-                    ops = innerTransfer.getIncoming().isEmpty() ?
+                    ops = innerTransfer.getIncoming().calculateReadyBytes() == 0 ?
                         SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                     innerKey.interestOps(ops);
 
-                    ops = outerTransfer.getIncoming().isEmpty() ?
+                    ops = outerTransfer.getIncoming().calculateReadyBytes() == 0 ?
                         SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                     outerKey.interestOps(ops);
 
@@ -139,19 +127,8 @@ public class TcpPair implements Closeable {
     }
 
     /**
-     * Is the pair frozen
-     * @return Return true if freeze() on this pair was called before
-     * @see TcpPair#unfreeze()
-     * @see TcpPair#freeze()
-     */
-    public boolean isFrozen() {
-        return frozen;
-    }
-
-    /**
      * Closes this paired connection
      */
-    @Override
     public synchronized void close() throws IOException {
         if (opened) {
             freeze();
@@ -161,13 +138,25 @@ public class TcpPair implements Closeable {
 
             opened = false;
 
-            LOGGER.debug("Pair '{}' is closed", this.getKey());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Pair for '{}' is closed", clientAddress);
+
+                int incomingBytes = innerTransfer.getIncoming().calculateReadyBytes();
+                if (incomingBytes > 0) {
+                    LOGGER.debug("On closing pair for {} has {} incoming bytes", incomingBytes);
+                }
+
+                int outgoingBytes = innerTransfer.getOutgoing().calculateReadyBytes();
+                if (outgoingBytes > 0) {
+                    LOGGER.debug("On closing pair for {} has {} outgoing bytes", outgoingBytes);
+                }
+            }
         }
     }
 
     private void closeInternal() throws IOException {
         reactor.execute(() -> {
-            crusher.closePair(this.getKey());
+            crusher.closePair(this.getClientAddress());
             return null;
         });
     }
@@ -181,7 +170,7 @@ public class TcpPair implements Closeable {
             thisTransfer.handleEvent(selectionKey);
         } catch (EOFException | ClosedChannelException e) {
             LOGGER.trace("EOF on transfer or channel is closed on {}", thisTransfer.getName());
-            if (thisTransfer.getOutgoing().pending() > 0) {
+            if (thisTransfer.getOutgoing().calculateReadyBytes() > 0) {
                 NioUtils.closeChannel(thisChannel);
             } else {
                 closeInternal();
@@ -191,7 +180,7 @@ public class TcpPair implements Closeable {
             closeInternal();
         }
 
-        if (thisChannel.isOpen() && !thatChannel.isOpen() && thisTransfer.getIncoming().pending() == 0) {
+        if (thisChannel.isOpen() && !thatChannel.isOpen() && thisTransfer.getIncoming().calculateReadyBytes() == 0) {
             closeInternal();
         }
     }
@@ -205,43 +194,37 @@ public class TcpPair implements Closeable {
     }
 
     /**
-     * Unique identifier for this pair
-     * @return Identifier string
-     */
-    public String getKey() {
-        return key;
-    }
-
-    /**
      * Returns client address for 'inner' connection
      * @return Socket address
      */
-    public InetSocketAddress getInnerClientAddr() {
-        return innerClientAddr;
+    public InetSocketAddress getClientAddress() {
+        return clientAddress;
     }
 
     /**
-     * Returns listening address for 'inner' connection
-     * @return Socket address
+     * Get inner socket statistics
+     * @return Inner socket statistics
      */
-    public InetSocketAddress getInnerListenAddr() {
-        return innerListenAddr;
+    public TcpTransfer getInnerTransfer() {
+        return innerTransfer;
     }
 
     /**
-     * Returns client address for 'outer' connection
-     * @return Socket address
+     * Get outer socket statistics
+     * @return Outer socket statistics
      */
-    public InetSocketAddress getOuterClientAddr() {
-        return outerClientAddr;
+    public TcpTransfer getOuterTransfer() {
+        return outerTransfer;
     }
 
     /**
-     * Return listening address for 'outer' connection
-     * @return Socket address
+     * Is the pair frozen
+     * @return Return true if freeze() on this pair was called before
+     * @see TcpPair#unfreeze()
+     * @see TcpPair#freeze()
      */
-    public InetSocketAddress getOuterListenAddr() {
-        return outerListenAddr;
+    public boolean isFrozen() {
+        return frozen;
     }
 
 }

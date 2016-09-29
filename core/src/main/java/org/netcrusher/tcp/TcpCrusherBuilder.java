@@ -12,9 +12,9 @@ import java.util.function.Consumer;
  */
 public final class TcpCrusherBuilder {
 
-    private InetSocketAddress localAddress;
+    private InetSocketAddress bindAddress;
 
-    private InetSocketAddress remoteAddress;
+    private InetSocketAddress connectAddress;
 
     private NioReactor reactor;
 
@@ -30,8 +30,8 @@ public final class TcpCrusherBuilder {
 
     private TcpCrusherBuilder() {
         this.socketOptions = new TcpCrusherSocketOptions();
-        this.bufferCount = 16;
-        this.bufferSize = 16 * 1024;
+        this.bufferCount = 32;
+        this.bufferSize = 32 * 1024;
     }
 
     /**
@@ -47,8 +47,8 @@ public final class TcpCrusherBuilder {
      * @param address Inet address
      * @return This builder instance to chain with other methods
      */
-    public TcpCrusherBuilder withLocalAddress(InetSocketAddress address) {
-        this.localAddress = address;
+    public TcpCrusherBuilder withBindAddress(InetSocketAddress address) {
+        this.bindAddress = address;
         return this;
     }
 
@@ -58,8 +58,8 @@ public final class TcpCrusherBuilder {
      * @param port Port number
      * @return This builder instance to chain with other methods
      */
-    public TcpCrusherBuilder withLocalAddress(String hostname, int port) {
-        this.localAddress = new InetSocketAddress(hostname, port);
+    public TcpCrusherBuilder withBindAddress(String hostname, int port) {
+        this.bindAddress = new InetSocketAddress(hostname, port);
         return this;
     }
 
@@ -68,8 +68,8 @@ public final class TcpCrusherBuilder {
      * @param address Inet address
      * @return This builder instance to chain with other methods
      */
-    public TcpCrusherBuilder withRemoteAddress(InetSocketAddress address) {
-        this.remoteAddress = address;
+    public TcpCrusherBuilder withConnectAddress(InetSocketAddress address) {
+        this.connectAddress = address;
         return this;
     }
 
@@ -79,8 +79,8 @@ public final class TcpCrusherBuilder {
      * @param port Port number
      * @return This builder instance to chain with other methods
      */
-    public TcpCrusherBuilder withRemoteAddress(String hostname, int port) {
-        this.remoteAddress = new InetSocketAddress(hostname, port);
+    public TcpCrusherBuilder withConnectAddress(String hostname, int port) {
+        this.connectAddress = new InetSocketAddress(hostname, port);
         return this;
     }
 
@@ -203,19 +203,19 @@ public final class TcpCrusherBuilder {
      * @return TcpCrusher instance
      */
     public TcpCrusher build() {
-        if (localAddress == null) {
-            throw new IllegalArgumentException("Local address is not set");
+        if (bindAddress == null) {
+            throw new IllegalArgumentException("Bind address is not set");
         }
 
-        if (remoteAddress == null) {
-            throw new IllegalArgumentException("Remote address is not set");
+        if (connectAddress == null) {
+            throw new IllegalArgumentException("Connect address is not set");
         }
 
         if (reactor == null) {
             throw new IllegalArgumentException("Reactor is not set");
         }
 
-        return new TcpCrusher(localAddress, remoteAddress, socketOptions.copy(), reactor,
+        return new TcpCrusher(bindAddress, connectAddress, socketOptions.copy(), reactor,
             creationListener, deletionListener, bufferCount, bufferSize);
     }
 

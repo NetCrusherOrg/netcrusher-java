@@ -89,7 +89,7 @@ public class TcpCrusherSocketOptions implements Serializable {
         this.keepAlive = keepAlive;
     }
 
-    public void setupSocketChannel(SocketChannel socketChannel) throws IOException {
+    void setupSocketChannel(SocketChannel socketChannel) throws IOException {
         socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, keepAlive);
         socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, tcpNoDelay);
 

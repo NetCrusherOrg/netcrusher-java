@@ -13,9 +13,9 @@ import java.net.StandardSocketOptions;
  */
 public final class DatagramCrusherBuilder {
 
-    private InetSocketAddress localAddress;
+    private InetSocketAddress bindAddress;
 
-    private InetSocketAddress remoteAddress;
+    private InetSocketAddress connectAddress;
 
     private NioReactor reactor;
 
@@ -40,8 +40,8 @@ public final class DatagramCrusherBuilder {
      * @param address Inet address
      * @return This builder instance to chain with other methods
      */
-    public DatagramCrusherBuilder withLocalAddress(InetSocketAddress address) {
-        this.localAddress = address;
+    public DatagramCrusherBuilder withBindAddress(InetSocketAddress address) {
+        this.bindAddress = address;
         return this;
     }
 
@@ -51,8 +51,8 @@ public final class DatagramCrusherBuilder {
      * @param port Port number
      * @return This builder instance to chain with other methods
      */
-    public DatagramCrusherBuilder withLocalAddress(String hostname, int port) {
-        this.localAddress = new InetSocketAddress(hostname, port);
+    public DatagramCrusherBuilder withBindAddress(String hostname, int port) {
+        this.bindAddress = new InetSocketAddress(hostname, port);
         return this;
     }
 
@@ -61,8 +61,8 @@ public final class DatagramCrusherBuilder {
      * @param address Inet address
      * @return This builder instance to chain with other methods
      */
-    public DatagramCrusherBuilder withRemoteAddress(InetSocketAddress address) {
-        this.remoteAddress = address;
+    public DatagramCrusherBuilder withConnectAddress(InetSocketAddress address) {
+        this.connectAddress = address;
         return this;
     }
 
@@ -72,8 +72,8 @@ public final class DatagramCrusherBuilder {
      * @param port Port number
      * @return This builder instance to chain with other methods
      */
-    public DatagramCrusherBuilder withRemoteAddress(String hostname, int port) {
-        this.remoteAddress = new InetSocketAddress(hostname, port);
+    public DatagramCrusherBuilder withConnectAddress(String hostname, int port) {
+        this.connectAddress = new InetSocketAddress(hostname, port);
         return this;
     }
 
@@ -128,19 +128,19 @@ public final class DatagramCrusherBuilder {
      * @return DatagramCrusher instance
      */
     public DatagramCrusher build() {
-        if (localAddress == null) {
-            throw new IllegalArgumentException("Local address is not set");
+        if (bindAddress == null) {
+            throw new IllegalArgumentException("Bind address is not set");
         }
 
-        if (remoteAddress == null) {
-            throw new IllegalArgumentException("Remote address is not set");
+        if (connectAddress == null) {
+            throw new IllegalArgumentException("Connect address is not set");
         }
 
         if (reactor == null) {
             throw new IllegalArgumentException("Reactor is not set");
         }
 
-        return new DatagramCrusher(localAddress, remoteAddress, socketOptions.copy(), reactor,
+        return new DatagramCrusher(bindAddress, connectAddress, socketOptions.copy(), reactor,
             maxIdleDurationMs);
     }
 

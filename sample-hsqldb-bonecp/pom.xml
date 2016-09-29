@@ -90,7 +90,7 @@
         <dependency>
             <groupId>com.github.netcrusherorg</groupId>
             <artifactId>netcrusher-core</artifactId>
-            <version>0.5</version>
+            <version>0.6-SNAPSHOT</version>
         </dependency>
         <!-- hsqldb -->
         <dependency>

@@ -7,6 +7,7 @@ import org.netcrusher.tcp.TcpCrusherBuilder;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Collection;
 
 /**
  * <p>DatagramCrusher - a UDP proxy for test purposes. To create a new instance use DatagramCrusherBuilder</p>
@@ -36,9 +37,9 @@ public class DatagramCrusher implements Closeable {
 
     private final DatagramCrusherSocketOptions socketOptions;
 
-    private final InetSocketAddress localAddress;
+    private final InetSocketAddress bindAddress;
 
-    private final InetSocketAddress remoteAddress;
+    private final InetSocketAddress connectAddress;
 
     private final long maxIdleDurationMs;
 
@@ -48,13 +49,15 @@ public class DatagramCrusher implements Closeable {
 
     private volatile boolean opened;
 
-    public DatagramCrusher(InetSocketAddress localAddress,
-                           InetSocketAddress remoteAddress,
-                           DatagramCrusherSocketOptions socketOptions,
-                           NioReactor reactor,
-                           long maxIdleDurationMs) {
-        this.localAddress = localAddress;
-        this.remoteAddress = remoteAddress;
+    DatagramCrusher(
+            InetSocketAddress bindAddress,
+            InetSocketAddress connectAddress,
+            DatagramCrusherSocketOptions socketOptions,
+            NioReactor reactor,
+            long maxIdleDurationMs)
+    {
+        this.bindAddress = bindAddress;
+        this.connectAddress = connectAddress;
         this.socketOptions = socketOptions;
         this.reactor = reactor;
         this.maxIdleDurationMs = maxIdleDurationMs;
@@ -72,7 +75,7 @@ public class DatagramCrusher implements Closeable {
         }
 
         this.inner = new DatagramInner(this, reactor, socketOptions, filters,
-            localAddress, remoteAddress, maxIdleDurationMs);
+            bindAddress, connectAddress, maxIdleDurationMs);
         this.inner.unfreeze();
 
         this.opened = true;
@@ -129,16 +132,46 @@ public class DatagramCrusher implements Closeable {
     }
 
     /**
-     * Is the crusher frozen
-     * @return Return true if freeze() on the crusher was called before
-     * @see DatagramCrusher#unfreeze()
-     * @see DatagramCrusher#freeze()
+     * Check is the crusher active
+     * @return Return 'true' if crusher proxy is active
+     */
+    public boolean isOpened() {
+        return opened;
+    }
+
+    /**
+     * Check is crusher frozen
+     * @return Frozen flag
      */
     public boolean isFrozen() {
         if (opened) {
             return inner.isFrozen();
         } else {
-            return true;
+            throw new IllegalStateException("Crusher is not opened");
+        }
+    }
+
+    /**
+     * Get outer socket controllers
+     * @return Collection of outer socket controllers
+     */
+    public Collection<DatagramOuter> getOuters() {
+        if (opened) {
+            return inner.getOuters();
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
+        }
+    }
+
+    /**
+     * Get inner socket controller
+     * @return Inner socket controller
+     */
+    public DatagramInner getInner() {
+        if (opened) {
+            return inner;
+        } else {
+            throw new IllegalStateException("Crusher is not opened");
         }
     }
 

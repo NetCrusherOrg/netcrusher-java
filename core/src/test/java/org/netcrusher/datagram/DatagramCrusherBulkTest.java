@@ -7,7 +7,6 @@ import org.junit.Test;
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.datagram.bulk.DatagramBulkClient;
 import org.netcrusher.datagram.bulk.DatagramBulkReflector;
-import org.netcrusher.filter.CopyFilter;
 import org.netcrusher.filter.InverseFilter1;
 import org.netcrusher.filter.InverseFilter2;
 import org.netcrusher.filter.NopeFilter;
@@ -36,19 +35,17 @@ public class DatagramCrusherBulkTest {
 
         crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
-            .withLocalAddress(HOSTNAME, CRUSHER_PORT)
-            .withRemoteAddress(HOSTNAME, REFLECTOR_PORT)
+            .withBindAddress(HOSTNAME, CRUSHER_PORT)
+            .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
             .buildAndOpen();
 
         crusher.getFilters().getOutgoing()
             .append(InverseFilter2.FACTORY)
-            .append(CopyFilter.FACTORY)
             .append(NopeFilter.FACTORY);
 
         crusher.getFilters().getIncoming()
             .append(NopeFilter.FACTORY)
-            .append(InverseFilter1.FACTORY)
-            .append(CopyFilter.FACTORY);
+            .append(InverseFilter1.FACTORY);
     }
 
     @After
@@ -72,13 +69,30 @@ public class DatagramCrusherBulkTest {
             new InetSocketAddress(HOSTNAME, CRUSHER_PORT),
             COUNT);
         DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR",
-            new InetSocketAddress(HOSTNAME, REFLECTOR_PORT),
-            COUNT);
+            new InetSocketAddress(HOSTNAME, REFLECTOR_PORT));
 
         reflector.open();
         client.open();
 
         client.await(60000);
+
+        long expectedDatagrams = (COUNT + DatagramBulkClient.SND_BUFFER_SIZE - 1) / DatagramBulkClient.SND_BUFFER_SIZE;
+
+        DatagramInner inner = crusher.getInner();
+        Assert.assertNotNull(inner);
+        Assert.assertEquals(COUNT, inner.getTotalReadBytes());
+        Assert.assertEquals(COUNT, inner.getTotalSentBytes());
+        Assert.assertEquals(expectedDatagrams, inner.getTotalReadDatagrams());
+        Assert.assertEquals(expectedDatagrams, inner.getTotalSentDatagrams());
+
+        Assert.assertEquals(1, crusher.getOuters().size());
+        DatagramOuter outer = crusher.getOuters().iterator().next();
+        Assert.assertNotNull(outer);
+        Assert.assertNotNull(outer.getClientAddress());
+        Assert.assertEquals(COUNT, outer.getTotalReadBytes());
+        Assert.assertEquals(COUNT, outer.getTotalSentBytes());
+        Assert.assertEquals(expectedDatagrams, outer.getTotalReadDatagrams());
+        Assert.assertEquals(expectedDatagrams, outer.getTotalSentDatagrams());
 
         client.close();
         reflector.close();

@@ -74,7 +74,7 @@ public class TcpBulkServer implements Closeable {
                 break;
             }
 
-            TcpBulkClient client = TcpBulkClient.forSocket(socketChannel, count);
+            TcpBulkClient client = TcpBulkClient.forSocket("INT" + clients.size(), socketChannel, count);
             clients.add(client);
         }
 

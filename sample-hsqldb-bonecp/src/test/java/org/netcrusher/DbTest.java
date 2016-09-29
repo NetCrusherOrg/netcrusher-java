@@ -38,8 +38,8 @@ public class DbTest {
 
         crusher = TcpCrusherBuilder.builder()
                 .withReactor(reactor)
-                .withLocalAddress("127.0.0.1", CRUSHER_PORT)
-                .withRemoteAddress("127.0.0.1", DB_PORT)
+                .withBindAddress("127.0.0.1", CRUSHER_PORT)
+                .withConnectAddress("127.0.0.1", DB_PORT)
                 .buildAndOpen();
 
         hsqlServer = new Server();
@@ -76,7 +76,7 @@ public class DbTest {
 
     @After
     public void tearDown() throws Exception {
-        connectionPool.shutdown();
+        connectionPool.close();
         hsqlServer.stop();
         crusher.close();
         reactor.close();
@@ -86,6 +86,7 @@ public class DbTest {
     public void test() throws Exception {
         // create a connection
         Connection connection = connectionPool.getConnection();
+        Assert.assertEquals(1, crusher.getPairs().size());
 
         // query some data
         connection.createStatement().executeQuery(SQL_CHECK);
@@ -95,25 +96,30 @@ public class DbTest {
             connectionPool.getConnection();
             Assert.fail("Exception is expected");
         } catch (SQLException e) {
-            e.printStackTrace();
+            // exception is expected;
         }
 
         // disconnect
         crusher.crush();
 
-        // query should fail
+        // the query should fail
         try {
             connection.createStatement().executeQuery(SQL_CHECK);
             Assert.fail("Exception is expected");
         } catch (SQLTransientConnectionException e) {
-            e.printStackTrace();
+            // exception is expected;
         }
 
         // close the connection as it is useless
-        connection.close();
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            // possible exception when the dead connection is being closed
+        }
 
         // get a new fresh one from the pool
         connection = connectionPool.getConnection();
+        Assert.assertEquals(1, crusher.getPairs().size());
 
         // query some data
         connection.createStatement().executeQuery(SQL_CHECK);

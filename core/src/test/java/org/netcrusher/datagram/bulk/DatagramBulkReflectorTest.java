@@ -22,8 +22,7 @@ public class DatagramBulkReflectorTest {
             new InetSocketAddress(HOSTNAME, REFLECTOR_PORT),
             COUNT);
         DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR",
-            new InetSocketAddress(HOSTNAME, REFLECTOR_PORT),
-            COUNT);
+            new InetSocketAddress(HOSTNAME, REFLECTOR_PORT));
 
         reflector.open();
         client.open();

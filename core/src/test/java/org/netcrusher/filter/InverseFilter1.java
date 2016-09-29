@@ -9,7 +9,7 @@ public class InverseFilter1 implements ByteBufferFilter {
     public static final ByteBufferFilterFactory FACTORY = (address) -> INSTANCE;
 
     @Override
-    public ByteBuffer filter(ByteBuffer bb) {
+    public void filter(ByteBuffer bb) {
         if (!bb.hasArray()) {
             throw new IllegalArgumentException("Filter works with byte array buffer only");
         }
@@ -19,8 +19,6 @@ public class InverseFilter1 implements ByteBufferFilter {
         for (int i = bb.arrayOffset(), limit = bb.arrayOffset() + bb.limit(); i < limit; i++) {
             bytes[i] = (byte) ~bytes[i];
         }
-
-        return bb;
     }
 
 }

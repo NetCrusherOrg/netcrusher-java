@@ -25,7 +25,7 @@ public class NioReactor implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NioReactor.class);
 
-    private static final long THREAD_TERMINATION_TIMEOUT_MS = 3000;
+    private static final long THREAD_TERMINATION_TIMEOUT_MS = 5000;
 
     private final Thread thread;
 
@@ -66,13 +66,18 @@ public class NioReactor implements Closeable {
         boolean interrupted = false;
         LOGGER.debug("Reactor is closing");
 
-        wakeupSelector();
-
-        int activeSelectionKeys = selector.keys().size();
-        if (activeSelectionKeys > 0) {
-            LOGGER.warn("Selector still has {} selection keys. Have you closed all linked crushers before?",
-                activeSelectionKeys);
+        scheduledExecutorService.shutdown();
+        try {
+            boolean shutdown = scheduledExecutorService
+                .awaitTermination(THREAD_TERMINATION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            if (!shutdown) {
+                LOGGER.error("Fail to shutdown scheduled executor service");
+            }
+        } catch (InterruptedException e) {
+            interrupted = true;
         }
+
+        wakeupSelector();
 
         if (thread.isAlive()) {
             thread.interrupt();
@@ -87,15 +92,10 @@ public class NioReactor implements Closeable {
             }
         }
 
-        scheduledExecutorService.shutdown();
-        try {
-            boolean shutdown = scheduledExecutorService
-                .awaitTermination(THREAD_TERMINATION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            if (!shutdown) {
-                LOGGER.error("Fail to shutdown scheduled executor service");
-            }
-        } catch (InterruptedException e) {
-            interrupted = true;
+        int activeSelectionKeys = selector.keys().size();
+        if (activeSelectionKeys > 0) {
+            LOGGER.warn("Selector still has {} selection keys. Have you closed all linked crushers before?",
+                activeSelectionKeys);
         }
 
         try {

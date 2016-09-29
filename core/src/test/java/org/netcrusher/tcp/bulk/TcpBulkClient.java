@@ -19,6 +19,8 @@ public class TcpBulkClient implements Closeable {
 
     private static final int BUFFER_SIZE = 64 * 1024;
 
+    private final String name;
+
     private final SocketChannel channel;
 
     private final long count;
@@ -33,17 +35,18 @@ public class TcpBulkClient implements Closeable {
 
     private byte[] sndDigest;
 
-    protected TcpBulkClient(SocketChannel channel, long count) {
+    protected TcpBulkClient(String name, SocketChannel channel, long count) {
+        this.name = name;
         this.channel = channel;
         this.count = count;
         this.random = new Random();
 
         this.rcvThread = new Thread(this::rcvLoop);
-        this.rcvThread.setName("Rcv loop");
+        this.rcvThread.setName("Rcv loop [" + name + "]");
         this.rcvThread.start();
 
         this.sndThread = new Thread(this::sndLoop);
-        this.sndThread.setName("Snd loop");
+        this.sndThread.setName("Snd loop [" + name + "]");
         this.sndThread.start();
     }
 
@@ -74,7 +77,14 @@ public class TcpBulkClient implements Closeable {
 
     public void await(long timeoutMs) throws InterruptedException {
         sndThread.join(timeoutMs);
+        if (sndThread.isAlive()) {
+            LOGGER.warn("Write thread is still alive");
+        }
+
         rcvThread.join(timeoutMs);
+        if (rcvThread.isAlive()) {
+            LOGGER.warn("Read thread is still alive");
+        }
     }
 
     public byte[] getSndDigest() {
@@ -85,20 +95,20 @@ public class TcpBulkClient implements Closeable {
         return rcvDigest;
     }
 
-    public static TcpBulkClient forSocket(SocketChannel channel, long count) {
-        return new TcpBulkClient(channel, count);
+    public static TcpBulkClient forSocket(String name, SocketChannel channel, long count) {
+        return new TcpBulkClient(name, channel, count);
     }
 
-    public static TcpBulkClient forAddress(InetSocketAddress address, long count) throws IOException {
+    public static TcpBulkClient forAddress(String name, InetSocketAddress address, long count) throws IOException {
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.configureBlocking(true);
         socketChannel.connect(address);
 
-        return new TcpBulkClient(socketChannel, count);
+        return new TcpBulkClient(name, socketChannel, count);
     }
 
     public void rcvLoop() {
-        LOGGER.debug("Read loop started");
+        LOGGER.debug("Read loop {} started", name);
 
         ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
         MessageDigest md = createMessageDigest();
@@ -130,11 +140,11 @@ public class TcpBulkClient implements Closeable {
 
         rcvDigest = md.digest();
 
-        LOGGER.debug("Read loop has finished");
+        LOGGER.debug("Read loop {} has finished", name);
     }
 
     public void sndLoop() {
-        LOGGER.debug("Write loop started");
+        LOGGER.debug("Write loop {} started", name);
 
         ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
         MessageDigest md = createMessageDigest();
@@ -166,7 +176,7 @@ public class TcpBulkClient implements Closeable {
 
         sndDigest = md.digest();
 
-        LOGGER.debug("Write loop has finished");
+        LOGGER.debug("Write loop {} has finished", name);
     }
 
     private static MessageDigest createMessageDigest() {

@@ -2,6 +2,8 @@ package org.netcrusher.filter;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -30,17 +32,36 @@ public class ByteBufferFilterFactories {
     }
 
     /**
+     * Add a new factories to the list
+     * @param factories Filter factory instances
+     */
+    public ByteBufferFilterFactories append(Collection<ByteBufferFilterFactory> factories) {
+        list.addAll(factories);
+        return this;
+    }
+
+    /**
+     * Add a new factories to the list
+     * @param factories Filter factory instances
+     */
+    public ByteBufferFilterFactories append(ByteBufferFilterFactory... factories) {
+        Collections.addAll(list, factories);
+        return this;
+    }
+
+    /**
      * Creates a filter list for the specified local address
      * @param clientAddress Local client address
      * @return The list of filters
      */
-    public List<ByteBufferFilter> createFilters(InetSocketAddress clientAddress) {
+    public ByteBufferFilter[] createFilters(InetSocketAddress clientAddress) {
         List<ByteBufferFilter> filters = new ArrayList<>(list.size());
 
-        for (ByteBufferFilterFactory factory : list) {
-            filters.add(factory.create(clientAddress));
-        }
+        list.stream()
+            .map(factory -> factory.create(clientAddress))
+            .forEach(filters::add);
 
-        return filters;
+        return filters.stream().toArray(ByteBufferFilter[]::new);
     }
+
 }
