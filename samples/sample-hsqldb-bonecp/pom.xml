@@ -13,19 +13,38 @@
     <artifactId>sample-hsqldb-bonecp</artifactId>
     <packaging>jar</packaging>
 
+    <properties>
+        <version.hsqldb>2.3.4</version.hsqldb>
+        <version.bonecp>0.8.0.RELEASE</version.bonecp>
+        <version.derbydb>10.12.1.1</version.derbydb>
+    </properties>
+
     <dependencies>
         <!-- hsqldb -->
         <dependency>
             <groupId>org.hsqldb</groupId>
             <artifactId>hsqldb</artifactId>
-            <version>2.3.4</version>
+            <version>${version.hsqldb}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- derby db -->
+        <dependency>
+            <groupId>org.apache.derby</groupId>
+            <artifactId>derby</artifactId>
+            <version>${version.derbydb}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.derby</groupId>
+            <artifactId>derbyclient</artifactId>
+            <version>${version.derbydb}</version>
             <scope>test</scope>
         </dependency>
         <!-- bonecp -->
         <dependency>
             <groupId>com.jolbox</groupId>
             <artifactId>bonecp</artifactId>
-            <version>0.8.0.RELEASE</version>
+            <version>${version.bonecp}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

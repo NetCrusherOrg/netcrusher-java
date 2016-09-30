@@ -81,7 +81,7 @@ public class DatagramCrusher implements NetCrusher {
     @Override
     public synchronized void close() throws IOException {
         if (open) {
-            this.inner.close();
+            this.inner.closeExternal();
             this.inner = null;
             this.open = false;
         }

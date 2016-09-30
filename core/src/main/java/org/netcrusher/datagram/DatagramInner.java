@@ -135,7 +135,7 @@ public class DatagramInner {
         }
     }
 
-    synchronized void close() throws IOException {
+    synchronized void closeExternal() throws IOException {
         if (open) {
             freeze();
 
@@ -144,7 +144,7 @@ public class DatagramInner {
                     pending.size(), pending.bytes());
             }
 
-            outers.values().forEach(DatagramOuter::close);
+            outers.values().forEach(DatagramOuter::closeExternal);
             outers.clear();
 
             NioUtils.closeChannel(channel);
@@ -160,7 +160,7 @@ public class DatagramInner {
     void closeOuter(InetSocketAddress clientAddress) {
         DatagramOuter outer = outers.remove(clientAddress);
         if (outer != null) {
-            outer.close();
+            outer.closeExternal();
         }
     }
 
@@ -284,7 +284,7 @@ public class DatagramInner {
                 DatagramOuter outer = outerIterator.next();
 
                 if (outer.getIdleDurationMs() > maxIdleDurationMs) {
-                    outer.close();
+                    outer.closeExternal();
                     outerIterator.remove();
                 }
             }

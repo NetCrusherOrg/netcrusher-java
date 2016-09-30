@@ -123,7 +123,7 @@ public class DatagramOuter {
         }
     }
 
-    synchronized void close() {
+    synchronized void closeExternal() {
         if (open) {
             freeze();
 

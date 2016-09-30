@@ -132,7 +132,7 @@ public class TcpPair implements NetFreezer {
         }
     }
 
-    synchronized void close() throws IOException {
+    synchronized void closeExternal() throws IOException {
         if (open) {
             freeze();
 

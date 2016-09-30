@@ -66,7 +66,9 @@ public class NioReactor implements Closeable {
         boolean interrupted = false;
         LOGGER.debug("Reactor is closing");
 
-        scheduledExecutorService.shutdown();
+        ops.clear();
+
+        scheduledExecutorService.shutdownNow();
         try {
             boolean shutdown = scheduledExecutorService
                 .awaitTermination(THREAD_TERMINATION_TIMEOUT_MS, TimeUnit.MILLISECONDS);

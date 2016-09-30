@@ -49,20 +49,23 @@ public class DbTest {
         hsqlServer.setErrWriter(new PrintWriter(System.err));
         hsqlServer.setLogWriter(new PrintWriter(System.out));
         hsqlServer.setNoSystemExit(true);
-        hsqlServer.setDatabasePath(0, "mem:testDb");
-        hsqlServer.setDatabaseName(0, "testDb");
-
+        hsqlServer.setDatabasePath(0, "mem:testdb");
+        hsqlServer.setDatabaseName(0, "testdb");
         hsqlServer.start();
 
         Class.forName("org.hsqldb.jdbc.JDBCDriver");
 
         BoneCPConfig config = new BoneCPConfig();
-        config.setJdbcUrl(String.format("jdbc:hsqldb:hsql://127.0.0.1:%d/testDb", CRUSHER_PORT));
+        config.setJdbcUrl(String.format("jdbc:hsqldb:hsql://127.0.0.1:%d/testdb", CRUSHER_PORT));
+        config.setUsername("sa");
+        config.setPassword("");
         config.setInitSQL(SQL_CHECK);
+        config.setConnectionTestStatement(SQL_CHECK);
         config.setAcquireIncrement(1);
         config.setAcquireRetryAttempts(1);
         config.setAcquireRetryDelayInMs(1000);
         config.setConnectionTimeoutInMs(1000);
+        config.setQueryExecuteTimeLimitInMs(1000);
         config.setDefaultAutoCommit(false);
         config.setDefaultReadOnly(true);
         config.setDefaultTransactionIsolation("NONE");
@@ -70,6 +73,7 @@ public class DbTest {
         config.setMinConnectionsPerPartition(1);
         config.setMaxConnectionsPerPartition(1);
         config.setLazyInit(true);
+        config.setDetectUnclosedStatements(true);
 
         connectionPool = new BoneCP(config);
     }
@@ -83,7 +87,7 @@ public class DbTest {
     }
 
     @Test
-    public void test() throws Exception {
+    public void testDisconnect() throws Exception {
         // create a connection
         Connection connection = connectionPool.getConnection();
         Assert.assertEquals(1, crusher.getPairs().size());
@@ -128,7 +132,28 @@ public class DbTest {
         connection.close();
     }
 
+    @Test
+    public void testFreeze() throws Exception {
+        // create a connection
+        Connection connection = connectionPool.getConnection();
+        Assert.assertEquals(1, crusher.getPairs().size());
 
+        // query some data
+        connection.createStatement().executeQuery(SQL_CHECK);
+
+        // disconnect
+        crusher.freezeAllPairs();
+
+        reactor.schedule(3000, () -> {
+            crusher.unfreezeAllPairs();
+            return null;
+        });
+
+        // the query should fail
+        connection.createStatement().executeQuery(SQL_CHECK);
+
+        connection.close();
+    }
 }
 
 

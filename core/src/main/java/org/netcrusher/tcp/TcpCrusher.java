@@ -172,7 +172,7 @@ public class TcpCrusher implements NetCrusher {
     public void closePair(InetSocketAddress clientAddress) throws IOException {
         TcpPair pair = pairs.remove(clientAddress);
         if (pair != null) {
-            pair.close();
+            pair.closeExternal();
             if (deletionListener != null) {
                 reactor.execute(() -> deletionListener.accept(pair));
             }
