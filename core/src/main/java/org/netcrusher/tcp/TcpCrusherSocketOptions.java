@@ -19,6 +19,8 @@ public class TcpCrusherSocketOptions implements Serializable {
 
     private boolean keepAlive;
 
+    private int lingerMs;
+
     public TcpCrusherSocketOptions() {
         this.backlog = 0;
         this.rcvBufferSize = 0;
@@ -26,6 +28,7 @@ public class TcpCrusherSocketOptions implements Serializable {
         this.connectionTimeoutMs = 3000;
         this.tcpNoDelay = true;
         this.keepAlive = true;
+        this.lingerMs = 0;
     }
 
     public TcpCrusherSocketOptions copy() {
@@ -37,6 +40,7 @@ public class TcpCrusherSocketOptions implements Serializable {
         copy.connectionTimeoutMs = this.connectionTimeoutMs;
         copy.tcpNoDelay = this.tcpNoDelay;
         copy.keepAlive = this.keepAlive;
+        copy.lingerMs = this.lingerMs;
 
         return copy;
     }
@@ -89,6 +93,14 @@ public class TcpCrusherSocketOptions implements Serializable {
         this.keepAlive = keepAlive;
     }
 
+    public int getLingerMs() {
+        return lingerMs;
+    }
+
+    public void setLingerMs(int lingerMs) {
+        this.lingerMs = lingerMs;
+    }
+
     void setupSocketChannel(SocketChannel socketChannel) throws IOException {
         socketChannel.setOption(StandardSocketOptions.SO_KEEPALIVE, keepAlive);
         socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, tcpNoDelay);
@@ -99,6 +111,10 @@ public class TcpCrusherSocketOptions implements Serializable {
 
         if (sndBufferSize > 0) {
             socketChannel.setOption(StandardSocketOptions.SO_SNDBUF, sndBufferSize);
+        }
+
+        if (lingerMs >= 0) {
+            socketChannel.setOption(StandardSocketOptions.SO_LINGER, lingerMs);
         }
     }
 }

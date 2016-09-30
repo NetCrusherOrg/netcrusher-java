@@ -88,7 +88,7 @@ public class DatagramOuter {
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = reactor.registerSelector(channel, 0, this::callback);
+        this.selectionKey = reactor.getSelector().register(channel, 0, this::callback);
 
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, connectAddress);

@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.CancelledKeyException;
@@ -119,7 +120,7 @@ public class TcpCrusher implements NetCrusher {
             this.serverSocketChannel.bind(bindAddress);
         }
 
-        serverSelectionKey = reactor.registerSelector(serverSocketChannel, 0, (selectionKey) -> this.accept());
+        serverSelectionKey = reactor.getSelector().register(serverSocketChannel, 0, (selectionKey) -> this.accept());
 
         LOGGER.debug("TcpCrusher <{}>-<{}> is open", bindAddress, connectAddress);
 
@@ -143,7 +144,7 @@ public class TcpCrusher implements NetCrusher {
             NioUtils.closeChannel(serverSocketChannel);
             serverSocketChannel = null;
 
-            reactor.wakeupSelector();
+            reactor.getSelector().wakeup();
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
 
@@ -202,7 +203,7 @@ public class TcpCrusher implements NetCrusher {
     public synchronized void freeze() throws IOException {
         if (open) {
             if (!frozen) {
-                reactor.executeSelectorOp(() -> {
+                reactor.getSelector().executeOp(() -> {
                     if (serverSelectionKey.isValid()) {
                         serverSelectionKey.interestOps(0);
                     }
@@ -243,7 +244,7 @@ public class TcpCrusher implements NetCrusher {
             unfreezeAllPairs();
 
             if (frozen) {
-                reactor.executeSelectorOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
+                reactor.getSelector().executeOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
                 frozen = false;
             }
 
@@ -274,8 +275,8 @@ public class TcpCrusher implements NetCrusher {
         socketChannel2.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel2);
 
-        boolean connected = socketChannel2.connect(connectAddress);
-        if (!connected) {
+        boolean connectedNow = socketChannel2.connect(connectAddress);
+        if (!connectedNow) {
             final Future<?> connectCheck;
             if (socketOptions.getConnectionTimeoutMs() > 0) {
                 connectCheck = reactor.schedule(socketOptions.getConnectionTimeoutMs(), () -> {
@@ -290,10 +291,17 @@ public class TcpCrusher implements NetCrusher {
                 connectCheck = CompletableFuture.completedFuture(null);
             }
 
-            reactor.registerSelector(socketChannel2, SelectionKey.OP_CONNECT, (selectionKey) -> {
+            reactor.getSelector().register(socketChannel2, SelectionKey.OP_CONNECT, (selectionKey) -> {
                 connectCheck.cancel(false);
 
-                if (!socketChannel2.finishConnect()) {
+                boolean connected;
+                try {
+                    connected = socketChannel2.finishConnect();
+                } catch (ConnectException e) {
+                    connected = false;
+                }
+
+                if (!connected) {
                     LOGGER.warn("Fail to finish outgoing connection to <{}>", connectAddress);
                     NioUtils.closeChannel(socketChannel1);
                     NioUtils.closeChannel(socketChannel2);
@@ -310,8 +318,7 @@ public class TcpCrusher implements NetCrusher {
     private void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
         try {
             TcpPair pair = new TcpPair(this, reactor, filters,
-                socketChannel1, socketChannel2,
-                bufferCount, bufferSize);
+                socketChannel1, socketChannel2, bufferCount, bufferSize);
             pair.unfreeze();
 
             LOGGER.debug("Pair is created for <{}>", pair.getClientAddress());

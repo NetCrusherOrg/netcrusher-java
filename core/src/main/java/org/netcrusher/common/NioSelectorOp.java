@@ -4,13 +4,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-public class NioReactorOp<T> implements Runnable {
+public class NioSelectorOp<T> implements Runnable {
 
     private final CompletableFuture<T> future;
 
     private final Callable<T> callable;
 
-    public NioReactorOp(Callable<T> callable) {
+    public NioSelectorOp(Callable<T> callable) {
         this.callable = callable;
         this.future = new CompletableFuture<>();
     }

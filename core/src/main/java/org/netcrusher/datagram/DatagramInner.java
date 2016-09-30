@@ -94,7 +94,7 @@ public class DatagramInner {
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = reactor.registerSelector(channel, 0, this::callback);
+        this.selectionKey = reactor.getSelector().register(channel, 0, this::callback);
 
         LOGGER.debug("Inner on <{}> is started", bindAddress);
     }
@@ -102,7 +102,7 @@ public class DatagramInner {
     synchronized void unfreeze() throws IOException {
         if (open) {
             if (frozen) {
-                reactor.executeSelectorOp(() -> {
+                reactor.getSelector().executeOp(() -> {
                     int ops = pending.isEmpty() ?
                         SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                     selectionKey.interestOps(ops);
@@ -120,7 +120,7 @@ public class DatagramInner {
     synchronized void freeze() throws IOException {
         if (open) {
             if (!frozen) {
-                reactor.executeSelectorOp(() -> {
+                reactor.getSelector().executeOp(() -> {
                     if (selectionKey.isValid()) {
                         selectionKey.interestOps(0);
                     }
@@ -149,7 +149,7 @@ public class DatagramInner {
 
             NioUtils.closeChannel(channel);
 
-            reactor.wakeupSelector();
+            reactor.getSelector().wakeup();
 
             open = false;
 

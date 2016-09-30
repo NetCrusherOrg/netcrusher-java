@@ -169,6 +169,17 @@ public final class TcpCrusherBuilder {
     }
 
     /**
+     * Set linger timeout in millisecond
+     * @param timeoutMs Timeout in milliseconds
+     * @see StandardSocketOptions#SO_LINGER
+     * @return This builder instance to chain with other methods
+     */
+    public TcpCrusherBuilder withLingerMs(int timeoutMs) {
+        this.socketOptions.setLingerMs(timeoutMs);
+        return this;
+    }
+
+    /**
      * Connection timeout for remote connection. If set to 0 the timeout will be not timeout at all
      * @param timeoutMs Timeout in milliseconds
      * @return This builder instance to chain with other methods

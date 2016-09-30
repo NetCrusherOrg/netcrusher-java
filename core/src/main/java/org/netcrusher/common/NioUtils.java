@@ -5,8 +5,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.spi.AbstractSelectableChannel;
 
 public final class NioUtils {
 
@@ -15,12 +15,12 @@ public final class NioUtils {
     private NioUtils() {
     }
 
-    public static void closeChannel(Channel channel) {
+    public static void closeChannel(AbstractSelectableChannel channel) {
         if (channel.isOpen()) {
             try {
                 channel.close();
             } catch (IOException e) {
-                LOGGER.error("Fail to close socket channel", e);
+                LOGGER.error("Fail to close channel", e);
             }
         }
     }

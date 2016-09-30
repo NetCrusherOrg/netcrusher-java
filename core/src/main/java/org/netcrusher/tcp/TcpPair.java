@@ -63,8 +63,8 @@ public class TcpPair implements NetFreezer {
 
         this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
 
-        this.innerKey = reactor.registerSelector(inner, 0, this::innerCallback);
-        this.outerKey = reactor.registerSelector(outer, 0, this::outerCallback);
+        this.innerKey = reactor.getSelector().register(inner, 0, this::innerCallback);
+        this.outerKey = reactor.getSelector().register(outer, 0, this::outerCallback);
 
         ByteBufferFilter[] outgoingFilters = filters.getOutgoing().createFilters(clientAddress);
         TcpQueue innerToOuter = new TcpQueue(outgoingFilters, bufferCount, bufferSize);
@@ -79,7 +79,7 @@ public class TcpPair implements NetFreezer {
     public synchronized void unfreeze() throws IOException {
         if (open) {
             if (frozen) {
-                reactor.executeSelectorOp(() -> {
+                reactor.getSelector().executeOp(() -> {
                     int ops;
 
                     ops = innerTransfer.getIncoming().calculateReadyBytes() == 0 ?
@@ -104,7 +104,7 @@ public class TcpPair implements NetFreezer {
     public synchronized void freeze() throws IOException {
         if (open) {
             if (!frozen) {
-                reactor.executeSelectorOp(() -> {
+                reactor.getSelector().executeOp(() -> {
                     if (innerKey.isValid()) {
                         innerKey.interestOps(0);
                     }
@@ -158,6 +158,7 @@ public class TcpPair implements NetFreezer {
     }
 
     private void closeInternal() throws IOException {
+        LOGGER.debug("Pair for <{}> will be self-closed", clientAddress);
         reactor.execute(() -> {
             crusher.closePair(this.getClientAddress());
             return null;
@@ -183,7 +184,7 @@ public class TcpPair implements NetFreezer {
                 closeInternal();
             }
         } catch (IOException e) {
-            LOGGER.error("IO exception on {}", thisTransfer.getName(), e);
+            LOGGER.warn("IO exception on {}", thisTransfer.getName(), e);
             closeInternal();
         }
 
