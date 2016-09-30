@@ -1,4 +1,4 @@
-package org.netcrusher;
+package org.netcrusher.instance;
 
 import com.google.common.base.Joiner;
 import org.apache.commons.io.FileUtils;
@@ -15,9 +15,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 
 @Ignore
-public class ZookeeperOriginalTest {
+public class ZookeeperInstanceTest {
 
-    private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ZookeeperOriginalTest.class);
+    private static final Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ZookeeperInstanceTest.class);
 
     private static final File TMP_FOLDER = FileUtils.getTempDirectory();
 

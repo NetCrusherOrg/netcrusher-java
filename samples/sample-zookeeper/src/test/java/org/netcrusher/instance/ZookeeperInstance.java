@@ -1,4 +1,4 @@
-package org.netcrusher;
+package org.netcrusher.instance;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.zookeeper.server.ServerCnxnFactory;

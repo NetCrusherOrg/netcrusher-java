@@ -12,6 +12,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.common.NioReactor;
+import org.netcrusher.instance.ZookeeperInstance;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.slf4j.Logger;
@@ -81,19 +82,26 @@ public class ZookeeperCrusherTest {
     }
 
     @Test
-    public void test() throws Exception {
+    public void testOneZooIsDown() throws Exception {
+        LOGGER.info("zoo3 goes down");
         instance3.clientCrusher.close();
-        Thread.sleep(3000);
+        instance3.electionCrusher.close();
+        instance3.leaderCrusher.close();
 
+        LOGGER.info("writing data");
         byte[] data1 = { 1, 2, 3};
         write(connection, "/my/path", data1);
 
+        LOGGER.info("zoo3 is back again");
         instance3.clientCrusher.open();
-        Thread.sleep(3000);
+        instance3.electionCrusher.open();
+        instance3.leaderCrusher.open();
+
+        LOGGER.info("zoo1 and zoo2 are disconnected from the client (but still available for zoo3)");
         instance1.clientCrusher.close();
         instance2.clientCrusher.close();
-        Thread.sleep(3000);
 
+        LOGGER.info("reading data");
         byte[] data2 = read(connection, "/my/path");
 
         Assert.assertArrayEquals(data1, data2);
