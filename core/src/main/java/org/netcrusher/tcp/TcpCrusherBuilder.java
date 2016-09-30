@@ -215,8 +215,15 @@ public final class TcpCrusherBuilder {
             throw new IllegalArgumentException("Reactor is not set");
         }
 
-        return new TcpCrusher(bindAddress, connectAddress, socketOptions.copy(), reactor,
-            creationListener, deletionListener, bufferCount, bufferSize);
+        return new TcpCrusher(
+            reactor,
+            bindAddress,
+            connectAddress,
+            socketOptions.copy(),
+            creationListener,
+            deletionListener,
+            bufferCount,
+            bufferSize);
     }
 
     /**

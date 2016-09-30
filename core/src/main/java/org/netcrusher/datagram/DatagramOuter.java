@@ -49,7 +49,7 @@ public class DatagramOuter {
 
     private final AtomicInteger totalReadDatagrams;
 
-    private boolean opened;
+    private boolean open;
 
     private volatile boolean frozen;
 
@@ -71,7 +71,7 @@ public class DatagramOuter {
         this.pending = new DatagramQueue();
         this.lastOperationTimestamp = System.currentTimeMillis();
         this.frozen = true;
-        this.opened = true;
+        this.open = true;
 
         this.totalReadBytes = new AtomicLong(0);
         this.totalSentBytes = new AtomicLong(0);
@@ -96,7 +96,7 @@ public class DatagramOuter {
     }
 
     synchronized void unfreeze() {
-        if (opened) {
+        if (open) {
             if (frozen) {
                 int ops = pending.isEmpty() ?
                     SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
@@ -110,7 +110,7 @@ public class DatagramOuter {
     }
 
     synchronized void freeze() {
-        if (opened) {
+        if (open) {
             if (!frozen) {
                 if (selectionKey.isValid()) {
                     selectionKey.interestOps(0);
@@ -124,7 +124,7 @@ public class DatagramOuter {
     }
 
     synchronized void close() {
-        if (opened) {
+        if (open) {
             freeze();
 
             if (pending.bytes() > 0) {
@@ -134,7 +134,7 @@ public class DatagramOuter {
 
             NioUtils.closeChannel(channel);
 
-            opened = false;
+            open = false;
 
             LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, connectAddress);
         }

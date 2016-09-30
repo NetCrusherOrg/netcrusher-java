@@ -35,7 +35,7 @@ public class NioReactor implements Closeable {
 
     private final Queue<NioReactorOp<?>> ops;
 
-    private volatile boolean opened;
+    private volatile boolean open;
 
     public NioReactor() throws IOException {
         this.selector = Selector.open();
@@ -53,13 +53,13 @@ public class NioReactor implements Closeable {
             return thread;
         });
 
-        this.opened = true;
+        this.open = true;
         LOGGER.debug("Reactor has been created");
     }
 
     @Override
     public synchronized void close() throws IOException {
-        if (!opened) {
+        if (!open) {
             return;
         }
 
@@ -104,7 +104,7 @@ public class NioReactor implements Closeable {
             LOGGER.error("Fail to close selector", e);
         }
 
-        opened = false;
+        open = false;
         LOGGER.debug("Reactor is closed");
 
         if (interrupted) {
@@ -113,8 +113,7 @@ public class NioReactor implements Closeable {
     }
 
     public SelectionKey registerSelector(SelectableChannel channel, int options, SelectionKeyCallback callback)
-            throws IOException
-    {
+            throws IOException {
         return executeSelectorOp(() -> channel.register(selector, options, callback));
     }
 
@@ -211,7 +210,4 @@ public class NioReactor implements Closeable {
         LOGGER.debug("Reactor event loop has finished");
     }
 
-    public boolean isOpened() {
-        return opened;
-    }
 }

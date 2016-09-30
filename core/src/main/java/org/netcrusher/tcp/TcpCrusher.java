@@ -1,12 +1,12 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.NetCrusher;
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
 import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -45,7 +45,7 @@ import java.util.function.Consumer;
  * @see TcpCrusherBuilder
  * @see NioReactor
  */
-public class TcpCrusher implements Closeable {
+public class TcpCrusher implements NetCrusher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpCrusher.class);
 
@@ -73,15 +73,15 @@ public class TcpCrusher implements Closeable {
 
     private SelectionKey serverSelectionKey;
 
-    private volatile boolean opened;
+    private volatile boolean open;
 
     private volatile boolean frozen;
 
-    TcpCrusher(
+    public TcpCrusher(
+            NioReactor reactor,
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
             TcpCrusherSocketOptions socketOptions,
-            NioReactor reactor,
             Consumer<TcpPair> creationListener,
             Consumer<TcpPair> deletionListener,
             int bufferCount,
@@ -91,26 +91,23 @@ public class TcpCrusher implements Closeable {
         this.connectAddress = connectAddress;
         this.reactor = reactor;
         this.socketOptions = socketOptions;
-        this.opened = false;
         this.pairs = new ConcurrentHashMap<>(32);
         this.filters = new ByteBufferFilterRepository();
         this.bufferCount = bufferCount;
         this.bufferSize = bufferSize;
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
+        this.open = false;
         this.frozen = true;
     }
 
-    /**
-     * Start proxy with specified settings
-     * @throws IOException When socket binding fails
-     */
+    @Override
     public synchronized void open() throws IOException {
-        if (opened) {
+        if (open) {
             throw new IllegalStateException("TcpCrusher is already active");
         }
 
-        LOGGER.debug("TcpCrusher <{}>-<{}> will be opened", bindAddress, connectAddress);
+        LOGGER.debug("TcpCrusher <{}>-<{}> will be open", bindAddress, connectAddress);
 
         this.serverSocketChannel = ServerSocketChannel.open();
         this.serverSocketChannel.configureBlocking(false);
@@ -124,19 +121,16 @@ public class TcpCrusher implements Closeable {
 
         serverSelectionKey = reactor.registerSelector(serverSocketChannel, 0, (selectionKey) -> this.accept());
 
-        LOGGER.debug("TcpCrusher <{}>-<{}> is opened", bindAddress, connectAddress);
+        LOGGER.debug("TcpCrusher <{}>-<{}> is open", bindAddress, connectAddress);
 
-        opened = true;
+        open = true;
 
         unfreeze();
     }
 
-    /**
-     * Closes crusher proxy
-     */
     @Override
     public synchronized void close() throws IOException {
-        if (opened) {
+        if (open) {
             LOGGER.debug("TcpCrusher <{}>-<{}> will be closed", bindAddress, connectAddress);
 
             freeze();
@@ -153,7 +147,7 @@ public class TcpCrusher implements Closeable {
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
 
-            opened = false;
+            open = false;
         }
     }
 
@@ -161,12 +155,12 @@ public class TcpCrusher implements Closeable {
      * Close all pairs but keeps listening socket open
      */
     public synchronized void closeAllPairs() throws IOException {
-        if (opened) {
+        if (open) {
             for (TcpPair pair : getPairs()) {
                 closePair(pair.getClientAddress());
             }
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
@@ -185,79 +179,91 @@ public class TcpCrusher implements Closeable {
         }
     }
 
-    /**
-     * Reopens (closes and the opens again) crusher proxy
-     */
+    @Override
     public synchronized void crush() throws IOException {
-        if (opened) {
+        if (open) {
             close();
             open();
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
     /**
-     * Freezes crusher proxy. Call freeze() on every tranfer pair
-     * @see TcpCrusher#unfreeze()
-     * @see TcpPair#unfreeze()
+     * Freezes crusher proxy. Call freeze() on all pairs and freezes the acceptor
+     * @see TcpCrusher#freezeAllPairs()
+     * @see TcpCrusher#unfreezeAllPairs()
      * @see TcpPair#freeze()
+     * @see TcpPair#unfreeze()
      * @see TcpPair#isFrozen()
      * @throws IOException On IO error
      */
+    @Override
     public synchronized void freeze() throws IOException {
-        if (opened) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> will be frozen", bindAddress, connectAddress);
-
+        if (open) {
             if (!frozen) {
                 reactor.executeSelectorOp(() -> {
                     if (serverSelectionKey.isValid()) {
                         serverSelectionKey.interestOps(0);
                     }
                 });
-
                 frozen = true;
             }
 
-            for (TcpPair pair : pairs.values()) {
-                pair.freeze();
-            }
+            freezeAllPairs();
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is frozen", bindAddress, connectAddress);
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
     /**
-     * Resumes crusher proxy after freezing. Call resume() on every tranfer pair
-     * @see TcpCrusher#freeze()
+     * Freezes all TCP pairs
+     * @throws IOException Throwed on IO error
+     */
+    public void freezeAllPairs() throws IOException {
+        for (TcpPair pair : pairs.values()) {
+            pair.freeze();
+        }
+    }
+
+    /**
+     * Unfreezes the crusher. Call unfreeze() on all pairs and unfreezes the acceptor
+     * @see TcpCrusher#freezeAllPairs()
+     * @see TcpCrusher#unfreezeAllPairs()
      * @see TcpPair#freeze()
      * @see TcpPair#unfreeze()
      * @see TcpPair#isFrozen()
      * @throws IOException On IO error
      */
+    @Override
     public synchronized void unfreeze() throws IOException {
-        if (opened) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> will be unfrozen", bindAddress, connectAddress);
-
-            for (TcpPair pair : pairs.values()) {
-                pair.unfreeze();
-            }
+        if (open) {
+            unfreezeAllPairs();
 
             if (frozen) {
                 reactor.executeSelectorOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
-
                 frozen = false;
             }
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is unfrozen", bindAddress, connectAddress);
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
-    protected void accept() throws IOException {
+    /**
+     * Unfreezes all TCP pairs
+     * @throws IOException Throwed on IO error
+     */
+    public void unfreezeAllPairs() throws IOException {
+        for (TcpPair pair : pairs.values()) {
+            pair.unfreeze();
+        }
+    }
+
+    private void accept() throws IOException {
         SocketChannel socketChannel1 = serverSocketChannel.accept();
         socketChannel1.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel1);
@@ -301,7 +307,7 @@ public class TcpCrusher implements Closeable {
         }
     }
 
-    protected void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
+    private void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
         try {
             TcpPair pair = new TcpPair(this, reactor, filters,
                 socketChannel1, socketChannel2,
@@ -326,12 +332,33 @@ public class TcpCrusher implements Closeable {
         }
     }
 
-    /**
-     * Check is the crusher active
-     * @return Return 'true' if crusher proxy is active
-     */
-    public boolean isOpened() {
-        return opened;
+    @Override
+    public boolean isOpen() {
+        return open;
+    }
+
+    @Override
+    public boolean isFrozen() {
+        if (open) {
+            return frozen;
+        } else {
+            throw new IllegalStateException("Crusher is not open");
+        }
+    }
+
+    @Override
+    public InetSocketAddress getBindAddress() {
+        return bindAddress;
+    }
+
+    @Override
+    public InetSocketAddress getConnectAddress() {
+        return connectAddress;
+    }
+
+    @Override
+    public ByteBufferFilterRepository getFilters() {
+        return filters;
     }
 
     /**
@@ -340,30 +367,6 @@ public class TcpCrusher implements Closeable {
      */
     public Collection<TcpPair> getPairs() {
         return new ArrayList<>(this.pairs.values());
-    }
-
-    /**
-     * Get local listening address
-     * @return Inet address
-     */
-    public InetSocketAddress getBindAddress() {
-        return bindAddress;
-    }
-
-    /**
-     * Get remote listening address
-     * @return Inet address
-     */
-    public InetSocketAddress getConnectAddress() {
-        return connectAddress;
-    }
-
-    /**
-     * Get filter repository
-     * @return Filter repository
-     */
-    public ByteBufferFilterRepository getFilters() {
-        return filters;
     }
 
 }

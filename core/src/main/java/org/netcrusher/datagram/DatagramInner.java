@@ -57,7 +57,7 @@ public class DatagramInner {
 
     private final AtomicInteger totalReadDatagrams;
 
-    private boolean opened;
+    private boolean open;
 
     private volatile boolean frozen;
 
@@ -80,7 +80,7 @@ public class DatagramInner {
         this.pending = new DatagramQueue();
         this.maxIdleDurationMs = maxIdleDurationMs;
         this.frozen = true;
-        this.opened = true;
+        this.open = true;
 
         this.totalReadBytes = new AtomicLong(0);
         this.totalSentBytes = new AtomicLong(0);
@@ -100,7 +100,7 @@ public class DatagramInner {
     }
 
     synchronized void unfreeze() throws IOException {
-        if (opened) {
+        if (open) {
             if (frozen) {
                 reactor.executeSelectorOp(() -> {
                     int ops = pending.isEmpty() ?
@@ -118,7 +118,7 @@ public class DatagramInner {
     }
 
     synchronized void freeze() throws IOException {
-        if (opened) {
+        if (open) {
             if (!frozen) {
                 reactor.executeSelectorOp(() -> {
                     if (selectionKey.isValid()) {
@@ -136,7 +136,7 @@ public class DatagramInner {
     }
 
     synchronized void close() throws IOException {
-        if (opened) {
+        if (open) {
             freeze();
 
             if (pending.bytes() > 0) {
@@ -151,7 +151,7 @@ public class DatagramInner {
 
             reactor.wakeupSelector();
 
-            opened = false;
+            open = false;
 
             LOGGER.debug("Inner on <{}> is closed", bindAddress);
         }

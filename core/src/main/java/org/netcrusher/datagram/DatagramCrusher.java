@@ -1,10 +1,10 @@
 package org.netcrusher.datagram;
 
+import org.netcrusher.NetCrusher;
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -31,7 +31,7 @@ import java.util.Collection;
  * @see TcpCrusherBuilder
  * @see NioReactor
  */
-public class DatagramCrusher implements Closeable {
+public class DatagramCrusher implements NetCrusher {
 
     private final NioReactor reactor;
 
@@ -47,13 +47,13 @@ public class DatagramCrusher implements Closeable {
 
     private DatagramInner inner;
 
-    private volatile boolean opened;
+    private volatile boolean open;
 
-    DatagramCrusher(
+    public DatagramCrusher(
+            NioReactor reactor,
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
             DatagramCrusherSocketOptions socketOptions,
-            NioReactor reactor,
             long maxIdleDurationMs)
     {
         this.bindAddress = bindAddress;
@@ -61,16 +61,13 @@ public class DatagramCrusher implements Closeable {
         this.socketOptions = socketOptions;
         this.reactor = reactor;
         this.maxIdleDurationMs = maxIdleDurationMs;
-        this.opened = false;
+        this.open = false;
         this.filters = new ByteBufferFilterRepository();
     }
 
-    /**
-     * Opens the proxy. Listening socket will opened and binded.
-     * @throws IOException On problem with opening/binding
-     */
+    @Override
     public synchronized void open() throws IOException {
-        if (opened) {
+        if (open) {
             throw new IllegalStateException("DatagramCrusher is already active");
         }
 
@@ -78,77 +75,73 @@ public class DatagramCrusher implements Closeable {
             bindAddress, connectAddress, maxIdleDurationMs);
         this.inner.unfreeze();
 
-        this.opened = true;
+        this.open = true;
     }
 
-    /**
-     * Closes the proxy. Listening socket will be closed
-     */
     @Override
     public synchronized void close() throws IOException {
-        if (opened) {
+        if (open) {
             this.inner.close();
             this.inner = null;
-            this.opened = false;
+            this.open = false;
         }
     }
 
-    /**
-     * Reopens (closes and the opens again) crusher proxy
-     */
+    @Override
     public synchronized void crush() throws IOException {
-        if (opened) {
+        if (open) {
             close();
             open();
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
-    /**
-     * Freezes crusher proxy. Sockets are still open but packets are not sent
-     * @see DatagramCrusher#unfreeze()
-     * @throws IOException On IO error
-     */
+    @Override
     public synchronized void freeze() throws IOException {
-        if (opened) {
+        if (open) {
             inner.freeze();
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
-    /**
-     * Resumes crusher proxy after freezing
-     * @see DatagramCrusher#freeze()
-     * @throws IOException On IO error
-     */
+    @Override
     public synchronized void unfreeze() throws IOException {
-        if (opened) {
+        if (open) {
             inner.unfreeze();
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
-    /**
-     * Check is the crusher active
-     * @return Return 'true' if crusher proxy is active
-     */
-    public boolean isOpened() {
-        return opened;
+    @Override
+    public boolean isOpen() {
+        return open;
     }
 
-    /**
-     * Check is the crusher frozen
-     * @return Frozen flag
-     */
+    @Override
     public boolean isFrozen() {
-        if (opened) {
+        if (open) {
             return inner.isFrozen();
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
+    }
+
+    @Override
+    public ByteBufferFilterRepository getFilters() {
+        return filters;
+    }
+
+    @Override
+    public InetSocketAddress getBindAddress() {
+        return bindAddress;
+    }
+
+    @Override
+    public InetSocketAddress getConnectAddress() {
+        return connectAddress;
     }
 
     /**
@@ -156,10 +149,10 @@ public class DatagramCrusher implements Closeable {
      * @return Collection of outer socket controllers
      */
     public Collection<DatagramOuter> getOuters() {
-        if (opened) {
+        if (open) {
             return inner.getOuters();
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
@@ -168,18 +161,11 @@ public class DatagramCrusher implements Closeable {
      * @return Inner socket controller
      */
     public DatagramInner getInner() {
-        if (opened) {
+        if (open) {
             return inner;
         } else {
-            throw new IllegalStateException("Crusher is not opened");
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
-    /**
-     * Get filter repository
-     * @return Filter repository
-     */
-    public ByteBufferFilterRepository getFilters() {
-        return filters;
-    }
 }

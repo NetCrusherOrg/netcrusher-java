@@ -26,9 +26,7 @@ public class TcpTransfer {
 
     private final AtomicLong totalSent;
 
-    TcpTransfer(String name, SelectionKey otherSideKey,
-                TcpQueue incoming, TcpQueue outgoing) throws IOException
-    {
+    TcpTransfer(String name, SelectionKey otherSideKey, TcpQueue incoming, TcpQueue outgoing) throws IOException {
         this.name = name;
         this.otherSideKey = otherSideKey;
         this.incoming = incoming;

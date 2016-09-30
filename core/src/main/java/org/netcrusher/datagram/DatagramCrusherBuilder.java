@@ -140,7 +140,11 @@ public final class DatagramCrusherBuilder {
             throw new IllegalArgumentException("Reactor is not set");
         }
 
-        return new DatagramCrusher(bindAddress, connectAddress, socketOptions.copy(), reactor,
+        return new DatagramCrusher(
+            reactor,
+            bindAddress,
+            connectAddress,
+            socketOptions.copy(),
             maxIdleDurationMs);
     }
 

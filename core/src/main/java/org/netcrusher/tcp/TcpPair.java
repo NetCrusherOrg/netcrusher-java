@@ -1,5 +1,6 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.NetFreezer;
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
 import org.netcrusher.filter.ByteBufferFilter;
@@ -15,7 +16,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 
-public class TcpPair {
+public class TcpPair implements NetFreezer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpPair.class);
 
@@ -39,7 +40,7 @@ public class TcpPair {
 
     private final InetSocketAddress clientAddress;
 
-    private boolean opened;
+    private boolean open;
 
     private volatile boolean frozen;
 
@@ -55,7 +56,7 @@ public class TcpPair {
         this.crusher = crusher;
         this.reactor = reactor;
         this.frozen = true;
-        this.opened = true;
+        this.open = true;
 
         this.inner = inner;
         this.outer = outer;
@@ -74,12 +75,9 @@ public class TcpPair {
         this.outerTransfer = new TcpTransfer("OUTER", this.innerKey, innerToOuter, outerToInner);
     }
 
-    /**
-     * Start transfer after pair is created
-     * @see TcpPair#freeze()
-     */
+    @Override
     public synchronized void unfreeze() throws IOException {
-        if (opened) {
+        if (open) {
             if (frozen) {
                 reactor.executeSelectorOp(() -> {
                     int ops;
@@ -102,12 +100,9 @@ public class TcpPair {
         }
     }
 
-    /**
-     * Freezes any transfer. Sockets are still open but data are not sent
-     * @see TcpPair#unfreeze()
-     */
+    @Override
     public synchronized void freeze() throws IOException {
-        if (opened) {
+        if (open) {
             if (!frozen) {
                 reactor.executeSelectorOp(() -> {
                     if (innerKey.isValid()) {
@@ -128,17 +123,23 @@ public class TcpPair {
         }
     }
 
-    /**
-     * Closes this paired connection
-     */
-    public synchronized void close() throws IOException {
-        if (opened) {
+    @Override
+    public boolean isFrozen() {
+        if (open) {
+            return frozen;
+        } else {
+            throw new IllegalStateException("Pair is closed");
+        }
+    }
+
+    synchronized void close() throws IOException {
+        if (open) {
             freeze();
 
             NioUtils.closeChannel(inner);
             NioUtils.closeChannel(outer);
 
-            opened = false;
+            open = false;
 
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Pair for '{}' is closed", clientAddress);
@@ -221,16 +222,6 @@ public class TcpPair {
      */
     public TcpTransfer getOuterTransfer() {
         return outerTransfer;
-    }
-
-    /**
-     * Is the pair frozen
-     * @return Return true if freeze() on this pair was called before
-     * @see TcpPair#unfreeze()
-     * @see TcpPair#freeze()
-     */
-    public boolean isFrozen() {
-        return frozen;
     }
 
 }
