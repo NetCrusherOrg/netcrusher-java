@@ -62,8 +62,9 @@ reactor.close();
 
 Checks additional samples in the project root folder:
 
-* [sample-hsqldb-bonecp](sample-hsqldb-bonecp/src/test/java/org/netcrusher)
-* [sample-datagram-rfc868](sample-datagram-rfc868/src/test/java/org/netcrusher)
+* [sample-hsqldb-bonecp](samples/sample-hsqldb-bonecp/src/test/java/org/netcrusher)
+* [sample-datagram-rfc868](samples/sample-datagram-rfc868/src/test/java/org/netcrusher)
+* [sample-zookeper](samples/sample-zookeper/src/test/java/org/netcrusher)
 
 # Maven
 
