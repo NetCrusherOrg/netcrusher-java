@@ -1,5 +1,6 @@
 package org.netcrusher.datagram;
 
+import org.netcrusher.NetFreezer;
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
 import org.netcrusher.filter.ByteBufferFilter;
@@ -21,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class DatagramInner {
+public class DatagramInner implements NetFreezer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramInner.class);
 
@@ -99,7 +100,8 @@ public class DatagramInner {
         LOGGER.debug("Inner on <{}> is started", bindAddress);
     }
 
-    synchronized void unfreeze() throws IOException {
+    @Override
+    public synchronized void unfreeze() throws IOException {
         if (open) {
             if (frozen) {
                 reactor.getSelector().executeOp(() -> {
@@ -117,7 +119,8 @@ public class DatagramInner {
         }
     }
 
-    synchronized void freeze() throws IOException {
+    @Override
+    public synchronized void freeze() throws IOException {
         if (open) {
             if (!frozen) {
                 reactor.getSelector().executeOp(() -> {
@@ -131,8 +134,13 @@ public class DatagramInner {
                 frozen = true;
             }
         } else {
-            throw new IllegalStateException("Inner is closed");
+            LOGGER.debug("Component is closed on freeze");
         }
+    }
+
+    @Override
+    public synchronized boolean isFrozen() {
+        return !open || frozen;
     }
 
     synchronized void closeExternal() throws IOException {
@@ -301,10 +309,6 @@ public class DatagramInner {
         if (added) {
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
-    }
-
-    boolean isFrozen() {
-        return frozen;
     }
 
     Collection<DatagramOuter> getOuters() {

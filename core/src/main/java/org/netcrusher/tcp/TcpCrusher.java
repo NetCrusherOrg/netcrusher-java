@@ -122,7 +122,7 @@ public class TcpCrusher implements NetCrusher {
 
         serverSelectionKey = reactor.getSelector().register(serverSocketChannel, 0, (selectionKey) -> this.accept());
 
-        LOGGER.debug("TcpCrusher <{}>-<{}> is open", bindAddress, connectAddress);
+        LOGGER.info("TcpCrusher <{}>-<{}> is open", bindAddress, connectAddress);
 
         open = true;
 
@@ -146,10 +146,15 @@ public class TcpCrusher implements NetCrusher {
 
             reactor.getSelector().wakeup();
 
-            LOGGER.debug("TcpCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
+            LOGGER.info("TcpCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
 
             open = false;
         }
+    }
+
+    @Override
+    public boolean isOpen() {
+        return open;
     }
 
     /**
@@ -215,7 +220,7 @@ public class TcpCrusher implements NetCrusher {
 
             LOGGER.debug("TcpCrusher <{}>-<{}> is frozen", bindAddress, connectAddress);
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            LOGGER.debug("Component is closed on freeze");
         }
     }
 
@@ -252,6 +257,11 @@ public class TcpCrusher implements NetCrusher {
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
+    }
+
+    @Override
+    public synchronized boolean isFrozen() {
+        return !open || frozen;
     }
 
     /**
@@ -336,20 +346,6 @@ public class TcpCrusher implements NetCrusher {
             LOGGER.error("Fail to create TcpCrusher TCP pair", e);
             NioUtils.closeChannel(socketChannel1);
             NioUtils.closeChannel(socketChannel2);
-        }
-    }
-
-    @Override
-    public boolean isOpen() {
-        return open;
-    }
-
-    @Override
-    public boolean isFrozen() {
-        if (open) {
-            return frozen;
-        } else {
-            throw new IllegalStateException("Crusher is not open");
         }
     }
 

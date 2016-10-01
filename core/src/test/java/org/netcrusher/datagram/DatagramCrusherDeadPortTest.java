@@ -9,11 +9,11 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 
-public class DatagramCrusherDeafPortTest {
+public class DatagramCrusherDeadPortTest {
 
     private static final int CRUSHER_PORT = 10283;
 
-    private static final int DEAF_PORT = 10284;
+    private static final int DEAD_PORT = 10284;
 
     private static final String HOSTNAME = "127.0.0.1";
 
@@ -28,7 +28,7 @@ public class DatagramCrusherDeafPortTest {
         crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
-            .withConnectAddress(HOSTNAME, DEAF_PORT)
+            .withConnectAddress(HOSTNAME, DEAD_PORT)
             .buildAndOpen();
     }
 

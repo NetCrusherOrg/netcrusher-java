@@ -119,17 +119,17 @@ public class TcpPair implements NetFreezer {
                 frozen = true;
             }
         } else {
-            throw new IllegalStateException("Pair is closed");
+            LOGGER.debug("Component is closed on freeze");
         }
     }
 
     @Override
-    public boolean isFrozen() {
-        if (open) {
-            return frozen;
-        } else {
-            throw new IllegalStateException("Pair is closed");
-        }
+    public synchronized boolean isFrozen() {
+        return !open || frozen;
+    }
+
+    public boolean isOpen() {
+        return open;
     }
 
     synchronized void closeExternal() throws IOException {
@@ -173,7 +173,7 @@ public class TcpPair implements NetFreezer {
         try {
             thisTransfer.handleEvent(selectionKey);
         } catch (EOFException | ClosedChannelException e) {
-            LOGGER.trace("EOF on transfer or channel is closed on {}", thisTransfer.getName());
+            LOGGER.debug("EOF on transfer or channel is closed on {}", thisTransfer.getName());
             if (thisTransfer.getOutgoing().calculateReadyBytes() > 0) {
                 NioUtils.closeChannel(thisChannel);
                 reactor.schedule(LINGER_PERIOD_MS, () -> {
@@ -184,7 +184,7 @@ public class TcpPair implements NetFreezer {
                 closeInternal();
             }
         } catch (IOException e) {
-            LOGGER.warn("IO exception on {}", thisTransfer.getName(), e);
+            LOGGER.debug("IO exception on {}", thisTransfer.getName(), e);
             closeInternal();
         }
 

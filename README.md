@@ -65,6 +65,7 @@ Checks additional samples in the project root folder:
 * [sample-hsqldb-bonecp](samples/sample-hsqldb-bonecp/src/test/java/org/netcrusher)
 * [sample-datagram-rfc868](samples/sample-datagram-rfc868/src/test/java/org/netcrusher)
 * [sample-zookeper](samples/sample-zookeeper/src/test/java/org/netcrusher)
+* [sample-apache-http](samples/sample-apache-http/src/test/java/org/netcrusher)
 
 # Maven
 

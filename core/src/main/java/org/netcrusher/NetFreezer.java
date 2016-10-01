@@ -7,7 +7,6 @@ public interface NetFreezer {
     /**
      * Freezes all activity on the component. Sockets remain open
      * @throws IOException Throwed on IO problems
-     * @throws IllegalStateException Throwed if the component is not open
      * @see NetFreezer#unfreeze()
      * @see NetFreezer#isFrozen()
      */

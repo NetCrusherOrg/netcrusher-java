@@ -4,6 +4,8 @@ import org.netcrusher.NetCrusher;
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.filter.ByteBufferFilterRepository;
 import org.netcrusher.tcp.TcpCrusherBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -32,6 +34,8 @@ import java.util.Collection;
  * @see NioReactor
  */
 public class DatagramCrusher implements NetCrusher {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DatagramCrusher.class);
 
     private final NioReactor reactor;
 
@@ -75,6 +79,8 @@ public class DatagramCrusher implements NetCrusher {
             bindAddress, connectAddress, maxIdleDurationMs);
         this.inner.unfreeze();
 
+        LOGGER.debug("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);
+
         this.open = true;
     }
 
@@ -83,7 +89,10 @@ public class DatagramCrusher implements NetCrusher {
         if (open) {
             this.inner.closeExternal();
             this.inner = null;
+
             this.open = false;
+
+            LOGGER.debug("DatagramCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
         }
     }
 
@@ -98,11 +107,16 @@ public class DatagramCrusher implements NetCrusher {
     }
 
     @Override
+    public boolean isOpen() {
+        return open;
+    }
+
+    @Override
     public synchronized void freeze() throws IOException {
         if (open) {
             inner.freeze();
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            LOGGER.debug("Component is closed on freeze");
         }
     }
 
@@ -116,17 +130,8 @@ public class DatagramCrusher implements NetCrusher {
     }
 
     @Override
-    public boolean isOpen() {
-        return open;
-    }
-
-    @Override
-    public boolean isFrozen() {
-        if (open) {
-            return inner.isFrozen();
-        } else {
-            throw new IllegalStateException("Crusher is not open");
-        }
+    public synchronized boolean isFrozen() {
+        return !open || inner.isFrozen();
     }
 
     @Override

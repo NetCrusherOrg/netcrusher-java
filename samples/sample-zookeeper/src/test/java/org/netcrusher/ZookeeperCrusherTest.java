@@ -75,7 +75,6 @@ public class ZookeeperCrusherTest {
         IOUtils.closeQuietly(instance1);
         IOUtils.closeQuietly(instance2);
         IOUtils.closeQuietly(instance3);
-
         IOUtils.closeQuietly(reactor);
 
         FileUtils.deleteDirectory(WORK_FOLDER);
@@ -87,6 +86,7 @@ public class ZookeeperCrusherTest {
         instance3.clientCrusher.close();
         instance3.electionCrusher.close();
         instance3.leaderCrusher.close();
+        Thread.sleep(3000);
 
         LOGGER.info("writing data");
         byte[] data1 = { 1, 2, 3};
@@ -96,10 +96,12 @@ public class ZookeeperCrusherTest {
         instance3.clientCrusher.open();
         instance3.electionCrusher.open();
         instance3.leaderCrusher.open();
+        Thread.sleep(3000);
 
         LOGGER.info("zoo1 and zoo2 are disconnected from the client (but still available for zoo3)");
         instance1.clientCrusher.close();
         instance2.clientCrusher.close();
+        Thread.sleep(3000);
 
         LOGGER.info("reading data");
         byte[] data2 = read(connection, "/my/path");

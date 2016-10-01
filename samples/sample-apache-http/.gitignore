@@ -1,0 +1,13 @@
+/.idea
+/out
+/target
+
+/*.iml
+/*.log
+/*.sh
+
+pom.xml.releaseBackup
+pom.xml.next
+pom.xml.tag
+release.properties
+
