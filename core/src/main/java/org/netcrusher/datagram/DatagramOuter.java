@@ -141,9 +141,9 @@ public class DatagramOuter {
     }
 
     private void closeInternal() {
-        reactor.execute(() -> {
+        reactor.getScheduler().execute(() -> {
             inner.closeOuter(clientAddress);
-            return null;
+            return true;
         });
     }
 

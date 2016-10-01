@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -180,7 +181,7 @@ public class TcpCrusher implements NetCrusher {
         if (pair != null) {
             pair.closeExternal();
             if (deletionListener != null) {
-                reactor.execute(() -> deletionListener.accept(pair));
+                reactor.getScheduler().execute(() -> deletionListener.accept(pair));
             }
         }
     }
@@ -293,14 +294,16 @@ public class TcpCrusher implements NetCrusher {
         if (!connectedNow) {
             final Future<?> connectCheck;
             if (socketOptions.getConnectionTimeoutMs() > 0) {
-                connectCheck = reactor.schedule(socketOptions.getConnectionTimeoutMs(), () -> {
-                    if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
-                        LOGGER.warn("Fail to connect to <{}> in {}ms",
-                            connectAddress, socketOptions.getConnectionTimeoutMs());
-                        NioUtils.closeChannel(socketChannel1);
-                        NioUtils.closeChannel(socketChannel2);
-                    }
-                });
+                connectCheck = reactor.getScheduler()
+                    .schedule(socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS, () -> {
+                        if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
+                            LOGGER.warn("Fail to connect to <{}> in {}ms",
+                                connectAddress, socketOptions.getConnectionTimeoutMs());
+                            NioUtils.closeChannel(socketChannel1);
+                            NioUtils.closeChannel(socketChannel2);
+                        }
+                        return true;
+                    });
             } else {
                 connectCheck = CompletableFuture.completedFuture(null);
             }
@@ -340,7 +343,7 @@ public class TcpCrusher implements NetCrusher {
             pairs.put(pair.getClientAddress(), pair);
 
             if (creationListener != null) {
-                reactor.execute(() -> creationListener.accept(pair));
+                reactor.getScheduler().execute(() -> creationListener.accept(pair));
             }
         } catch (ClosedChannelException | CancelledKeyException e) {
             LOGGER.debug("One of the channels is already closed", e);

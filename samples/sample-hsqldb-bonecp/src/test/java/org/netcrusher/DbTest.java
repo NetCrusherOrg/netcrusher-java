@@ -15,6 +15,7 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLTransientConnectionException;
+import java.util.concurrent.TimeUnit;
 
 public class DbTest {
 
@@ -144,9 +145,9 @@ public class DbTest {
         // disconnect
         crusher.freezeAllPairs();
 
-        reactor.schedule(3000, () -> {
+        reactor.getScheduler().schedule(3000, TimeUnit.MILLISECONDS, () -> {
             crusher.unfreezeAllPairs();
-            return null;
+            return true;
         });
 
         // the query should fail

@@ -15,6 +15,7 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
+import java.util.concurrent.TimeUnit;
 
 public class TcpPair implements NetFreezer {
 
@@ -163,9 +164,9 @@ public class TcpPair implements NetFreezer {
 
     private void closeInternal() throws IOException {
         LOGGER.debug("Pair for <{}> will be self-closed", clientAddress);
-        reactor.execute(() -> {
+        reactor.getScheduler().execute(() -> {
             crusher.closePair(this.getClientAddress());
-            return null;
+            return true;
         });
     }
 
@@ -180,10 +181,11 @@ public class TcpPair implements NetFreezer {
             LOGGER.debug("EOF on transfer or channel is closed on {}", thisTransfer.getName());
             if (thisTransfer.getOutgoing().calculateReadyBytes() > 0) {
                 NioUtils.closeChannel(thisChannel);
-                reactor.schedule(LINGER_PERIOD_MS, () -> {
-                    this.closeInternal();
-                    return null;
-                });
+                reactor.getScheduler()
+                    .schedule(LINGER_PERIOD_MS, TimeUnit.MILLISECONDS, () -> {
+                        this.closeInternal();
+                        return true;
+                    });
             } else {
                 closeInternal();
             }

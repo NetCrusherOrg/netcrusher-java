@@ -177,9 +177,9 @@ public class DatagramInner implements NetFreezer {
     }
 
     private void closeInternal() {
-        reactor.execute(() -> {
+        reactor.getScheduler().execute(() -> {
             crusher.close();
-            return null;
+            return true;
         });
     }
 

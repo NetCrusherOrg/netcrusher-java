@@ -3,7 +3,6 @@ package org.netcrusher.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.channels.ClosedSelectorException;
@@ -17,7 +16,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 
-public class NioSelector implements Closeable {
+public class NioSelector {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NioSelector.class);
 
@@ -31,7 +30,7 @@ public class NioSelector implements Closeable {
 
     private volatile boolean open;
 
-    public NioSelector() throws IOException {
+    NioSelector() throws IOException {
         this.selector = Selector.open();
         this.ops = new ConcurrentLinkedQueue<>();
 
@@ -43,8 +42,7 @@ public class NioSelector implements Closeable {
         this.open = true;
     }
 
-    @Override
-    public synchronized void close() {
+    synchronized void close() {
         if (!open) {
             return;
         }
