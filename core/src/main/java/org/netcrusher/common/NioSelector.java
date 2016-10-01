@@ -92,16 +92,25 @@ public class NioSelector {
         }
     }
 
+    /**
+     * Internal method
+     */
     public SelectionKey register(SelectableChannel channel, int options,
                                 SelectionKeyCallback callback) throws IOException {
         return executeOp(() -> channel.register(selector, options, callback));
     }
 
+    /**
+     * Internal method
+     */
     public int wakeup() throws IOException {
         // fixes some strange behaviour on Windows: http://stackoverflow.com/a/39657002/827139
         return executeOp(selector::selectNow);
     }
 
+    /**
+     * Internal method
+     */
     public <T> T executeOp(Callable<T> callable) throws IOException {
         if (!open) {
             throw new IllegalStateException("Selector is closed");
@@ -127,13 +136,6 @@ public class NioSelector {
                 throw new IOException("Selector operation has failed", e);
             }
         }
-    }
-
-    public void executeOp(Runnable runnable) throws IOException {
-        executeOp(() -> {
-            runnable.run();
-            return null;
-        });
     }
 
     private void loop() {

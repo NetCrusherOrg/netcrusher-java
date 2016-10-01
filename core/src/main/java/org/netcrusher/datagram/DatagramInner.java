@@ -1,6 +1,5 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.NetFreezer;
 import org.netcrusher.common.NioReactor;
 import org.netcrusher.common.NioUtils;
 import org.netcrusher.filter.ByteBufferFilter;
@@ -22,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class DatagramInner implements NetFreezer {
+public class DatagramInner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramInner.class);
 
@@ -100,8 +99,7 @@ public class DatagramInner implements NetFreezer {
         LOGGER.debug("Inner on <{}> is started", bindAddress);
     }
 
-    @Override
-    public synchronized void unfreeze() throws IOException {
+    synchronized void unfreeze() throws IOException {
         if (open) {
             if (frozen) {
                 reactor.getSelector().executeOp(() -> {
@@ -110,6 +108,8 @@ public class DatagramInner implements NetFreezer {
                     selectionKey.interestOps(ops);
 
                     outers.values().forEach(DatagramOuter::unfreeze);
+
+                    return true;
                 });
 
                 frozen = false;
@@ -119,8 +119,7 @@ public class DatagramInner implements NetFreezer {
         }
     }
 
-    @Override
-    public synchronized void freeze() throws IOException {
+    synchronized void freeze() throws IOException {
         if (open) {
             if (!frozen) {
                 reactor.getSelector().executeOp(() -> {
@@ -129,6 +128,8 @@ public class DatagramInner implements NetFreezer {
                     }
 
                     outers.values().forEach(DatagramOuter::freeze);
+
+                    return true;
                 });
 
                 frozen = true;
@@ -138,8 +139,7 @@ public class DatagramInner implements NetFreezer {
         }
     }
 
-    @Override
-    public synchronized boolean isFrozen() {
+    synchronized boolean isFrozen() {
         if (open) {
             return frozen;
         } else {

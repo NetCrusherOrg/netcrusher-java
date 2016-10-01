@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.CancelledKeyException;
@@ -23,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -71,6 +71,8 @@ public class TcpCrusher implements NetCrusher {
 
     private final ByteBufferFilterRepository filters;
 
+    private final AtomicInteger createdPairsCount;
+
     private ServerSocketChannel serverSocketChannel;
 
     private SelectionKey serverSelectionKey;
@@ -99,6 +101,7 @@ public class TcpCrusher implements NetCrusher {
         this.bufferSize = bufferSize;
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
+        this.createdPairsCount = new AtomicInteger(0);
         this.open = false;
         this.frozen = true;
     }
@@ -213,6 +216,8 @@ public class TcpCrusher implements NetCrusher {
                     if (serverSelectionKey.isValid()) {
                         serverSelectionKey.interestOps(0);
                     }
+
+                    return true;
                 });
                 frozen = true;
             }
@@ -314,12 +319,13 @@ public class TcpCrusher implements NetCrusher {
                 boolean connected;
                 try {
                     connected = socketChannel2.finishConnect();
-                } catch (ConnectException e) {
+                } catch (IOException e) {
+                    LOGGER.debug("Exception while finishing the connection", e);
                     connected = false;
                 }
 
                 if (!connected) {
-                    LOGGER.warn("Fail to finish outgoing connection to <{}>", connectAddress);
+                    LOGGER.debug("Fail to finish outgoing connection to <{}>", connectAddress);
                     NioUtils.closeChannel(socketChannel1);
                     NioUtils.closeChannel(socketChannel2);
                     return;
@@ -341,6 +347,8 @@ public class TcpCrusher implements NetCrusher {
             LOGGER.debug("Pair is created for <{}>", pair.getClientAddress());
 
             pairs.put(pair.getClientAddress(), pair);
+
+            createdPairsCount.incrementAndGet();
 
             if (creationListener != null) {
                 reactor.getScheduler().execute(() -> creationListener.accept(pair));
@@ -379,5 +387,12 @@ public class TcpCrusher implements NetCrusher {
         return new ArrayList<>(this.pairs.values());
     }
 
+    /**
+     * Get the count of created tranfer pairs
+     * @return Count
+     */
+    public int getCreatedPairsCount() {
+        return createdPairsCount.get();
+    }
 }
 
