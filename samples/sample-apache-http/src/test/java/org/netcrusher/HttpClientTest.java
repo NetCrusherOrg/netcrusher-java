@@ -35,9 +35,9 @@ import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 
-public class HttpClient {
+public class HttpClientTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(HttpClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpClientTest.class);
 
     private static final String REMOTE_HOST = "hc.apache.org";
 

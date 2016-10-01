@@ -131,7 +131,11 @@ public class DatagramCrusher implements NetCrusher {
 
     @Override
     public synchronized boolean isFrozen() {
-        return !open || inner.isFrozen();
+        if (open) {
+            return inner.isFrozen();
+        } else {
+            throw new IllegalStateException("Crusher is not open");
+        }
     }
 
     @Override

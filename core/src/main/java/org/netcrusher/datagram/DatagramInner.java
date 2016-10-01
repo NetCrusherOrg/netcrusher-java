@@ -140,7 +140,11 @@ public class DatagramInner implements NetFreezer {
 
     @Override
     public synchronized boolean isFrozen() {
-        return !open || frozen;
+        if (open) {
+            return frozen;
+        } else {
+            throw new IllegalStateException("Inner is closed");
+        }
     }
 
     synchronized void closeExternal() throws IOException {

@@ -261,7 +261,11 @@ public class TcpCrusher implements NetCrusher {
 
     @Override
     public synchronized boolean isFrozen() {
-        return !open || frozen;
+        if (open) {
+            return frozen;
+        } else {
+            throw new IllegalStateException("Crusher is not open");
+        }
     }
 
     /**

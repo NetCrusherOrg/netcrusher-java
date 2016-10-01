@@ -125,7 +125,11 @@ public class TcpPair implements NetFreezer {
 
     @Override
     public synchronized boolean isFrozen() {
-        return !open || frozen;
+        if (open) {
+            return frozen;
+        } else {
+            throw new IllegalStateException("Pair is closed");
+        }
     }
 
     public boolean isOpen() {
