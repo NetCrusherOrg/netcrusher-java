@@ -45,7 +45,11 @@ public class ZookeeperCrusherTest {
     public void setUp() throws Exception {
         System.setProperty("zookeeper.jmx.log4j.disable", "true");
 
-        Assert.assertFalse(WORK_FOLDER.exists());
+        if (WORK_FOLDER.exists()) {
+            LOGGER.warn("Work folder '{}' exists", WORK_FOLDER);
+            FileUtils.deleteDirectory(WORK_FOLDER);
+        }
+
         FileUtils.forceMkdir(WORK_FOLDER);
 
         reactor = new NioReactor();
