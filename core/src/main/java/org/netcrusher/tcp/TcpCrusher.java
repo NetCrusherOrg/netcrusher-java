@@ -202,14 +202,21 @@ public class TcpCrusher implements NetCrusher {
     /**
      * Freezes crusher proxy. Call freeze() on all pairs and freezes the acceptor
      * @see TcpCrusher#freezeAllPairs()
-     * @see TcpCrusher#unfreezeAllPairs()
+     * @see TcpCrusher#freezeAcceptor()
      * @see TcpPair#freeze()
-     * @see TcpPair#unfreeze()
-     * @see TcpPair#isFrozen()
      * @throws IOException On IO error
      */
     @Override
-    public synchronized void freeze() throws IOException {
+    public void freeze() throws IOException {
+        freezeAcceptor();
+        freezeAllPairs();
+    }
+
+    /**
+     * Freezes the acceptor
+     * @throws IOException Throwed on IO error
+     */
+    public synchronized void freezeAcceptor() throws IOException {
         if (open) {
             if (!frozen) {
                 reactor.getSelector().executeOp(() -> {
@@ -219,12 +226,11 @@ public class TcpCrusher implements NetCrusher {
 
                     return true;
                 });
+
                 frozen = true;
+
+                LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is frozen", bindAddress, connectAddress);
             }
-
-            freezeAllPairs();
-
-            LOGGER.debug("TcpCrusher <{}>-<{}> is frozen", bindAddress, connectAddress);
         } else {
             LOGGER.debug("Component is closed on freeze");
         }
@@ -242,33 +248,31 @@ public class TcpCrusher implements NetCrusher {
 
     /**
      * Unfreezes the crusher. Call unfreeze() on all pairs and unfreezes the acceptor
-     * @see TcpCrusher#freezeAllPairs()
      * @see TcpCrusher#unfreezeAllPairs()
-     * @see TcpPair#freeze()
+     * @see TcpCrusher#unfreezeAcceptor()
      * @see TcpPair#unfreeze()
-     * @see TcpPair#isFrozen()
      * @throws IOException On IO error
      */
     @Override
-    public synchronized void unfreeze() throws IOException {
-        if (open) {
-            unfreezeAllPairs();
-
-            if (frozen) {
-                reactor.getSelector().executeOp(() -> serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
-                frozen = false;
-            }
-
-            LOGGER.debug("TcpCrusher <{}>-<{}> is unfrozen", bindAddress, connectAddress);
-        } else {
-            throw new IllegalStateException("Crusher is not open");
-        }
+    public void unfreeze() throws IOException {
+        unfreezeAllPairs();
+        unfreezeAcceptor();
     }
 
-    @Override
-    public synchronized boolean isFrozen() {
+    /**
+     * Unfreezes the acceptor
+     * @throws IOException Throwed on IO error
+     */
+    public synchronized void unfreezeAcceptor() throws IOException {
         if (open) {
-            return frozen;
+            if (frozen) {
+                reactor.getSelector().executeOp(() ->
+                    serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
+
+                frozen = false;
+
+                LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is unfrozen", bindAddress, connectAddress);
+            }
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
@@ -281,6 +285,15 @@ public class TcpCrusher implements NetCrusher {
     public void unfreezeAllPairs() throws IOException {
         for (TcpPair pair : pairs.values()) {
             pair.unfreeze();
+        }
+    }
+
+    @Override
+    public synchronized boolean isFrozen() {
+        if (open) {
+            return frozen;
+        } else {
+            throw new IllegalStateException("Crusher is not open");
         }
     }
 
@@ -388,7 +401,7 @@ public class TcpCrusher implements NetCrusher {
     }
 
     /**
-     * Get the count of created tranfer pairs
+     * Get the total count of created tranfer pairs for all the time
      * @return Count
      */
     public int getCreatedPairsCount() {
