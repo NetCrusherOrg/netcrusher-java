@@ -13,7 +13,7 @@ import org.netcrusher.core.filter.NoopFilter;
 
 import java.net.InetSocketAddress;
 
-public class DatagramCrusherBulkTest {
+public class BulkDatagramTest {
 
     private static final int CLIENT_PORT = 10182;
 

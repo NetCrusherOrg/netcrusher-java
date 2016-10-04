@@ -47,7 +47,7 @@ public class DatagramInner {
 
     private final Map<InetSocketAddress, DatagramOuter> outers;
 
-    private final DatagramQueue pending;
+    private final DatagramQueue incoming;
 
     private final AtomicLong totalSentBytes;
 
@@ -77,7 +77,7 @@ public class DatagramInner {
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
         this.outers = new ConcurrentHashMap<>(32);
-        this.pending = new DatagramQueue();
+        this.incoming = new DatagramQueue();
         this.maxIdleDurationMs = maxIdleDurationMs;
         this.frozen = true;
         this.open = true;
@@ -103,7 +103,7 @@ public class DatagramInner {
         if (open) {
             if (frozen) {
                 reactor.getSelector().executeOp(() -> {
-                    int ops = pending.isEmpty() ?
+                    int ops = incoming.isEmpty() ?
                         SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                     selectionKey.interestOps(ops);
 
@@ -151,9 +151,8 @@ public class DatagramInner {
         if (open) {
             freeze();
 
-            if (pending.size() > 0) {
-                LOGGER.warn("On closing inner has {} incoming datagrams",
-                    pending.size());
+            if (!incoming.isEmpty()) {
+                LOGGER.warn("On closing inner has {} incoming datagrams", incoming.size());
             }
 
             outers.values().forEach(DatagramOuter::closeExternal);
@@ -213,7 +212,7 @@ public class DatagramInner {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
         DatagramQueue.Entry entry;
-        while ((entry = pending.request()) != null) {
+        while ((entry = incoming.request()) != null) {
             int sent = channel.send(entry.getBuffer(), entry.getAddress());
 
             totalSentBytes.addAndGet(sent);
@@ -225,13 +224,13 @@ public class DatagramInner {
 
             if (entry.getBuffer().hasRemaining()) {
                 LOGGER.warn("Datagram is splitted");
-                pending.retry(entry);
+                incoming.retry(entry);
             } else {
-                pending.release(entry);
+                incoming.release(entry);
             }
         }
 
-        if (pending.isEmpty()) {
+        if (incoming.isEmpty()) {
             NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
     }
@@ -307,7 +306,7 @@ public class DatagramInner {
     }
 
     void enqueue(InetSocketAddress address, ByteBuffer bbToCopy) {
-        boolean added = pending.add(address, bbToCopy);
+        boolean added = incoming.add(address, bbToCopy);
         if (added) {
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }

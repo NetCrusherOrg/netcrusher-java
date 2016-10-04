@@ -34,7 +34,7 @@ public class DatagramOuter {
 
     private final ByteBufferFilter[] outgoingFilters;
 
-    private final DatagramQueue pending;
+    private final DatagramQueue incoming;
 
     private final DatagramChannel channel;
 
@@ -69,7 +69,7 @@ public class DatagramOuter {
         this.reactor = reactor;
         this.clientAddress = clientAddress;
         this.connectAddress = connectAddress;
-        this.pending = new DatagramQueue();
+        this.incoming = new DatagramQueue();
         this.lastOperationTimestamp = System.currentTimeMillis();
         this.frozen = true;
         this.open = true;
@@ -84,7 +84,9 @@ public class DatagramOuter {
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
-        this.channel.connect(connectAddress);
+        // Connected DatagramChannel doesn't work with empty datagrams
+        // https://bugs.openjdk.java.net/browse/JDK-8013175
+        // this.channel.connect(connectAddress);
         this.channel.configureBlocking(false);
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
@@ -99,7 +101,7 @@ public class DatagramOuter {
     synchronized void unfreeze() {
         if (open) {
             if (frozen) {
-                int ops = pending.isEmpty() ?
+                int ops = incoming.isEmpty() ?
                     SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                 selectionKey.interestOps(ops);
 
@@ -128,9 +130,8 @@ public class DatagramOuter {
         if (open) {
             freeze();
 
-            if (pending.size() > 0) {
-                LOGGER.warn("On closing outer has {} incoming datagrams",
-                    pending.size());
+            if (!incoming.isEmpty()) {
+                LOGGER.warn("On closing outer has {} incoming datagrams", incoming.size());
             }
 
             NioUtils.closeChannel(channel);
@@ -187,7 +188,7 @@ public class DatagramOuter {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
         DatagramQueue.Entry entry;
-        while ((entry = pending.request()) != null) {
+        while ((entry = incoming.request()) != null) {
             int sent = channel.send(entry.getBuffer(), entry.getAddress());
 
             if (LOGGER.isTraceEnabled()) {
@@ -199,15 +200,15 @@ public class DatagramOuter {
 
             if (entry.getBuffer().hasRemaining()) {
                 LOGGER.warn("Datagram is splitted");
-                pending.retry(entry);
+                incoming.retry(entry);
             } else {
-                pending.release(entry);
+                incoming.release(entry);
             }
 
             lastOperationTimestamp = System.currentTimeMillis();
         }
 
-        if (pending.isEmpty()) {
+        if (incoming.isEmpty()) {
             NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
     }
@@ -219,6 +220,11 @@ public class DatagramOuter {
             SocketAddress address = channel.receive(bb);
             if (address == null) {
                 break;
+            }
+
+            if (!connectAddress.equals(address)) {
+                LOGGER.trace("Datagram from <{}> will be thrown away", address);
+                continue;
             }
 
             int read = bb.position();
@@ -243,11 +249,9 @@ public class DatagramOuter {
 
     void enqueue(ByteBuffer bb) {
         filter(bb, outgoingFilters);
-        if (bb.hasRemaining()) {
-            boolean added = pending.add(connectAddress, bb);
-            if (added) {
-                NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
-            }
+        boolean added = incoming.add(connectAddress, bb);
+        if (added) {
+            NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }
     }
 

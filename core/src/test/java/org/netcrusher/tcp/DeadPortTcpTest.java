@@ -1,34 +1,38 @@
-package org.netcrusher.datagram;
+package org.netcrusher.tcp;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.NioReactor;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
+import java.nio.channels.SocketChannel;
 
-public class DatagramCrusherDeadPortTest {
+public class DeadPortTcpTest {
 
-    private static final int CRUSHER_PORT = 10283;
+    private static final int CRUSHER_PORT = 10080;
 
-    private static final int DEAD_PORT = 10284;
+    private static final int DEAD_PORT = 53654;
 
     private static final String HOSTNAME = "127.0.0.1";
 
     private NioReactor reactor;
 
-    private DatagramCrusher crusher;
+    private TcpCrusher crusher;
 
     @Before
     public void setUp() throws Exception {
         reactor = new NioReactor();
 
-        crusher = DatagramCrusherBuilder.builder()
+        crusher = TcpCrusherBuilder.builder()
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, DEAD_PORT)
+            .withConnectionTimeoutMs(500)
+            .withBacklog(100)
             .buildAndOpen();
     }
 
@@ -45,18 +49,23 @@ public class DatagramCrusherDeadPortTest {
 
     @Test
     public void test() throws Exception {
-        DatagramChannel channel = DatagramChannel.open();
+        SocketChannel channel = SocketChannel.open();
         channel.configureBlocking(true);
         channel.connect(new InetSocketAddress(HOSTNAME, CRUSHER_PORT));
 
-        ByteBuffer bb = ByteBuffer.allocate(1024);
-        bb.limit(800);
-        bb.position(0);
+        Assert.assertEquals(0, crusher.getPairs().size());
+        Thread.sleep(3000);
+        Assert.assertEquals(0, crusher.getPairs().size());
 
-        channel.write(bb);
+        ByteBuffer bb = ByteBuffer.allocate(100);
+        bb.put((byte) 0x01);
+        bb.flip();
 
-        Thread.sleep(1000);
-
-        channel.close();
+        try {
+            channel.write(bb);
+            Assert.fail("Exception is expected");
+        } catch (IOException e) {
+            //
+        }
     }
 }

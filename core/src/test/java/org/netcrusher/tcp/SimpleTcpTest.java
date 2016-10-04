@@ -5,7 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.NioReactor;
 
-public class TcpCrusherSimpleTest {
+public class SimpleTcpTest {
 
     private static final int LISTEN_PORT = 10080;
 

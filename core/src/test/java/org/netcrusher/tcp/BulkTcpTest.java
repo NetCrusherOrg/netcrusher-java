@@ -11,7 +11,7 @@ import org.netcrusher.tcp.bulk.TcpBulkServer;
 
 import java.net.InetSocketAddress;
 
-public class TcpCrusherBulkTest {
+public class BulkTcpTest {
 
     private static final int PORT_CRUSHER = 10081;
 

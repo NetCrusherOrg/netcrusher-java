@@ -27,8 +27,10 @@ public final class NioUtils {
 
     public static ByteBuffer copy(ByteBuffer source) {
         ByteBuffer target = ByteBuffer.allocate(source.remaining());
+
         target.put(source);
         target.flip();
+
         return target;
     }
 
