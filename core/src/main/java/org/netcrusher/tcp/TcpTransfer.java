@@ -1,20 +1,32 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class TcpTransfer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpTransfer.class);
 
+    private static final long LINGER_PERIOD_MS = 5000;
+
     private final String name;
+
+    private final NioReactor reactor;
+
+    private final Closeable closeable;
+
+    private final SocketChannel channel;
 
     private final SelectionKey selectionKey;
 
@@ -28,30 +40,59 @@ public class TcpTransfer {
 
     private TcpTransfer other;
 
-    TcpTransfer(String name, SelectionKey selectionKey, TcpQueue incoming, TcpQueue outgoing) throws IOException {
+    TcpTransfer(String name, NioReactor reactor, Closeable closeable,
+                SocketChannel channel, TcpQueue incoming, TcpQueue outgoing) throws IOException {
         this.name = name;
-        this.selectionKey = selectionKey;
+        this.reactor = reactor;
+        this.closeable = closeable;
+        this.channel = channel;
+        this.selectionKey = reactor.getSelector().register(channel, 0, this::callback);
         this.incoming = incoming;
         this.outgoing = outgoing;
         this.totalRead = new AtomicLong();
         this.totalSent = new AtomicLong();
     }
 
-    void freeze() {
-        if (selectionKey.isValid()) {
-            selectionKey.interestOps(0);
+    private boolean isOpen() {
+        return channel.isOpen();
+    }
+
+    private void closeInternal() throws IOException {
+        closeable.close();
+    }
+
+    private void closeEOF() throws IOException {
+        if (outgoing.calculateReadyBytes() > 0) {
+            NioUtils.closeChannel(channel);
+
+            reactor.getScheduler()
+                .schedule(LINGER_PERIOD_MS, TimeUnit.MILLISECONDS, () -> {
+                    closeInternal();
+                    return true;
+                });
+        } else {
+            closeInternal();
         }
     }
 
-    void unfreeze() {
-        int ops = incoming.calculateReadyBytes() == 0 ?
-            SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
-        selectionKey.interestOps(ops);
+    private void callback(SelectionKey selectionKey) throws IOException {
+        try {
+            handleEvent(selectionKey);
+        } catch (EOFException | ClosedChannelException e) {
+            LOGGER.debug("EOF on transfer or channel is closed on {}", name);
+            closeEOF();
+        } catch (IOException e) {
+            LOGGER.debug("IO exception on {}", name, e);
+            closeInternal();
+        }
+
+        // if other side is closed and there is no incoming data - close the pair
+        if (this.isOpen() && !other.isOpen() && incoming.calculateReadyBytes() == 0) {
+            closeInternal();
+        }
     }
 
-
-
-    void handleEvent(SelectionKey selectionKey) throws IOException {
+    private void handleEvent(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isReadable()) {
             handleReadable(selectionKey, outgoing);
         }
@@ -128,12 +169,6 @@ public class TcpTransfer {
         }
     }
 
-    void notify(int operations) {
-        if (selectionKey.isValid()) {
-            NioUtils.setupInterestOps(selectionKey, operations);
-        }
-    }
-
     String getName() {
         return name;
     }
@@ -146,12 +181,38 @@ public class TcpTransfer {
         return outgoing;
     }
 
+    void freeze() {
+        if (isOpen()) {
+            if (selectionKey.isValid()) {
+                selectionKey.interestOps(0);
+            }
+        } else {
+            LOGGER.debug("Channel is closed on freeze");
+        }
+    }
+
+    void unfreeze() {
+        if (isOpen()) {
+            int ops = incoming.calculateReadyBytes() == 0 ?
+                SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+            selectionKey.interestOps(ops);
+        } else {
+            throw new IllegalStateException("Channel is closed");
+        }
+    }
+
+    void notify(int operations) {
+        if (selectionKey.isValid()) {
+            NioUtils.setupInterestOps(selectionKey, operations);
+        }
+    }
+
     void setOther(TcpTransfer other) {
         this.other = other;
     }
 
     /**
-     * Request total read counter
+     * Request total read counter for this transfer
      * @return Read bytes count
      */
     public long getTotalRead() {
@@ -159,7 +220,7 @@ public class TcpTransfer {
     }
 
     /**
-     * Request total sent counter
+     * Request total sent counter for this transfer
      * @return Sent bytes count
      */
     public long getTotalSent() {

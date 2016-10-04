@@ -8,28 +8,17 @@ import org.netcrusher.core.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.AbstractSelectableChannel;
-import java.util.concurrent.TimeUnit;
 
 public class TcpPair implements NetFreezer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpPair.class);
 
-    private static final long LINGER_PERIOD_MS = 10000;
-
     private final SocketChannel inner;
 
-    private final SelectionKey innerKey;
-
     private final SocketChannel outer;
-
-    private final SelectionKey outerKey;
 
     private final TcpTransfer innerTransfer;
 
@@ -64,19 +53,24 @@ public class TcpPair implements NetFreezer {
 
         this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
 
-        this.innerKey = reactor.getSelector().register(inner, 0, this::innerCallback);
-        this.outerKey = reactor.getSelector().register(outer, 0, this::outerCallback);
-
         ByteBufferFilter[] outgoingFilters = filters.getOutgoing().createFilters(clientAddress);
         TcpQueue innerToOuter = new TcpQueue(outgoingFilters, bufferCount, bufferSize);
         ByteBufferFilter[] incomingFilters = filters.getIncoming().createFilters(clientAddress);
         TcpQueue outerToInner = new TcpQueue(incomingFilters, bufferCount, bufferSize);
 
-        this.innerTransfer = new TcpTransfer("INNER", innerKey, outerToInner, innerToOuter);
-        this.outerTransfer = new TcpTransfer("OUTER", outerKey, innerToOuter, outerToInner);
+        this.innerTransfer = new TcpTransfer("INNER", reactor, this::closeInternal, inner, outerToInner, innerToOuter);
+        this.outerTransfer = new TcpTransfer("OUTER", reactor, this::closeInternal, outer, innerToOuter, outerToInner);
 
         this.innerTransfer.setOther(outerTransfer);
         this.outerTransfer.setOther(innerTransfer);
+    }
+
+    private void closeInternal() throws IOException {
+        LOGGER.debug("Pair for <{}> will be self-closed", clientAddress);
+        reactor.getScheduler().execute(() -> {
+            crusher.closePair(this.getClientAddress());
+            return true;
+        });
     }
 
     @Override
@@ -120,10 +114,6 @@ public class TcpPair implements NetFreezer {
         }
     }
 
-    public boolean isOpen() {
-        return open;
-    }
-
     synchronized void closeExternal() throws IOException {
         if (open) {
             freeze();
@@ -149,51 +139,6 @@ public class TcpPair implements NetFreezer {
         }
     }
 
-    private void closeInternal() throws IOException {
-        LOGGER.debug("Pair for <{}> will be self-closed", clientAddress);
-        reactor.getScheduler().execute(() -> {
-            crusher.closePair(this.getClientAddress());
-            return true;
-        });
-    }
-
-    private void callback(SelectionKey selectionKey,
-                          AbstractSelectableChannel thisChannel,
-                          TcpTransfer thisTransfer,
-                          AbstractSelectableChannel thatChannel) throws IOException
-    {
-        try {
-            thisTransfer.handleEvent(selectionKey);
-        } catch (EOFException | ClosedChannelException e) {
-            LOGGER.debug("EOF on transfer or channel is closed on {}", thisTransfer.getName());
-            if (thisTransfer.getOutgoing().calculateReadyBytes() > 0) {
-                NioUtils.closeChannel(thisChannel);
-                reactor.getScheduler()
-                    .schedule(LINGER_PERIOD_MS, TimeUnit.MILLISECONDS, () -> {
-                        this.closeInternal();
-                        return true;
-                    });
-            } else {
-                closeInternal();
-            }
-        } catch (IOException e) {
-            LOGGER.debug("IO exception on {}", thisTransfer.getName(), e);
-            closeInternal();
-        }
-
-        if (thisChannel.isOpen() && !thatChannel.isOpen() && thisTransfer.getIncoming().calculateReadyBytes() == 0) {
-            closeInternal();
-        }
-    }
-
-    private void innerCallback(SelectionKey selectionKey) throws IOException {
-        callback(selectionKey, inner, innerTransfer, outer);
-    }
-
-    private void outerCallback(SelectionKey selectionKey) throws IOException {
-        callback(selectionKey, outer, outerTransfer, inner);
-    }
-
     /**
      * Returns client address for 'inner' connection
      * @return Socket address
@@ -216,6 +161,14 @@ public class TcpPair implements NetFreezer {
      */
     public TcpTransfer getOuterTransfer() {
         return outerTransfer;
+    }
+
+    /**
+     * Check is TCP pair open
+     * @return Returns <em>true</em> if the pair is open
+     */
+    public boolean isOpen() {
+        return open;
     }
 
 }

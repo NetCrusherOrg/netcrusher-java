@@ -161,7 +161,7 @@ public class DatagramOuter {
                 LOGGER.debug("Port in unreachable on read");
                 closeInternal();
             } catch (IOException e) {
-                LOGGER.error("Exception in outer on read", e);
+                LOGGER.debug("Exception in outer on read", e);
                 closeInternal();
             }
         }
@@ -176,7 +176,7 @@ public class DatagramOuter {
                 LOGGER.debug("Port in unreachable on write");
                 closeInternal();
             } catch (IOException e) {
-                LOGGER.error("Exception in outer on write", e);
+                LOGGER.debug("Exception in outer on write", e);
                 closeInternal();
             }
         }
