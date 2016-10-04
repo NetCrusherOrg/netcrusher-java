@@ -16,7 +16,7 @@ public class TcpTransfer {
 
     private final String name;
 
-    private final SelectionKey otherSideKey;
+    private final SelectionKey selectionKey;
 
     private final TcpQueue incoming;
 
@@ -26,14 +26,30 @@ public class TcpTransfer {
 
     private final AtomicLong totalSent;
 
-    TcpTransfer(String name, SelectionKey otherSideKey, TcpQueue incoming, TcpQueue outgoing) throws IOException {
+    private TcpTransfer other;
+
+    TcpTransfer(String name, SelectionKey selectionKey, TcpQueue incoming, TcpQueue outgoing) throws IOException {
         this.name = name;
-        this.otherSideKey = otherSideKey;
+        this.selectionKey = selectionKey;
         this.incoming = incoming;
         this.outgoing = outgoing;
         this.totalRead = new AtomicLong();
         this.totalSent = new AtomicLong();
     }
+
+    void freeze() {
+        if (selectionKey.isValid()) {
+            selectionKey.interestOps(0);
+        }
+    }
+
+    void unfreeze() {
+        int ops = incoming.calculateReadyBytes() == 0 ?
+            SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+        selectionKey.interestOps(ops);
+    }
+
+
 
     void handleEvent(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isReadable()) {
@@ -68,7 +84,7 @@ public class TcpTransfer {
             }
 
             if (queue.countStage()  > 0) {
-                informOtherSide(SelectionKey.OP_READ);
+                other.notify(SelectionKey.OP_READ);
             }
 
             if (sent == 0) {
@@ -105,16 +121,16 @@ public class TcpTransfer {
             }
 
             if (read > 0) {
-                informOtherSide(SelectionKey.OP_WRITE);
+                other.notify(SelectionKey.OP_WRITE);
             } else {
                 break;
             }
         }
     }
 
-    private void informOtherSide(int operations) {
-        if (otherSideKey.isValid()) {
-            NioUtils.setupInterestOps(otherSideKey, operations);
+    void notify(int operations) {
+        if (selectionKey.isValid()) {
+            NioUtils.setupInterestOps(selectionKey, operations);
         }
     }
 
@@ -130,10 +146,22 @@ public class TcpTransfer {
         return outgoing;
     }
 
+    void setOther(TcpTransfer other) {
+        this.other = other;
+    }
+
+    /**
+     * Request total read counter
+     * @return Read bytes count
+     */
     public long getTotalRead() {
         return totalRead.get();
     }
 
+    /**
+     * Request total sent counter
+     * @return Sent bytes count
+     */
     public long getTotalSent() {
         return totalSent.get();
     }

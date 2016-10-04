@@ -72,33 +72,11 @@ public class TcpPair implements NetFreezer {
         ByteBufferFilter[] incomingFilters = filters.getIncoming().createFilters(clientAddress);
         TcpQueue outerToInner = new TcpQueue(incomingFilters, bufferCount, bufferSize);
 
-        this.innerTransfer = new TcpTransfer("INNER", this.outerKey, outerToInner, innerToOuter);
-        this.outerTransfer = new TcpTransfer("OUTER", this.innerKey, innerToOuter, outerToInner);
-    }
+        this.innerTransfer = new TcpTransfer("INNER", innerKey, outerToInner, innerToOuter);
+        this.outerTransfer = new TcpTransfer("OUTER", outerKey, innerToOuter, outerToInner);
 
-    @Override
-    public synchronized void unfreeze() throws IOException {
-        if (open) {
-            if (frozen) {
-                reactor.getSelector().executeOp(() -> {
-                    int ops;
-
-                    ops = innerTransfer.getIncoming().calculateReadyBytes() == 0 ?
-                        SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
-                    innerKey.interestOps(ops);
-
-                    ops = outerTransfer.getIncoming().calculateReadyBytes() == 0 ?
-                        SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
-                    outerKey.interestOps(ops);
-
-                    return null;
-                });
-
-                frozen = false;
-            }
-        } else {
-            throw new IllegalStateException("Pair is closed");
-        }
+        this.innerTransfer.setOther(outerTransfer);
+        this.outerTransfer.setOther(innerTransfer);
     }
 
     @Override
@@ -106,21 +84,30 @@ public class TcpPair implements NetFreezer {
         if (open) {
             if (!frozen) {
                 reactor.getSelector().executeOp(() -> {
-                    if (innerKey.isValid()) {
-                        innerKey.interestOps(0);
-                    }
-
-                    if (outerKey.isValid()) {
-                        outerKey.interestOps(0);
-                    }
-
-                    return null;
+                    innerTransfer.freeze();
+                    outerTransfer.freeze();
+                    return true;
                 });
-
                 frozen = true;
             }
         } else {
             LOGGER.debug("Component is closed on freeze");
+        }
+    }
+
+    @Override
+    public synchronized void unfreeze() throws IOException {
+        if (open) {
+            if (frozen) {
+                reactor.getSelector().executeOp(() -> {
+                    innerTransfer.unfreeze();
+                    outerTransfer.unfreeze();
+                    return true;
+                });
+                frozen = false;
+            }
+        } else {
+            throw new IllegalStateException("Pair is closed");
         }
     }
 
