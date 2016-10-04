@@ -1,6 +1,6 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.filter.ByteBufferFilter;
+import org.netcrusher.core.filter.ByteBufferFilter;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;

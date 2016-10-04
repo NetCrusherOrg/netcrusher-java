@@ -1,4 +1,4 @@
-package org.netcrusher.common;
+package org.netcrusher.core;
 
 import java.io.IOException;
 import java.nio.channels.SelectionKey;

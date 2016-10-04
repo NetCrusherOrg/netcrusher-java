@@ -1,6 +1,6 @@
 package org.netcrusher;
 
-import org.netcrusher.filter.ByteBufferFilterRepository;
+import org.netcrusher.core.filter.ByteBufferFilterRepository;
 
 import java.io.Closeable;
 import java.io.IOException;

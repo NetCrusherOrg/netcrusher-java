@@ -1,6 +1,6 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.common.NioReactor;
+import org.netcrusher.core.NioReactor;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

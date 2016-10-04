@@ -1,4 +1,4 @@
-package org.netcrusher.common;
+package org.netcrusher.core;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;

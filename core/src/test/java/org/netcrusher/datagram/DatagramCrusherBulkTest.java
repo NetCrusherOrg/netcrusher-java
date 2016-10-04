@@ -4,12 +4,12 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.common.NioReactor;
+import org.netcrusher.core.NioReactor;
 import org.netcrusher.datagram.bulk.DatagramBulkClient;
 import org.netcrusher.datagram.bulk.DatagramBulkReflector;
-import org.netcrusher.filter.InverseFilter1;
-import org.netcrusher.filter.InverseFilter2;
-import org.netcrusher.filter.NopeFilter;
+import org.netcrusher.core.filter.InverseFilter1;
+import org.netcrusher.core.filter.InverseFilter2;
+import org.netcrusher.core.filter.NoopFilter;
 
 import java.net.InetSocketAddress;
 
@@ -41,10 +41,10 @@ public class DatagramCrusherBulkTest {
 
         crusher.getFilters().getOutgoing()
             .append(InverseFilter2.FACTORY)
-            .append(NopeFilter.FACTORY);
+            .append(NoopFilter.FACTORY);
 
         crusher.getFilters().getIncoming()
-            .append(NopeFilter.FACTORY)
+            .append(NoopFilter.FACTORY)
             .append(InverseFilter1.FACTORY);
     }
 

@@ -1,4 +1,4 @@
-package org.netcrusher.filter;
+package org.netcrusher.core.filter;
 
 public class ByteBufferFilterRepository {
 

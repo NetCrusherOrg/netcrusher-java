@@ -3,7 +3,7 @@ package org.netcrusher.tcp;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.common.NioReactor;
+import org.netcrusher.core.NioReactor;
 
 public class TcpCrusherSimpleTest {
 

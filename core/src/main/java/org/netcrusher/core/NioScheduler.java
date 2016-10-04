@@ -1,4 +1,4 @@
-package org.netcrusher.common;
+package org.netcrusher.core;
 
 import org.netcrusher.NetCrusher;
 import org.netcrusher.NetFreezer;

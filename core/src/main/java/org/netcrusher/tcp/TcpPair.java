@@ -1,10 +1,10 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
-import org.netcrusher.common.NioReactor;
-import org.netcrusher.common.NioUtils;
-import org.netcrusher.filter.ByteBufferFilter;
-import org.netcrusher.filter.ByteBufferFilterRepository;
+import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.filter.ByteBufferFilter;
+import org.netcrusher.core.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

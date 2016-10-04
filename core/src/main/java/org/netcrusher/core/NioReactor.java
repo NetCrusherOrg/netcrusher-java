@@ -1,4 +1,4 @@
-package org.netcrusher.common;
+package org.netcrusher.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +35,14 @@ public class NioReactor implements Closeable {
 
         open = false;
         LOGGER.debug("Reactor is closed");
+    }
+
+    /**
+     * Check is the reactor open
+     * @return Returns 'true' if the reactor is not closed
+     */
+    public boolean isOpen() {
+        return open;
     }
 
     /**

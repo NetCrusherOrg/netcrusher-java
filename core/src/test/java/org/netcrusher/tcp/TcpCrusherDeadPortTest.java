@@ -4,7 +4,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.common.NioReactor;
+import org.netcrusher.core.NioReactor;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;

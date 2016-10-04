@@ -4,8 +4,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.common.NioReactor;
-import org.netcrusher.filter.NopeFilter;
+import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.filter.NoopFilter;
 import org.netcrusher.tcp.bulk.TcpBulkClient;
 import org.netcrusher.tcp.bulk.TcpBulkServer;
 
@@ -40,10 +40,10 @@ public class TcpCrusherBulkTest {
             .buildAndOpen();
 
         crusher.getFilters().getOutgoing()
-            .append(NopeFilter.FACTORY);
+            .append(NoopFilter.FACTORY);
 
         crusher.getFilters().getIncoming()
-            .append(NopeFilter.FACTORY);
+            .append(NoopFilter.FACTORY);
     }
 
     @After

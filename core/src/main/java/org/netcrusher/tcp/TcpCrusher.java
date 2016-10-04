@@ -1,9 +1,9 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetCrusher;
-import org.netcrusher.common.NioReactor;
-import org.netcrusher.common.NioUtils;
-import org.netcrusher.filter.ByteBufferFilterRepository;
+import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,6 +1,6 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.common.NioUtils;
+import org.netcrusher.core.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

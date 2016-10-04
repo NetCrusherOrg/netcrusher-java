@@ -3,7 +3,7 @@ package org.netcrusher.datagram;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.common.NioReactor;
+import org.netcrusher.core.NioReactor;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
