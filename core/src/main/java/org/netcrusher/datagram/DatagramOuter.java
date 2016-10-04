@@ -10,6 +10,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
@@ -127,9 +128,9 @@ public class DatagramOuter {
         if (open) {
             freeze();
 
-            if (pending.bytes() > 0) {
-                LOGGER.warn("On closing outer has {} incoming datagrams with {} bytes in total",
-                    pending.size(), pending.bytes());
+            if (pending.size() > 0) {
+                LOGGER.warn("On closing outer has {} incoming datagrams",
+                    pending.size());
             }
 
             NioUtils.closeChannel(channel);
@@ -187,22 +188,18 @@ public class DatagramOuter {
 
         DatagramQueue.Entry entry;
         while ((entry = pending.request()) != null) {
-            int sent = channel.write(entry.getBuffer());
-            if (sent == 0) {
-                pending.retry(entry);
-                break;
-            }
-
-            totalSentBytes.addAndGet(sent);
-            totalSentDatagrams.incrementAndGet();
+            int sent = channel.send(entry.getBuffer(), entry.getAddress());
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Written {} bytes to outer from <{}>", sent, clientAddress);
             }
 
+            totalSentBytes.addAndGet(sent);
+            totalSentDatagrams.incrementAndGet();
+
             if (entry.getBuffer().hasRemaining()) {
-                pending.retry(entry);
                 LOGGER.warn("Datagram is splitted");
+                pending.retry(entry);
             } else {
                 pending.release(entry);
             }
@@ -219,28 +216,24 @@ public class DatagramOuter {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
         while (true) {
-            int read = channel.read(bb);
-            if (read < 0) {
-                throw new EOFException();
-            }
-            if (read == 0) {
+            SocketAddress address = channel.receive(bb);
+            if (address == null) {
                 break;
             }
 
-            totalReadBytes.addAndGet(read);
-            totalReadDatagrams.incrementAndGet();
+            int read = bb.position();
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Read {} bytes from outer for <{}>", read, clientAddress);
             }
 
+            totalReadBytes.addAndGet(read);
+            totalReadDatagrams.incrementAndGet();
+
             bb.flip();
 
             filter(bb, incomingFilters);
-
-            if (bb.hasRemaining()) {
-                inner.enqueue(clientAddress, bb);
-            }
+            inner.enqueue(clientAddress, bb);
 
             bb.clear();
 
@@ -251,7 +244,7 @@ public class DatagramOuter {
     void enqueue(ByteBuffer bb) {
         filter(bb, outgoingFilters);
         if (bb.hasRemaining()) {
-            boolean added = pending.add(bb);
+            boolean added = pending.add(connectAddress, bb);
             if (added) {
                 NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
             }

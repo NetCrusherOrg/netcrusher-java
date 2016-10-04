@@ -151,9 +151,9 @@ public class DatagramInner {
         if (open) {
             freeze();
 
-            if (pending.bytes() > 0) {
-                LOGGER.warn("On closing inner has {} incoming datagrams with {} bytes in total",
-                    pending.size(), pending.bytes());
+            if (pending.size() > 0) {
+                LOGGER.warn("On closing inner has {} incoming datagrams",
+                    pending.size());
             }
 
             outers.values().forEach(DatagramOuter::closeExternal);
@@ -215,10 +215,6 @@ public class DatagramInner {
         DatagramQueue.Entry entry;
         while ((entry = pending.request()) != null) {
             int sent = channel.send(entry.getBuffer(), entry.getAddress());
-            if (sent == 0) {
-                pending.retry(entry);
-                break;
-            }
 
             totalSentBytes.addAndGet(sent);
             totalSentDatagrams.incrementAndGet();
@@ -249,16 +245,18 @@ public class DatagramInner {
                 break;
             }
 
+            int read = bb.position();
+
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Received {} bytes from inner <{}>", bb.limit(), address);
+                LOGGER.trace("Received {} bytes from inner <{}>", read, address);
             }
+
+            totalReadBytes.addAndGet(read);
+            totalReadDatagrams.incrementAndGet();
 
             DatagramOuter outer = requestOuter(address);
 
             bb.flip();
-
-            totalReadBytes.addAndGet(bb.limit());
-            totalReadDatagrams.incrementAndGet();
 
             outer.enqueue(bb);
 

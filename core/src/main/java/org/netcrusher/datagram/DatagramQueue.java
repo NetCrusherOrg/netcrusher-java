@@ -14,21 +14,12 @@ public class DatagramQueue implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramQueue.class);
 
-    private static final int LIMIT_COUNT = 64 * 1024;
-
-    private static final int LIMIT_SIZE = 64 * 1024 * 1024;
+    private static final int LIMIT_COUNT = 16 * 1024;
 
     private final Deque<Entry> entries;
 
-    private long bytes;
-
     public DatagramQueue() {
         this.entries = new LinkedList<>();
-        this.bytes = 0;
-    }
-
-    public long bytes() {
-        return bytes;
     }
 
     public int size() {
@@ -39,18 +30,10 @@ public class DatagramQueue implements Serializable {
         return entries.isEmpty();
     }
 
-    public boolean add(ByteBuffer bbToCopy) {
-        return add(null, bbToCopy);
-    }
-
     public boolean add(InetSocketAddress address, ByteBuffer bbToCopy) {
-        if (bbToCopy.hasRemaining()) {
-            ByteBuffer bb = NioUtils.copy(bbToCopy);
-            Entry entry = new Entry(address, bb);
-            return add(entry);
-        } else {
-            return false;
-        }
+        ByteBuffer bb = NioUtils.copy(bbToCopy);
+        Entry entry = new Entry(address, bb);
+        return add(entry);
     }
 
     public boolean add(Entry entry) {
@@ -59,25 +42,14 @@ public class DatagramQueue implements Serializable {
             return false;
         }
 
-        if (bytes > LIMIT_SIZE) {
-            LOGGER.warn("Pending limit is exceeded ({} bytes). Packet is dropped", bytes);
-            return false;
-        }
+        entries.addLast(entry);
 
-        if (entry.buffer.hasRemaining()) {
-            entries.addLast(entry);
-            bytes += entry.buffer.remaining();
-            return true;
-        } else {
-            release(entry);
-            return false;
-        }
+        return true;
     }
 
     public boolean retry(Entry entry) {
         if (entry.buffer.hasRemaining()) {
             entries.addFirst(entry);
-            bytes += entry.buffer.remaining();
             return true;
         } else {
             release(entry);
@@ -86,11 +58,7 @@ public class DatagramQueue implements Serializable {
     }
 
     public Entry request() {
-        Entry entry = entries.pollFirst();
-        if (entry != null) {
-            bytes -= entry.buffer.remaining();
-        }
-        return entry;
+        return entries.pollFirst();
     }
 
     public void release(Entry entry) {
