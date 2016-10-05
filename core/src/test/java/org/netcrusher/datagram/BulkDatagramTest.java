@@ -23,7 +23,7 @@ public class BulkDatagramTest {
 
     private static final String HOSTNAME = "127.0.0.1";
 
-    private static final long COUNT = 32 * 1_000_000;
+    private static final long COUNT = 16 * 1_000_000;
 
     private NioReactor reactor;
 
@@ -82,8 +82,8 @@ public class BulkDatagramTest {
         Assert.assertNotNull(inner);
         Assert.assertEquals(COUNT, inner.getTotalReadBytes());
         Assert.assertEquals(COUNT, inner.getTotalSentBytes());
-        Assert.assertEquals(expectedDatagrams, inner.getTotalReadDatagrams());
-        Assert.assertEquals(expectedDatagrams, inner.getTotalSentDatagrams());
+        Assert.assertTrue(expectedDatagrams <= inner.getTotalReadDatagrams());
+        Assert.assertTrue(expectedDatagrams <= inner.getTotalSentDatagrams());
 
         Assert.assertEquals(1, crusher.getOuters().size());
         DatagramOuter outer = crusher.getOuters().iterator().next();
@@ -91,8 +91,8 @@ public class BulkDatagramTest {
         Assert.assertNotNull(outer.getClientAddress());
         Assert.assertEquals(COUNT, outer.getTotalReadBytes());
         Assert.assertEquals(COUNT, outer.getTotalSentBytes());
-        Assert.assertEquals(expectedDatagrams, outer.getTotalReadDatagrams());
-        Assert.assertEquals(expectedDatagrams, outer.getTotalSentDatagrams());
+        Assert.assertTrue(expectedDatagrams <= outer.getTotalReadDatagrams());
+        Assert.assertTrue(expectedDatagrams <= outer.getTotalSentDatagrams());
 
         client.close();
         reflector.close();

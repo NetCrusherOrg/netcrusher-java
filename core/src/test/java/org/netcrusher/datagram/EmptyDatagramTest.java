@@ -13,9 +13,9 @@ import java.nio.channels.DatagramChannel;
 
 public class EmptyDatagramTest {
 
-    private static final InetSocketAddress CRUSHER_ADDRESS = new InetSocketAddress("127.0.0.1", 10184);
+    private static final InetSocketAddress CRUSHER_ADDRESS = new InetSocketAddress("127.0.0.1", 10284);
 
-    private static final InetSocketAddress REFLECTOR_ADDRESS = new InetSocketAddress("127.0.0.1", 10185);
+    private static final InetSocketAddress REFLECTOR_ADDRESS = new InetSocketAddress("127.0.0.1", 10285);
 
     private NioReactor reactor;
 

@@ -47,14 +47,8 @@ public class DatagramQueue implements Serializable {
         return true;
     }
 
-    public boolean retry(Entry entry) {
-        if (entry.buffer.hasRemaining()) {
-            entries.addFirst(entry);
-            return true;
-        } else {
-            release(entry);
-            return false;
-        }
+    public void retry(Entry entry) {
+        entries.addFirst(entry);
     }
 
     public Entry request() {

@@ -69,10 +69,11 @@ public class DatagramBulkReflector implements Closeable {
         ByteBuffer bb = ByteBuffer.allocate(RCV_BUFFER_SIZE);
 
         long processed = 0;
+        int datagrams = 0;
         while (!Thread.currentThread().isInterrupted()) {
             bb.clear();
 
-            SocketAddress socketAddress;
+            final SocketAddress socketAddress;
             try {
                 socketAddress = channel.receive(bb);
             } catch (ClosedChannelException | EOFException e) {
@@ -88,10 +89,13 @@ public class DatagramBulkReflector implements Closeable {
             }
 
             bb.flip();
-            processed += bb.limit();
+            final boolean emptyDatagram = !bb.hasRemaining();
 
+            processed += bb.remaining();
+
+            final int sent;
             try {
-                channel.send(bb, socketAddress);
+                sent = channel.send(bb, socketAddress);
             } catch (ClosedChannelException | EOFException e) {
                 LOGGER.debug("Socket is closed");
                 break;
@@ -103,12 +107,20 @@ public class DatagramBulkReflector implements Closeable {
                 break;
             }
 
-            if (bb.hasRemaining()) {
-                throw new IllegalStateException("Datagram is splitted");
+            if (sent > 0 || emptyDatagram) {
+                if (bb.hasRemaining()) {
+                    throw new IllegalStateException("Datagram is splitted");
+                }
+            } else {
+                LOGGER.error("Send failed");
+                break;
             }
+
+            datagrams++;
         }
 
-        LOGGER.debug("Reflector loop {} has finished with {} bytes", name, processed);
+        LOGGER.debug("Reflector loop {} has finished {} datagrams with {} bytes",
+            new Object[] { name, datagrams, processed });
     }
 
 }

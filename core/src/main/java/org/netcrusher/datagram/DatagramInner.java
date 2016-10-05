@@ -212,21 +212,38 @@ public class DatagramInner {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
         DatagramQueue.Entry entry;
+        int count = 0;
         while ((entry = incoming.request()) != null) {
-            int sent = channel.send(entry.getBuffer(), entry.getAddress());
-
-            totalSentBytes.addAndGet(sent);
-            totalSentDatagrams.incrementAndGet();
-
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Send {} bytes to client <{}>", sent, entry.getAddress());
+            final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
+            if (emptyDatagram && count > 0) {
+                // due to NIO API problem we can't differ between two cases:
+                // - empty datagram is sent (send() returns 0)
+                // - no free space in socket buffer (send() returns 0)
+                // so we want an empty datagram to be sent first on OP_WRITE
+                incoming.retry(entry);
+                break;
             }
 
-            if (entry.getBuffer().hasRemaining()) {
-                LOGGER.warn("Datagram is splitted");
-                incoming.retry(entry);
+            final int sent = channel.send(entry.getBuffer(), entry.getAddress());
+
+            if (emptyDatagram || sent > 0) {
+                if (entry.getBuffer().hasRemaining()) {
+                    LOGGER.warn("Datagram is split");
+                    incoming.retry(entry);
+                } else {
+                    incoming.release(entry);
+                }
+
+                totalSentBytes.addAndGet(sent);
+                totalSentDatagrams.incrementAndGet();
+
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("Send {} bytes to client <{}>", sent, entry.getAddress());
+                }
+
+                count++;
             } else {
-                incoming.release(entry);
+                break;
             }
         }
 
@@ -239,12 +256,12 @@ public class DatagramInner {
         DatagramChannel channel = (DatagramChannel) selectionKey.channel();
 
         while (true) {
-            InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
+            final InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
             if (address == null) {
                 break;
             }
 
-            int read = bb.position();
+            final int read = bb.position();
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Received {} bytes from inner <{}>", read, address);

@@ -25,7 +25,11 @@ public class DatagramBulkClient implements Closeable {
 
     public static final int SND_BUFFER_SIZE = 1400;
 
+    public static final byte[] DATAGRAM_TOKEN = { 0, 1, 2, 3, 4, 5, 6, 7 };
+
     private final String name;
+
+    private final InetSocketAddress remoteAddress;
 
     private final DatagramChannel channel;
 
@@ -46,10 +50,11 @@ public class DatagramBulkClient implements Closeable {
                               InetSocketAddress remoteAddress,
                               long count) throws IOException
     {
+        this.remoteAddress = remoteAddress;
+
         this.channel = DatagramChannel.open(StandardProtocolFamily.INET);
         this.channel.configureBlocking(true);
         this.channel.bind(localAddress);
-        this.channel.connect(remoteAddress);
 
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Bulk client {}: BIND<{}> CONNECT<{}>", new Object[]{name, localAddress, remoteAddress});
@@ -123,33 +128,50 @@ public class DatagramBulkClient implements Closeable {
         MessageDigest md = createMessageDigest();
 
         long processed = 0;
+        int datagrams = 0;
         while (processed < count && !Thread.currentThread().isInterrupted()) {
-            bb.clear();
-
-            SocketAddress socketAddress;
-            try {
-                socketAddress = channel.receive(bb);
-            } catch (ClosedChannelException | EOFException e) {
-                LOGGER.debug("Socket is closed");
-                break;
-            } catch (IOException e) {
-                LOGGER.error("Exception on read", e);
+            if (!receive(bb)) {
                 break;
             }
 
-            if (socketAddress == null) {
-                throw new IllegalStateException("Socket is null");
-            }
-
-            bb.flip();
             processed += bb.limit();
+            datagrams++;
 
+            md.update(DATAGRAM_TOKEN);
             md.update(bb);
         }
 
         rcvDigest = md.digest();
 
-        LOGGER.debug("Read loop {} has finished with {} bytes", name, processed);
+        LOGGER.debug("Read loop {} has finished {} datagrams with {} bytes",
+            new Object[] { name, datagrams, processed });
+    }
+
+    private boolean receive(ByteBuffer bb) {
+        bb.clear();
+
+        SocketAddress socketAddress;
+        try {
+            socketAddress = channel.receive(bb);
+        } catch (ClosedChannelException | EOFException e) {
+            LOGGER.debug("Socket is closed");
+            return false;
+        } catch (IOException e) {
+            LOGGER.error("Exception on read", e);
+            return false;
+        }
+
+        if (socketAddress == null) {
+            throw new IllegalStateException("Socket is null");
+        }
+
+        if (!remoteAddress.equals(socketAddress)) {
+            throw new IllegalStateException("Packet came from unknown address");
+        }
+
+        bb.flip();
+
+        return true;
     }
 
     public void sndLoop() {
@@ -159,46 +181,68 @@ public class DatagramBulkClient implements Closeable {
         MessageDigest md = createMessageDigest();
 
         long processed = 0;
+        int datagrams = 0;
         while (processed < count && !Thread.currentThread().isInterrupted()) {
             random.nextBytes(bb.array());
 
-            int limit = (int) Math.min(bb.capacity(), count - processed);
+            int capacity = (int) Math.min(bb.capacity(), count - processed);
+            int limit = (random.nextInt(20) == 0) ? 0 : 1 + random.nextInt(capacity);
+
             bb.limit(limit);
             bb.position(0);
+            md.update(DATAGRAM_TOKEN);
             md.update(bb);
 
-            bb.position(0);
-            try {
-                channel.write(bb);
-            } catch (ClosedChannelException | EOFException e) {
-                LOGGER.debug("Socket is closed");
-                break;
-            } catch (PortUnreachableException e) {
-                LOGGER.debug("Port is unreachable", e);
-                break;
-            } catch (IOException e) {
-                LOGGER.error("Exception on write", e);
-                break;
-            }
-
-            if (bb.hasRemaining()) {
-                throw new IllegalStateException("Datagram is splitted");
-            }
-
-            // we need to slow down otherwise packets will be lost
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                LOGGER.debug("Thread is interrupted");
+            if (!sent(bb)) {
                 break;
             }
 
             processed += limit;
+            datagrams++;
         }
 
         sndDigest = md.digest();
 
-        LOGGER.debug("Write loop {} has finished with {} bytes", name, processed);
+        LOGGER.debug("Write loop {} has finished {} datagrams with {} bytes",
+            new Object[] { name, datagrams, processed });
+    }
+
+    private boolean sent(ByteBuffer bb) {
+        final boolean emptyDatagram = !bb.hasRemaining();
+
+        try {
+            Thread.sleep(2);
+        } catch (InterruptedException e) {
+            LOGGER.debug("Thread is interrupted");
+            return false;
+        }
+
+        while (true) {
+            bb.rewind();
+
+            int sent;
+            try {
+                sent = channel.send(bb, remoteAddress);
+            } catch (ClosedChannelException | EOFException e) {
+                LOGGER.debug("Socket is closed");
+                return false;
+            } catch (PortUnreachableException e) {
+                LOGGER.debug("Port is unreachable", e);
+                return false;
+            } catch (IOException e) {
+                LOGGER.error("Exception on write", e);
+                return false;
+            }
+
+            if (emptyDatagram || sent > 0) {
+                if (bb.hasRemaining()) {
+                    throw new IllegalStateException("Datagram is splitted");
+                }
+                return true;
+            }
+
+            LOGGER.info("resending");
+        }
     }
 
     private static MessageDigest createMessageDigest() {
