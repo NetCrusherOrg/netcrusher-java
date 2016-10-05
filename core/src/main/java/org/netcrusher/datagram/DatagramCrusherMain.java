@@ -9,6 +9,8 @@ import java.net.InetSocketAddress;
 
 public class DatagramCrusherMain extends AbstractCrusherMain {
 
+    private static final long MAX_IDLE_DURATION_MS = 60000;
+
     @Override
     protected NetCrusher create(NioReactor reactor,
                                 InetSocketAddress bindAddress,
@@ -18,7 +20,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain {
             .withReactor(reactor)
             .withBindAddress(bindAddress)
             .withConnectAddress(connectAddress)
-            .withMaxIdleDurationMs(1000)
+            .withMaxIdleDurationMs(MAX_IDLE_DURATION_MS)
             .buildAndOpen();
     }
 
