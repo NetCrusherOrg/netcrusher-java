@@ -52,10 +52,12 @@ public class BulkDatagramTest {
     public void tearDown() throws Exception {
         if (crusher != null) {
             crusher.close();
+            Assert.assertFalse(crusher.isOpen());
         }
 
         if (reactor != null) {
             reactor.close();
+            Assert.assertFalse(reactor.isOpen());
         }
     }
 

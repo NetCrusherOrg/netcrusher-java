@@ -24,17 +24,18 @@ public class NioReactor implements Closeable {
         LOGGER.debug("Reactor has been created");
     }
 
+    /**
+     * Closes the reactor. After the reactor is closed it cannot be used.
+     */
     @Override
     public synchronized void close() {
         if (open) {
-            return;
+            selector.close();
+            scheduler.close();
+
+            open = false;
+            LOGGER.debug("Reactor is closed");
         }
-
-        selector.close();
-        scheduler.close();
-
-        open = false;
-        LOGGER.debug("Reactor is closed");
     }
 
     /**

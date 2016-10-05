@@ -18,7 +18,7 @@ public interface NetCrusher extends NetFreezer, Closeable {
     void open() throws IOException;
 
     /**
-     * Closes the crusher and it's sockets
+     * Closes the crusher and it's sockets. After the crusher is closed it can be reopened again
      * @throws IOException Throwed on IO problems
      * @see NetCrusher#open()
      * @see NetCrusher#isOpen()
