@@ -336,7 +336,7 @@ public class TcpCrusher implements NetCrusher {
             connectCheck = reactor.getScheduler()
                 .schedule(socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS, () -> {
                     if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
-                        LOGGER.warn("Fail to connect to <{}> in {}ms",
+                        LOGGER.error("Fail to connect to <{}> in {}ms",
                             connectAddress, socketOptions.getConnectionTimeoutMs());
                         NioUtils.closeChannel(socketChannel1);
                         NioUtils.closeChannel(socketChannel2);
@@ -354,12 +354,12 @@ public class TcpCrusher implements NetCrusher {
             try {
                 connected = socketChannel2.finishConnect();
             } catch (IOException e) {
-                LOGGER.debug("Exception while finishing the connection", e);
+                LOGGER.error("Exception while finishing the connection", e);
                 connected = false;
             }
 
             if (!connected) {
-                LOGGER.debug("Fail to finish outgoing connection to <{}>", connectAddress);
+                LOGGER.error("Fail to finish outgoing connection to <{}>", connectAddress);
                 NioUtils.closeChannel(socketChannel1);
                 NioUtils.closeChannel(socketChannel2);
                 return;
