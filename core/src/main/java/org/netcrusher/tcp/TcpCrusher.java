@@ -112,8 +112,6 @@ public class TcpCrusher implements NetCrusher {
             throw new IllegalStateException("TcpCrusher is already active");
         }
 
-        LOGGER.debug("TcpCrusher <{}>-<{}> will be open", bindAddress, connectAddress);
-
         this.serverSocketChannel = ServerSocketChannel.open();
         this.serverSocketChannel.configureBlocking(false);
         this.serverSocketChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
@@ -136,8 +134,6 @@ public class TcpCrusher implements NetCrusher {
     @Override
     public synchronized void close() throws IOException {
         if (open) {
-            LOGGER.debug("TcpCrusher <{}>-<{}> will be closed", bindAddress, connectAddress);
-
             freeze();
 
             closeAllPairs();

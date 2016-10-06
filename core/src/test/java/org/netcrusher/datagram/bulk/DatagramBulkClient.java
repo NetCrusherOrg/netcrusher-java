@@ -210,14 +210,14 @@ public class DatagramBulkClient implements Closeable {
     private boolean sent(ByteBuffer bb) {
         final boolean emptyDatagram = !bb.hasRemaining();
 
-        try {
-            Thread.sleep(2);
-        } catch (InterruptedException e) {
-            LOGGER.debug("Thread is interrupted");
-            return false;
-        }
-
         while (true) {
+            try {
+                Thread.sleep(2);
+            } catch (InterruptedException e) {
+                LOGGER.debug("Thread is interrupted");
+                return false;
+            }
+
             bb.rewind();
 
             int sent;

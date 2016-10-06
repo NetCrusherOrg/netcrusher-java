@@ -1,0 +1,3 @@
+#!/bin/sh
+
+mvn exec:java "-PDatagramCrusher" "-Daddress.bind=$1" "-Daddress.connect=$2"

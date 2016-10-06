@@ -73,7 +73,7 @@ Checks additional samples in the project root folder:
 <dependency>
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.5</version>
+    <version>0.7</version>
 </dependency>
 ```
 

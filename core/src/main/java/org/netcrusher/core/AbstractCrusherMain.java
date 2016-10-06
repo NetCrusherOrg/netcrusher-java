@@ -169,12 +169,16 @@ public abstract class AbstractCrusherMain {
     }
 
     private static InetSocketAddress parseInetSocketAddress(String text) {
+        if (text == null || text.isEmpty()) {
+            throw new IllegalArgumentException("Address is empty");
+        }
+
         int index = text.lastIndexOf(':');
         if (index == -1 || index == text.length() - 1) {
-            throw new IllegalArgumentException("Port is found");
+            throw new IllegalArgumentException("Port is found in: " + text);
         }
         if (index == 0) {
-            throw new IllegalArgumentException("Host is found");
+            throw new IllegalArgumentException("Host is found in: " + text);
         }
 
         String host = text.substring(0, index);
@@ -184,14 +188,14 @@ public abstract class AbstractCrusherMain {
         try {
             port = Integer.parseInt(portStr);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Port is not integer");
+            throw new IllegalArgumentException("Port is not integer in address: " + text);
         }
 
         InetSocketAddress address;
         try {
             address = new InetSocketAddress(host, port);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Failed to parse address");
+            throw new IllegalArgumentException("Failed to parse address: " + text);
         }
 
         return address;

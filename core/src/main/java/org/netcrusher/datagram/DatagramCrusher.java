@@ -79,7 +79,7 @@ public class DatagramCrusher implements NetCrusher {
             bindAddress, connectAddress, maxIdleDurationMs);
         this.inner.unfreeze();
 
-        LOGGER.debug("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);
+        LOGGER.info("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);
 
         this.open = true;
     }
@@ -92,7 +92,7 @@ public class DatagramCrusher implements NetCrusher {
 
             this.open = false;
 
-            LOGGER.debug("DatagramCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
+            LOGGER.info("DatagramCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
         }
     }
 

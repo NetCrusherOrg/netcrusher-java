@@ -1,0 +1,3 @@
+#!/bin/sh
+
+mvn exec:java "-PTcpCrusher" "-Daddress.bind=$1" "-Daddress.connect=$2"
