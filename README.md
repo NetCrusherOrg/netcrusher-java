@@ -81,7 +81,7 @@ Checks additional samples in the project root folder:
 
 Apache License Version 2.0, http://www.apache.org/licenses/LICENSE-2.0.html
 
-# Other projects
+# Links to similar projects
 
 * [Jepsen](http://jepsen.io) - Distributed Systems Safety Analysis
 * [Java-NIO-TCP-Proxy](https://github.com/terma/java-nio-tcp-proxy/wiki) - Simple TCP proxy
