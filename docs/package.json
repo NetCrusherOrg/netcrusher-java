@@ -1,0 +1,27 @@
+{
+  "name": "netcrusher-java-docs",
+  "version": "1.0.0",
+  "description": "netcrusher-java-docs",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NetCrusherOrg/netcrusher-java.git"
+  },
+  "keywords": [
+    "netcrusher",
+    "nio"
+  ],
+  "author": "Nikolay Mazurkin <mazurkin@gmail.com>",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/NetCrusherOrg/netcrusher-java/issues"
+  },
+  "homepage": "https://github.com/NetCrusherOrg/netcrusher-java#readme",
+  "dependencies": {
+    "jquery": "3.1.1",
+    "bootstrap": "3.3.7"
+  }
+}
