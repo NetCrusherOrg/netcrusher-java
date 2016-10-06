@@ -11,7 +11,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.common.NioReactor;
+import org.netcrusher.core.NioReactor;
 import org.netcrusher.instance.ZookeeperInstance;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
