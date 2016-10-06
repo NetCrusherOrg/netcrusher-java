@@ -6,4 +6,4 @@ then
     exit 1
 fi
 
-mvn exec:java "-PTcpCrusher" "-Daddress.bind=$1" "-Daddress.connect=$2"
+mvn exec:java "-Prun-tcp-crusher" "-Daddress.bind=$1" "-Daddress.connect=$2"

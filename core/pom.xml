@@ -182,7 +182,7 @@
             </build>
         </profile>
         <profile>
-            <id>TcpCrusher</id>
+            <id>run-tcp-crusher</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
@@ -223,7 +223,7 @@
             </build>
         </profile>
         <profile>
-            <id>DatagramCrusher</id>
+            <id>run-datagram-crusher</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>

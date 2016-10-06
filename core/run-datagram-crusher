@@ -6,4 +6,4 @@ then
     exit 1
 fi
 
-mvn exec:java "-PDatagramCrusher" "-Daddress.bind=$1" "-Daddress.connect=$2"
+mvn exec:java "-Prun-datagram-crusher" "-Daddress.bind=$1" "-Daddress.connect=$2"
