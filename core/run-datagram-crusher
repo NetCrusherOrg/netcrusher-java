@@ -1,3 +1,9 @@
 #!/bin/sh
 
+if [ $# -ne 2 ]
+then
+    echo "run-datagram-crusher <bind-address:port> <connect-address:port>"
+    exit 1
+fi
+
 mvn exec:java "-PDatagramCrusher" "-Daddress.bind=$1" "-Daddress.connect=$2"

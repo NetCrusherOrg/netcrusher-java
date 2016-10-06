@@ -35,7 +35,7 @@ public abstract class AbstractCrusherMain {
         try {
             reactor = new NioReactor();
         } catch (Exception e) {
-            System.err.printf("Fail to create reactor: %s\n", e.getLocalizedMessage());
+            System.err.printf("Fail to create reactor: %s\n", e);
             return 3;
         }
 
@@ -43,7 +43,8 @@ public abstract class AbstractCrusherMain {
         try {
             crusher = create(reactor, bindAddress, connectAddress);
         } catch (Exception e) {
-            System.err.printf("Fail to create crusher: %s\n", e.getLocalizedMessage());
+            System.err.printf("Fail to create crusher: %s\n", e);
+            reactor.close();
             return 3;
         }
 
@@ -53,13 +54,13 @@ public abstract class AbstractCrusherMain {
         try {
             close(crusher);
         } catch (Exception e) {
-            System.err.printf("Fail to close crusher: %s\n", e.getLocalizedMessage());
+            System.err.printf("Fail to close crusher: %s\n", e);
         }
 
         try {
             reactor.close();
         } catch (Exception e) {
-            System.err.printf("Fail to close reactor: %s\n", e.getLocalizedMessage());
+            System.err.printf("Fail to close reactor: %s\n", e);
         }
 
         return 0;
@@ -86,7 +87,7 @@ public abstract class AbstractCrusherMain {
                 }
             }
         } catch (IOException e) {
-            System.err.printf("REPL error: %s\n", e.getLocalizedMessage());
+            System.err.printf("REPL error: %s\n", e);
         }
     }
 

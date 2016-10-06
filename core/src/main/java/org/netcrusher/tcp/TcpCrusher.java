@@ -15,6 +15,8 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.UnresolvedAddressException;
+import java.nio.channels.UnsupportedAddressTypeException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -294,57 +296,77 @@ public class TcpCrusher implements NetCrusher {
     }
 
     private void accept() throws IOException {
-        SocketChannel socketChannel1 = serverSocketChannel.accept();
+        final SocketChannel socketChannel1 = serverSocketChannel.accept();
         socketChannel1.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel1);
 
         LOGGER.debug("Incoming connection is accepted on <{}>", bindAddress);
 
-        SocketChannel socketChannel2 = SocketChannel.open();
+        final SocketChannel socketChannel2 = SocketChannel.open();
         socketChannel2.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel2);
 
-        boolean connectedNow = socketChannel2.connect(connectAddress);
-        if (!connectedNow) {
-            final Future<?> connectCheck;
-            if (socketOptions.getConnectionTimeoutMs() > 0) {
-                connectCheck = reactor.getScheduler()
-                    .schedule(socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS, () -> {
-                        if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
-                            LOGGER.warn("Fail to connect to <{}> in {}ms",
-                                connectAddress, socketOptions.getConnectionTimeoutMs());
-                            NioUtils.closeChannel(socketChannel1);
-                            NioUtils.closeChannel(socketChannel2);
-                        }
-                        return true;
-                    });
-            } else {
-                connectCheck = CompletableFuture.completedFuture(null);
+        final boolean connectedNow;
+        try {
+            connectedNow = socketChannel2.connect(connectAddress);
+        } catch (UnresolvedAddressException e) {
+            LOGGER.error("Connect address <{}> is unresolved", connectAddress);
+            NioUtils.closeChannel(socketChannel1);
+            NioUtils.closeChannel(socketChannel2);
+            return;
+        } catch (UnsupportedAddressTypeException e) {
+            LOGGER.error("Connect address <{}> is unsupported", connectAddress);
+            NioUtils.closeChannel(socketChannel1);
+            NioUtils.closeChannel(socketChannel2);
+            return;
+        } catch (IOException e) {
+            LOGGER.error("IOException on connection", e);
+            NioUtils.closeChannel(socketChannel1);
+            NioUtils.closeChannel(socketChannel2);
+            return;
+        }
+
+        if (connectedNow) {
+            appendPair(socketChannel1, socketChannel2);
+            return;
+        }
+
+        final Future<?> connectCheck;
+        if (socketOptions.getConnectionTimeoutMs() > 0) {
+            connectCheck = reactor.getScheduler()
+                .schedule(socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS, () -> {
+                    if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
+                        LOGGER.warn("Fail to connect to <{}> in {}ms",
+                            connectAddress, socketOptions.getConnectionTimeoutMs());
+                        NioUtils.closeChannel(socketChannel1);
+                        NioUtils.closeChannel(socketChannel2);
+                    }
+                    return true;
+                });
+        } else {
+            connectCheck = CompletableFuture.completedFuture(null);
+        }
+
+        reactor.getSelector().register(socketChannel2, SelectionKey.OP_CONNECT, (selectionKey) -> {
+            connectCheck.cancel(false);
+
+            boolean connected;
+            try {
+                connected = socketChannel2.finishConnect();
+            } catch (IOException e) {
+                LOGGER.debug("Exception while finishing the connection", e);
+                connected = false;
             }
 
-            reactor.getSelector().register(socketChannel2, SelectionKey.OP_CONNECT, (selectionKey) -> {
-                connectCheck.cancel(false);
+            if (!connected) {
+                LOGGER.debug("Fail to finish outgoing connection to <{}>", connectAddress);
+                NioUtils.closeChannel(socketChannel1);
+                NioUtils.closeChannel(socketChannel2);
+                return;
+            }
 
-                boolean connected;
-                try {
-                    connected = socketChannel2.finishConnect();
-                } catch (IOException e) {
-                    LOGGER.debug("Exception while finishing the connection", e);
-                    connected = false;
-                }
-
-                if (!connected) {
-                    LOGGER.debug("Fail to finish outgoing connection to <{}>", connectAddress);
-                    NioUtils.closeChannel(socketChannel1);
-                    NioUtils.closeChannel(socketChannel2);
-                    return;
-                }
-
-                appendPair(socketChannel1, socketChannel2);
-            });
-        } else {
             appendPair(socketChannel1, socketChannel2);
-        }
+        });
     }
 
     private void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {

@@ -15,6 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.UnresolvedAddressException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -160,10 +161,10 @@ public class DatagramOuter {
                 LOGGER.debug("EOF on read");
                 closeInternal();
             } catch (PortUnreachableException e) {
-                LOGGER.debug("Port in unreachable on read");
+                LOGGER.debug("Port <{}> is unreachable on read", connectAddress);
                 closeInternal();
             } catch (IOException e) {
-                LOGGER.debug("Exception in outer on read", e);
+                LOGGER.error("Exception in outer on read", e);
                 closeInternal();
             }
         }
@@ -175,10 +176,13 @@ public class DatagramOuter {
                 LOGGER.debug("Channel is closed on write");
                 closeInternal();
             } catch (PortUnreachableException e) {
-                LOGGER.debug("Port in unreachable on write");
+                LOGGER.debug("Port <{}> is unreachable on write", connectAddress);
+                closeInternal();
+            } catch (UnresolvedAddressException e) {
+                LOGGER.error("Connect address <{}> is unresolved", connectAddress);
                 closeInternal();
             } catch (IOException e) {
-                LOGGER.debug("Exception in outer on write", e);
+                LOGGER.error("Exception in outer on write", e);
                 closeInternal();
             }
         }
