@@ -9,10 +9,6 @@ import java.net.InetSocketAddress;
 
 public abstract class AbstractCrusherMain {
 
-    protected abstract NetCrusher create(NioReactor reactor,
-                                         InetSocketAddress bindAddress,
-                                         InetSocketAddress connectAddress) throws IOException;
-
     protected int run(String[] arguments) {
         if (arguments == null || arguments.length != 2) {
             printUsage();
@@ -200,6 +196,10 @@ public abstract class AbstractCrusherMain {
 
         return address;
     }
+
+    protected abstract NetCrusher create(NioReactor reactor,
+                                         InetSocketAddress bindAddress,
+                                         InetSocketAddress connectAddress) throws IOException;
 
 }
 
