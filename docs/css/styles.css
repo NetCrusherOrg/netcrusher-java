@@ -7,6 +7,14 @@ body {
     text-align: center;
 }
 
+.forkme {
+    position: absolute;
+    top: 0;
+    right: 0;
+    border: 0;
+    z-index: 9999;
+}
+
 pre code. {
     display: none;
 }

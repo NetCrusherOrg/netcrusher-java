@@ -13,7 +13,7 @@
             'bootstrap': 'npm:bootstrap',
             'jquery': 'npm:jquery',
             'highlight.js': 'npm:highlight.js',
-            'highlight.languages': 'npm:highlight.js/lib/languages'
+            'highlight.langs': 'npm:highlight.js/lib/languages'
         },
 
         packages: {
