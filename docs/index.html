@@ -11,12 +11,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="i/fi/favicon-16x16.png">
 
     <link href="node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="node_modules/highlight.js/styles/github.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
 
     <script src="node_modules/systemjs/dist/system.js"></script>
     <script src="systemjs.config.js"></script>
 </head>
-
 <body>
 <nav class="navbar navbar-inverse navbar-fixed-top">
     <div class="container">
@@ -36,22 +36,49 @@
                 <li><a href="#datagramcrusher">Datagram crusher</a></li>
                 <li><a href="https://github.com/NetCrusherOrg/netcrusher-java">GitHub</a></li>
             </ul>
-        </div><!--/.nav-collapse -->
+        </div>
     </div>
 </nav>
 
 <div class="container">
+<div class="row">
+<div class="col-lg-2"></div>
+<div class="col-lg-8">
+<h1>TcpCrusher</h1>
+<p>hewthet</p>
+<pre>
+<code class="lang-java">
+    NioReactor reactor = new NioReactor();
+    TcpCrusher crusher = TcpCrusherBuilder.builder()
+        .withReactor(reactor)
+        .withBindAddress("localhost", 10080)
+        .withConnectAddress("google.com", 80)
+        .buildAndOpen();
 
-    <div class="starter-template">
-        <h1>Bootstrap starter template</h1>
-        <p class="lead">Use this document as a way to quickly start any new project.<br> All you get is this text and a mostly barebones HTML document.</p>
-    </div>
+    // emulate reconnect
+    crusher.crush();
 
-</div><!-- /.container -->
+    // freeze
+    crusher.freeze();
+
+    // unfreeze
+    crusher.unfreeze();
+
+    // close
+    crusher.close();
+    reactor.close();
+</code>
+</pre>
+
+
+</div>
+<div class="col-lg-2"></div>
+</div>
+</div>
+
 
 <script>
-    SystemJS.import("bootstrap");
-    SystemJS.import("jquery");
+    SystemJS.import("app");
 </script>
 </body>
 </html>
