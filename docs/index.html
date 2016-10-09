@@ -4,16 +4,20 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" href="i/favicon.ico">
 
     <title>NetCrusher for Java</title>
 
+    <link rel="icon" type="image/png" sizes="32x32" href="i/fi/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="i/fi/favicon-16x16.png">
+
     <link href="node_modules/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="css/styles.css" rel="stylesheet">
+
+    <script src="node_modules/systemjs/dist/system.js"></script>
+    <script src="systemjs.config.js"></script>
 </head>
 
 <body>
-
 <nav class="navbar navbar-inverse navbar-fixed-top">
     <div class="container">
         <div class="navbar-header">
@@ -30,6 +34,7 @@
                 <li><a href="#">About</a></li>
                 <li><a href="#tcpcrusher">TCP crusher</a></li>
                 <li><a href="#datagramcrusher">Datagram crusher</a></li>
+                <li><a href="https://github.com/NetCrusherOrg/netcrusher-java">GitHub</a></li>
             </ul>
         </div><!--/.nav-collapse -->
     </div>
@@ -44,7 +49,9 @@
 
 </div><!-- /.container -->
 
-<script src="node_modules/jquery/dist/jquery.min.js"></script>
-<script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+<script>
+    SystemJS.import("bootstrap");
+    SystemJS.import("jquery");
+</script>
 </body>
 </html>
