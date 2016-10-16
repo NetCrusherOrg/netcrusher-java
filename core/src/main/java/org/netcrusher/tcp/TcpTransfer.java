@@ -105,15 +105,15 @@ public class TcpTransfer {
         final SocketChannel channel = (SocketChannel) selectionKey.channel();
 
         while (true) {
-            final int size = queue.requestReady();
-            if (size == 0) {
+            final TcpQueueArray queueArray = queue.requestReady();
+            if (queueArray.isEmpty()) {
                 NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
                 break;
             }
 
             final long sent;
             try {
-                sent = channel.write(queue.getBufferArray(), 0, size);
+                sent = channel.write(queueArray.getArray(), queueArray.getOffset(), queueArray.getCount());
             } finally {
                 queue.cleanReady();
             }
@@ -138,15 +138,15 @@ public class TcpTransfer {
         final SocketChannel channel = (SocketChannel) selectionKey.channel();
 
         while (true) {
-            final int size = queue.requestStage();
-            if (size == 0) {
+            final TcpQueueArray queueArray = queue.requestStage();
+            if (queueArray.isEmpty()) {
                 NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_READ);
                 break;
             }
 
             final long read;
             try {
-                read = channel.read(queue.getBufferArray(), 0, size);
+                read = channel.read(queueArray.getArray(), queueArray.getOffset(), queueArray.getCount());
             } finally {
                 queue.cleanStage();
             }

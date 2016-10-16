@@ -75,20 +75,23 @@ public class TcpQueue implements Serializable {
         return stage.size();
     }
 
-    public int requestReady() {
+    public TcpQueueArray requestReady() {
         Entry entryToSteal = stage.peekFirst();
         if (entryToSteal != null && entryToSteal.getBuffer().position() > 0) {
             steal();
         }
 
         final int size = ready.size();
+        if (size == 0) {
+            return TcpQueueArray.EMPTY;
+        }
 
         ready.toArray(entryArray);
         for (int i = 0; i < size; i++) {
             bufferArray[i] = entryArray[i].getBuffer();
         }
 
-        return size;
+        return new TcpQueueArray(bufferArray, 0, size);
     }
 
     public void cleanReady() {
@@ -102,15 +105,18 @@ public class TcpQueue implements Serializable {
         }
     }
 
-    public int requestStage() {
+    public TcpQueueArray requestStage() {
         final int size = stage.size();
+        if (size == 0) {
+            return TcpQueueArray.EMPTY;
+        }
 
         stage.toArray(entryArray);
         for (int i = 0; i < size; i++) {
             bufferArray[i] = entryArray[i].getBuffer();
         }
 
-        return size;
+        return new TcpQueueArray(bufferArray, 0, size);
     }
 
     public void cleanStage() {
@@ -127,10 +133,6 @@ public class TcpQueue implements Serializable {
                 steal();
             }
         }
-    }
-
-    public ByteBuffer[] getBufferArray() {
-        return bufferArray;
     }
 
     private void steal() {
