@@ -51,13 +51,17 @@ public class TcpPair implements NetFreezer {
 
         this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
 
-        TcpQueue innerToOuter = new TcpQueue(filters.getOutgoingTransformFilter(), clientAddress,
+        TcpQueue innerToOuter = new TcpQueue(clientAddress,
+            filters.getOutgoingTransformFilter(), filters.getOutgoingThrottler(),
             bufferCount, bufferSize);
-        TcpQueue outerToInner = new TcpQueue(filters.getIncomingTransformFilter(), clientAddress,
+        TcpQueue outerToInner = new TcpQueue(clientAddress,
+            filters.getIncomingTransformFilter(), filters.getIncomingThrottler(),
             bufferCount, bufferSize);
 
-        this.innerTransfer = new TcpTransfer("INNER", reactor, this::closeInternal, inner, outerToInner, innerToOuter);
-        this.outerTransfer = new TcpTransfer("OUTER", reactor, this::closeInternal, outer, innerToOuter, outerToInner);
+        this.innerTransfer = new TcpTransfer("INNER", reactor, this::closeInternal, inner,
+            outerToInner, innerToOuter);
+        this.outerTransfer = new TcpTransfer("OUTER", reactor, this::closeInternal, outer,
+            innerToOuter, outerToInner);
 
         this.innerTransfer.setOther(outerTransfer);
         this.outerTransfer.setOther(innerTransfer);

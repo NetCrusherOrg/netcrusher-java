@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.filter.NoopFilter;
+import org.netcrusher.core.throttle.NoopThrottler;
 import org.netcrusher.tcp.bulk.TcpBulkClient;
 import org.netcrusher.tcp.bulk.TcpBulkServer;
 
@@ -38,7 +39,9 @@ public class BulkTcpTest {
             .withBindAddress(HOSTNAME, PORT_CRUSHER)
             .withConnectAddress(HOSTNAME, PORT_SERVER)
             .withIncomingTransformFilter(NoopFilter.INSTANCE)
+            .withIncomingThrottler(NoopThrottler.INSTANCE)
             .withOutgoingTransformFilter(NoopFilter.INSTANCE)
+            .withOutgoingThrottler(NoopThrottler.INSTANCE)
             .buildAndOpen();
     }
 

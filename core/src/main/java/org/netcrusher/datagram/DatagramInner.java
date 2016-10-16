@@ -267,7 +267,8 @@ public class DatagramInner {
                 break;
             }
 
-            final int read = bb.position();
+            bb.flip();
+            final int read = bb.remaining();
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Received {} bytes from inner <{}>", read, address);
@@ -277,8 +278,6 @@ public class DatagramInner {
             totalReadDatagrams.incrementAndGet();
 
             DatagramOuter outer = requestOuter(address);
-
-            bb.flip();
 
             outer.enqueue(bb);
 
@@ -324,8 +323,8 @@ public class DatagramInner {
         }
     }
 
-    void enqueue(InetSocketAddress address, ByteBuffer bbToCopy) {
-        boolean added = incoming.add(address, bbToCopy);
+    void enqueue(InetSocketAddress address, ByteBuffer bbToCopy, long delayNs) {
+        boolean added = incoming.add(address, bbToCopy, delayNs);
         if (added) {
             NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
         }

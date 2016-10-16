@@ -1,6 +1,7 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.throttle.Throttler;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
@@ -21,14 +22,19 @@ public class TcpQueue implements Serializable {
 
     private final TransformFilter filter;
 
+    private final Throttler throttler;
+
     private final InetSocketAddress clientAddress;
 
-    public TcpQueue(TransformFilter filter, InetSocketAddress clientAddress, int bufferCount, int bufferSize) {
+    public TcpQueue(InetSocketAddress clientAddress,
+                    TransformFilter filter, Throttler throttler,
+                    int bufferCount, int bufferSize) {
         this.ready = new ArrayDeque<>(bufferCount);
         this.stage = new ArrayDeque<>(bufferCount);
         this.bufferArray = new ByteBuffer[bufferCount];
         this.entryArray = new Entry[bufferCount];
         this.filter = filter;
+        this.throttler = throttler;
         this.clientAddress = clientAddress;
 
         for (int i = 0; i < bufferCount; i++) {
@@ -123,10 +129,6 @@ public class TcpQueue implements Serializable {
         while (!stage.isEmpty()) {
             Entry entry = stage.getFirst();
 
-            if (entry.getBuffer().position() > 0) {
-                entry.schedule();
-            }
-
             if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {
@@ -138,16 +140,21 @@ public class TcpQueue implements Serializable {
     private void steal() {
         Entry entry = stage.removeFirst();
 
-        entry.getBuffer().flip();
+        ByteBuffer bb = entry.getBuffer();
+
+        bb.flip();
 
         if (filter != null) {
-            filter.transform(clientAddress, entry.getBuffer());
+            filter.transform(clientAddress, bb);
         }
 
-        if (entry.getBuffer().hasRemaining()) {
+        if (bb.hasRemaining()) {
+            final long delayNs = throttler != null ? throttler.calculateDelayNs(clientAddress, bb) : 0;
+            entry.schedule(delayNs);
+
             ready.addLast(entry);
         } else {
-            entry.getBuffer().clear();
+            bb.clear();
             stage.add(entry);
         }
     }
@@ -171,8 +178,8 @@ public class TcpQueue implements Serializable {
             this.scheduledNs = System.nanoTime();
         }
 
-        public void schedule() {
-            this.scheduledNs = System.nanoTime();
+        public void schedule(long delayNs) {
+            this.scheduledNs = System.nanoTime() + delayNs;
         }
 
         public ByteBuffer getBuffer() {

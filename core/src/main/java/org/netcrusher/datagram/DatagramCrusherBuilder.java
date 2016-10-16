@@ -3,6 +3,7 @@ package org.netcrusher.datagram;
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.throttle.Throttler;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -30,6 +31,10 @@ public final class DatagramCrusherBuilder {
     private PassFilter incomingPassFilter;
 
     private PassFilter outgoingPassFilter;
+
+    private Throttler incomingThrottler;
+
+    private Throttler outgoingThrottler;
 
     private long maxIdleDurationMs;
 
@@ -178,6 +183,28 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
+     * Set outgoing (from the inner to the outer) throttling strategy
+     * @param throttler Throttler strategy
+     * @return This builder instance to chain with other methods
+     * @see Throttler
+     */
+    public DatagramCrusherBuilder withOutgoingThrottler(Throttler throttler) {
+        this.outgoingThrottler = throttler;
+        return this;
+    }
+
+    /**
+     * Set incoming (from the outer to the inner) throttling strategy
+     * @param throttler Throttler strategy
+     * @return This builder instance to chain with other methods
+     * @see Throttler
+     */
+    public DatagramCrusherBuilder withIncomingThrottler(Throttler throttler) {
+        this.incomingThrottler = throttler;
+        return this;
+    }
+
+    /**
      * Builds a new DatagramCrusher instance
      * @return DatagramCrusher instance
      */
@@ -195,10 +222,9 @@ public final class DatagramCrusherBuilder {
         }
 
         DatagramFilters filters = new DatagramFilters(
-            incomingTransformFilter,
-            outgoingTransformFilter,
-            incomingPassFilter,
-            outgoingPassFilter
+            incomingTransformFilter, outgoingTransformFilter,
+            incomingPassFilter, outgoingPassFilter,
+            incomingThrottler, outgoingThrottler
         );
 
         return new DatagramCrusher(

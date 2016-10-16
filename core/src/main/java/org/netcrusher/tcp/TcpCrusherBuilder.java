@@ -2,6 +2,7 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.throttle.Throttler;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -28,6 +29,10 @@ public final class TcpCrusherBuilder {
     private TransformFilter incomingTransformFilter;
 
     private TransformFilter outgoingTransformFilter;
+
+    private Throttler incomingThrottler;
+
+    private Throttler outgoingThrottler;
 
     private int bufferCount;
 
@@ -237,6 +242,28 @@ public final class TcpCrusherBuilder {
     }
 
     /**
+     * Set outgoing (from the inner to the outer) throttling strategy
+     * @param throttler Throttler strategy
+     * @return This builder instance to chain with other methods
+     * @see Throttler
+     */
+    public TcpCrusherBuilder withOutgoingThrottler(Throttler throttler) {
+        this.outgoingThrottler = throttler;
+        return this;
+    }
+
+    /**
+     * Set incoming (from the outer to the inner) throttling strategy
+     * @param throttler Throttler strategy
+     * @return This builder instance to chain with other methods
+     * @see Throttler
+     */
+    public TcpCrusherBuilder withIncomingThrottler(Throttler throttler) {
+        this.incomingThrottler = throttler;
+        return this;
+    }
+
+    /**
      * Builds a new TcpCrusher instance
      * @return TcpCrusher instance
      */
@@ -254,8 +281,8 @@ public final class TcpCrusherBuilder {
         }
 
         TcpFilters filters = new TcpFilters(
-            incomingTransformFilter,
-            outgoingTransformFilter);
+            incomingTransformFilter, outgoingTransformFilter,
+            incomingThrottler, outgoingThrottler);
 
         return new TcpCrusher(
             reactor,

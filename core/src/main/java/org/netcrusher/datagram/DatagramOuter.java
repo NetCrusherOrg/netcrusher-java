@@ -4,6 +4,7 @@ import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.throttle.Throttler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -252,7 +253,8 @@ public class DatagramOuter {
                 continue;
             }
 
-            final int read = bb.position();
+            bb.flip();
+            final int read = bb.remaining();
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Read {} bytes from outer for <{}>", read, clientAddress);
@@ -261,11 +263,12 @@ public class DatagramOuter {
             totalReadBytes.addAndGet(read);
             totalReadDatagrams.incrementAndGet();
 
-            bb.flip();
+            final boolean passed = filter(bb, filters.getIncomingTransformFilter(), filters.getIncomingPassFilter());
+            if (passed) {
+                final Throttler throttler = filters.getIncomingThrottler();
+                final long delayNs = throttler != null ? throttler.calculateDelayNs(clientAddress, bb) : 0;
 
-            boolean pass = filter(bb, filters.getIncomingTransformFilter(), filters.getIncomingPassFilter());
-            if (pass) {
-                inner.enqueue(clientAddress, bb);
+                inner.enqueue(clientAddress, bb, delayNs);
             }
 
             bb.clear();
@@ -275,9 +278,12 @@ public class DatagramOuter {
     }
 
     void enqueue(ByteBuffer bb) {
-        boolean pass = filter(bb, filters.getOutgoingTransformFilter(), filters.getOutgoingPassFilter());
-        if (pass) {
-            boolean added = incoming.add(connectAddress, bb);
+        final boolean passed = filter(bb, filters.getOutgoingTransformFilter(), filters.getOutgoingPassFilter());
+        if (passed) {
+            final Throttler throttler = filters.getOutgoingThrottler();
+            final long delayNs = throttler != null ? throttler.calculateDelayNs(clientAddress, bb) : 0;
+
+            final boolean added = incoming.add(connectAddress, bb, delayNs);
             if (added) {
                 NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
             }
@@ -285,15 +291,18 @@ public class DatagramOuter {
     }
 
     private boolean filter(ByteBuffer bb, TransformFilter transformFilter, PassFilter passFilter) {
+        if (passFilter != null) {
+            final boolean passed = passFilter.pass(clientAddress, bb);
+            if (!passed) {
+                return false;
+            }
+        }
+
         if (transformFilter != null) {
             transformFilter.transform(clientAddress, bb);
         }
 
-        if (passFilter != null) {
-            return passFilter.pass(clientAddress, bb);
-        } else {
-            return true;
-        }
+        return true;
     }
 
     /**

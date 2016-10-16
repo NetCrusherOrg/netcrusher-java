@@ -5,11 +5,12 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.NioReactor;
-import org.netcrusher.datagram.bulk.DatagramBulkClient;
-import org.netcrusher.datagram.bulk.DatagramBulkReflector;
 import org.netcrusher.core.filter.InverseFilter1;
 import org.netcrusher.core.filter.InverseFilter2;
 import org.netcrusher.core.filter.NoopFilter;
+import org.netcrusher.core.throttle.NoopThrottler;
+import org.netcrusher.datagram.bulk.DatagramBulkClient;
+import org.netcrusher.datagram.bulk.DatagramBulkReflector;
 
 import java.net.InetSocketAddress;
 
@@ -38,9 +39,11 @@ public class BulkDatagramTest {
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
             .withIncomingTransformFilter(NoopFilter.INSTANCE.then(InverseFilter2.INSTANCE))
-            .withOutgoingTransformFilter(InverseFilter1.INSTANCE.then(NoopFilter.INSTANCE))
             .withIncomingPassFilter((addr, bb) -> true)
+            .withIncomingThrottler(NoopThrottler.INSTANCE)
+            .withOutgoingTransformFilter(InverseFilter1.INSTANCE.then(NoopFilter.INSTANCE))
             .withOutgoingPassFilter((addr, bb) -> true)
+            .withOutgoingThrottler(NoopThrottler.INSTANCE)
             .buildAndOpen();
     }
 
