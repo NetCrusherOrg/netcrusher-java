@@ -141,7 +141,6 @@ public class TcpQueue implements Serializable {
         Entry entry = stage.removeFirst();
 
         ByteBuffer bb = entry.getBuffer();
-
         bb.flip();
 
         if (filter != null) {
@@ -149,7 +148,13 @@ public class TcpQueue implements Serializable {
         }
 
         if (bb.hasRemaining()) {
-            final long delayNs = throttler != null ? throttler.calculateDelayNs(clientAddress, bb) : 0;
+            final long delayNs;
+            if (throttler != null) {
+                delayNs = throttler.calculateDelayNs(clientAddress, bb);
+            } else {
+                delayNs = Throttler.NO_DELAY;
+            }
+
             entry.schedule(delayNs);
 
             ready.addLast(entry);

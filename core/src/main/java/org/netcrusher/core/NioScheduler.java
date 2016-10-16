@@ -79,34 +79,34 @@ public class NioScheduler {
 
     /**
      * Schedule callable instance to execute in scheduler's thread
+     * @param callable Callable instance
      * @param delay Execution delay
      * @param timeUnit Time unit
-     * @param callable Callable instance
      * @return The future
      */
-    public Future<?> schedule(long delay, TimeUnit timeUnit, Callable<?> callable) {
+    public Future<?> schedule(Callable<?> callable, long delay, TimeUnit timeUnit) {
         return scheduledExecutorService.schedule(callable, delay, timeUnit);
     }
 
     /**
      * Schedule runnable instance to execute in scheduler's thread
+     * @param runnable Runnable instance
      * @param delay Execution delay
      * @param timeUnit Time unit
-     * @param runnable Runnable instance
      * @return The future
      */
-    public Future<?> schedule(long delay, TimeUnit timeUnit, Runnable runnable) {
+    public Future<?> schedule(Runnable runnable, long delay, TimeUnit timeUnit) {
         return scheduledExecutorService.schedule(runnable, delay, timeUnit);
     }
 
     /**
      * Schedule freeze
+     * @param freezer Freezer instance
      * @param delay Execution delay
      * @param timeUnit Time unit
-     * @param freezer Freezer instance
      * @return The future
      */
-    public Future<?> scheduleFreeze(long delay, TimeUnit timeUnit, NetFreezer freezer) {
+    public Future<?> scheduleFreeze(NetFreezer freezer, long delay, TimeUnit timeUnit) {
         return scheduledExecutorService.schedule(() -> {
             freezer.freeze();
             return true;
@@ -115,12 +115,12 @@ public class NioScheduler {
 
     /**
      * Schedule unfreeze
+     * @param freezer Freezer instance
      * @param delay Execution delay
      * @param timeUnit Time unit
-     * @param freezer Freezer instance
      * @return The future
      */
-    public Future<?> scheduleUnfreeze(long delay, TimeUnit timeUnit, NetFreezer freezer) {
+    public Future<?> scheduleUnfreeze(NetFreezer freezer, long delay, TimeUnit timeUnit) {
         return scheduledExecutorService.schedule(() -> {
             freezer.unfreeze();
             return true;
@@ -129,12 +129,12 @@ public class NioScheduler {
 
     /**
      * Schedule opening
+     * @param crusher Crusher instance
      * @param delay Execution delay
      * @param timeUnit Time unit
-     * @param crusher Crusher instance
      * @return The future
      */
-    public Future<?> scheduleOpen(long delay, TimeUnit timeUnit, NetCrusher crusher) {
+    public Future<?> scheduleOpen(NetCrusher crusher, long delay, TimeUnit timeUnit) {
         return scheduledExecutorService.schedule(() -> {
             crusher.crush();
             return true;
@@ -143,12 +143,12 @@ public class NioScheduler {
 
     /**
      * Schedule closing
+     * @param crusher Crusher instance
      * @param delay Execution delay
      * @param timeUnit Time unit
-     * @param crusher Crusher instance
      * @return The future
      */
-    public Future<?> scheduleClose(long delay, TimeUnit timeUnit, NetCrusher crusher) {
+    public Future<?> scheduleClose(NetCrusher crusher, long delay, TimeUnit timeUnit) {
         return scheduledExecutorService.schedule(() -> {
             crusher.close();
             return true;
@@ -157,12 +157,12 @@ public class NioScheduler {
 
     /**
      * Schedule crushing
+     * @param crusher Crusher instance
      * @param delay Execution delay
      * @param timeUnit Time unit
-     * @param crusher Crusher instance
      * @return The future
      */
-    public Future<?> scheduleCrush(long delay, TimeUnit timeUnit, NetCrusher crusher) {
+    public Future<?> scheduleCrush(NetCrusher crusher, long delay, TimeUnit timeUnit) {
         return scheduledExecutorService.schedule(() -> {
             crusher.crush();
             return true;

@@ -182,18 +182,6 @@ public class DatagramInner {
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
-        if (selectionKey.isReadable()) {
-            try {
-                handleReadable(selectionKey);
-            } catch (ClosedChannelException e) {
-                LOGGER.debug("Channel is closed on read");
-                closeInternal();
-            } catch (IOException e) {
-                LOGGER.error("Exception in inner on read", e);
-                closeInternal();
-            }
-        }
-
         if (selectionKey.isWritable()) {
             try {
                 handleWritable(selectionKey);
@@ -202,6 +190,18 @@ public class DatagramInner {
                 closeInternal();
             } catch (IOException e) {
                 LOGGER.error("Exception in inner on write", e);
+                closeInternal();
+            }
+        }
+
+        if (selectionKey.isReadable()) {
+            try {
+                handleReadable(selectionKey);
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Channel is closed on read");
+                closeInternal();
+            } catch (IOException e) {
+                LOGGER.error("Exception in inner on read", e);
                 closeInternal();
             }
         }

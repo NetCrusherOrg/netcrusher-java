@@ -65,11 +65,10 @@ public class TcpTransfer {
         if (outgoing.calculateReadyBytes() > 0) {
             NioUtils.closeChannel(channel);
 
-            reactor.getScheduler()
-                .schedule(LINGER_PERIOD_MS, TimeUnit.MILLISECONDS, () -> {
-                    closeInternal();
-                    return true;
-                });
+            reactor.getScheduler().schedule(() -> {
+                closeInternal();
+                return true;
+            }, LINGER_PERIOD_MS, TimeUnit.MILLISECONDS);
         } else {
             closeInternal();
         }

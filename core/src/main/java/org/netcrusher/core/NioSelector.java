@@ -28,9 +28,15 @@ public class NioSelector {
 
     private final Queue<NioSelectorOp<?>> ops;
 
+    private final long tickMs;
+
     private volatile boolean open;
 
-    NioSelector() throws IOException {
+    NioSelector(long tickMs) throws IOException {
+        if (tickMs < 0) {
+            throw new IllegalArgumentException("Tick period must be non-negative");
+        }
+
         this.selector = Selector.open();
         this.ops = new ConcurrentLinkedQueue<>();
 
@@ -39,6 +45,7 @@ public class NioSelector {
         this.thread.setDaemon(false);
         this.thread.start();
 
+        this.tickMs = tickMs;
         this.open = true;
     }
 
@@ -112,29 +119,29 @@ public class NioSelector {
      * Internal method
      */
     public <T> T executeOp(Callable<T> callable) throws IOException {
-        if (!open) {
-            throw new IllegalStateException("Selector is closed");
-        }
+        if (open) {
+            if (Thread.currentThread().equals(thread)) {
+                try {
+                    return callable.call();
+                } catch (Exception e) {
+                    throw new IOException("Fail to execute selector op", e);
+                }
+            } else {
+                NioSelectorOp<T> op = new NioSelectorOp<>(callable);
+                ops.add(op);
 
-        if (Thread.currentThread().equals(thread)) {
-            try {
-                return callable.call();
-            } catch (Exception e) {
-                throw new IOException("Fail to execute selector op", e);
+                selector.wakeup();
+
+                try {
+                    return op.await();
+                } catch (InterruptedException e) {
+                    throw new InterruptedIOException("Reactor operation was interrupted");
+                } catch (ExecutionException e) {
+                    throw new IOException("Selector operation has failed", e);
+                }
             }
         } else {
-            NioSelectorOp<T> op = new NioSelectorOp<>(callable);
-            ops.add(op);
-
-            selector.wakeup();
-
-            try {
-                return op.await();
-            } catch (InterruptedException e) {
-                throw new InterruptedIOException("Reactor operation was interrupted");
-            } catch (ExecutionException e) {
-                throw new IOException("Selector operation has failed", e);
-            }
+            throw new IllegalStateException("Selector is closed");
         }
     }
 
@@ -144,7 +151,7 @@ public class NioSelector {
         while (!Thread.currentThread().isInterrupted()) {
             int count;
             try {
-                count = selector.select();
+                count = selector.select(tickMs);
             } catch (ClosedSelectorException e) {
                 break;
             } catch (IOException e) {

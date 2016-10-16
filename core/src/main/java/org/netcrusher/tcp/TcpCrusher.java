@@ -333,16 +333,15 @@ public class TcpCrusher implements NetCrusher {
 
         final Future<?> connectCheck;
         if (socketOptions.getConnectionTimeoutMs() > 0) {
-            connectCheck = reactor.getScheduler()
-                .schedule(socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS, () -> {
-                    if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
-                        LOGGER.error("Fail to connect to <{}> in {}ms",
-                            connectAddress, socketOptions.getConnectionTimeoutMs());
-                        NioUtils.closeChannel(socketChannel1);
-                        NioUtils.closeChannel(socketChannel2);
-                    }
-                    return true;
-                });
+            connectCheck = reactor.getScheduler().schedule(() -> {
+                if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
+                    LOGGER.error("Fail to connect to <{}> in {}ms",
+                        connectAddress, socketOptions.getConnectionTimeoutMs());
+                    NioUtils.closeChannel(socketChannel1);
+                    NioUtils.closeChannel(socketChannel2);
+                }
+                return true;
+            }, socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
         } else {
             connectCheck = CompletableFuture.completedFuture(null);
         }

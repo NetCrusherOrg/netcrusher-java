@@ -150,24 +150,6 @@ public class DatagramOuter {
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
-        if (selectionKey.isReadable()) {
-            try {
-                handleReadable(selectionKey);
-            } catch (ClosedChannelException e) {
-                LOGGER.debug("Channel is closed on read");
-                closeInternal();
-            } catch (EOFException e) {
-                LOGGER.debug("EOF on read");
-                closeInternal();
-            } catch (PortUnreachableException e) {
-                LOGGER.debug("Port <{}> is unreachable on read", connectAddress);
-                closeInternal();
-            } catch (IOException e) {
-                LOGGER.error("Exception in outer on read", e);
-                closeInternal();
-            }
-        }
-
         if (selectionKey.isWritable()) {
             try {
                 handleWritable(selectionKey);
@@ -182,6 +164,24 @@ public class DatagramOuter {
                 closeInternal();
             } catch (IOException e) {
                 LOGGER.error("Exception in outer on write", e);
+                closeInternal();
+            }
+        }
+
+        if (selectionKey.isReadable()) {
+            try {
+                handleReadable(selectionKey);
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Channel is closed on read");
+                closeInternal();
+            } catch (EOFException e) {
+                LOGGER.debug("EOF on read");
+                closeInternal();
+            } catch (PortUnreachableException e) {
+                LOGGER.debug("Port <{}> is unreachable on read", connectAddress);
+                closeInternal();
+            } catch (IOException e) {
+                LOGGER.error("Exception in outer on read", e);
                 closeInternal();
             }
         }
@@ -266,7 +266,13 @@ public class DatagramOuter {
             final boolean passed = filter(bb, filters.getIncomingTransformFilter(), filters.getIncomingPassFilter());
             if (passed) {
                 final Throttler throttler = filters.getIncomingThrottler();
-                final long delayNs = throttler != null ? throttler.calculateDelayNs(clientAddress, bb) : 0;
+
+                final long delayNs;
+                if (throttler != null) {
+                    delayNs = throttler.calculateDelayNs(clientAddress, bb);
+                } else {
+                    delayNs = Throttler.NO_DELAY;
+                }
 
                 inner.enqueue(clientAddress, bb, delayNs);
             }
@@ -281,7 +287,13 @@ public class DatagramOuter {
         final boolean passed = filter(bb, filters.getOutgoingTransformFilter(), filters.getOutgoingPassFilter());
         if (passed) {
             final Throttler throttler = filters.getOutgoingThrottler();
-            final long delayNs = throttler != null ? throttler.calculateDelayNs(clientAddress, bb) : 0;
+
+            final long delayNs;
+            if (throttler != null) {
+                delayNs = throttler.calculateDelayNs(clientAddress, bb);
+            } else {
+                delayNs = Throttler.NO_DELAY;
+            }
 
             final boolean added = incoming.add(connectAddress, bb, delayNs);
             if (added) {
@@ -292,7 +304,7 @@ public class DatagramOuter {
 
     private boolean filter(ByteBuffer bb, TransformFilter transformFilter, PassFilter passFilter) {
         if (passFilter != null) {
-            final boolean passed = passFilter.pass(clientAddress, bb);
+            final boolean passed = passFilter.check(clientAddress, bb);
             if (!passed) {
                 return false;
             }

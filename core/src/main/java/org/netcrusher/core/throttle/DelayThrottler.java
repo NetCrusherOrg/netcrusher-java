@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A simple delay for all packets
+ * A constant delay for all packets
  */
 public class DelayThrottler implements Throttler {
 
