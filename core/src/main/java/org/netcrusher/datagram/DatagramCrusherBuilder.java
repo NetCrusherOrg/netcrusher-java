@@ -1,6 +1,8 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.filter.PassFilter;
+import org.netcrusher.core.filter.TransformFilter;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -20,6 +22,14 @@ public final class DatagramCrusherBuilder {
     private NioReactor reactor;
 
     private DatagramCrusherSocketOptions socketOptions;
+
+    private TransformFilter incomingTransformFilter;
+
+    private TransformFilter outgoingTransformFilter;
+
+    private PassFilter incomingPassFilter;
+
+    private PassFilter outgoingPassFilter;
 
     private long maxIdleDurationMs;
 
@@ -124,6 +134,50 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
+     * Set outgoing (from the inner to the outer) transform filter
+     * @param filter Filter instance
+     * @return This builder instance to chain with other methods
+     * @see TransformFilter
+     */
+    public DatagramCrusherBuilder withOutgoingTransformFilter(TransformFilter filter) {
+        this.outgoingTransformFilter = filter;
+        return this;
+    }
+
+    /**
+     * Set incoming (from the outer to the inner) transform filter
+     * @param filter Filter instance
+     * @return This builder instance to chain with other methods
+     * @see TransformFilter
+     */
+    public DatagramCrusherBuilder withIncomingTransformFilter(TransformFilter filter) {
+        this.incomingTransformFilter = filter;
+        return this;
+    }
+
+    /**
+     * Set outgoing (from the inner to the outer) pass filter
+     * @param filter Filter instance
+     * @return This builder instance to chain with other methods
+     * @see PassFilter
+     */
+    public DatagramCrusherBuilder withOutgoingPassFilter(PassFilter filter) {
+        this.outgoingPassFilter = filter;
+        return this;
+    }
+
+    /**
+     * Set incoming (from the outer to the inner) pass filter
+     * @param filter Filter instance
+     * @return This builder instance to chain with other methods
+     * @see PassFilter
+     */
+    public DatagramCrusherBuilder withIncomingPassFilter(PassFilter filter) {
+        this.incomingPassFilter = filter;
+        return this;
+    }
+
+    /**
      * Builds a new DatagramCrusher instance
      * @return DatagramCrusher instance
      */
@@ -140,11 +194,19 @@ public final class DatagramCrusherBuilder {
             throw new IllegalArgumentException("Reactor is not set");
         }
 
+        DatagramFilters filters = new DatagramFilters(
+            incomingTransformFilter,
+            outgoingTransformFilter,
+            incomingPassFilter,
+            outgoingPassFilter
+        );
+
         return new DatagramCrusher(
             reactor,
             bindAddress,
             connectAddress,
             socketOptions.copy(),
+            filters,
             maxIdleDurationMs);
     }
 

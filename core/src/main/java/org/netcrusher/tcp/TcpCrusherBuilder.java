@@ -1,6 +1,7 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.filter.TransformFilter;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,6 +24,10 @@ public final class TcpCrusherBuilder {
     private Consumer<TcpPair> creationListener;
 
     private Consumer<TcpPair> deletionListener;
+
+    private TransformFilter incomingTransformFilter;
+
+    private TransformFilter outgoingTransformFilter;
 
     private int bufferCount;
 
@@ -210,6 +215,28 @@ public final class TcpCrusherBuilder {
     }
 
     /**
+     * Set outgoing (from the inner to the outer) transform filter
+     * @param filter Filter instance
+     * @return This builder instance to chain with other methods
+     * @see TransformFilter
+     */
+    public TcpCrusherBuilder withOutgoingTransformFilter(TransformFilter filter) {
+        this.outgoingTransformFilter = filter;
+        return this;
+    }
+
+    /**
+     * Set incoming (from the outer to the inner) transform filter
+     * @param filter Filter instance
+     * @return This builder instance to chain with other methods
+     * @see TransformFilter
+     */
+    public TcpCrusherBuilder withIncomingTransformFilter(TransformFilter filter) {
+        this.incomingTransformFilter = filter;
+        return this;
+    }
+
+    /**
      * Builds a new TcpCrusher instance
      * @return TcpCrusher instance
      */
@@ -226,6 +253,10 @@ public final class TcpCrusherBuilder {
             throw new IllegalArgumentException("Reactor is not set");
         }
 
+        TcpFilters filters = new TcpFilters(
+            incomingTransformFilter,
+            outgoingTransformFilter);
+
         return new TcpCrusher(
             reactor,
             bindAddress,
@@ -233,6 +264,7 @@ public final class TcpCrusherBuilder {
             socketOptions.copy(),
             creationListener,
             deletionListener,
+            filters,
             bufferCount,
             bufferSize);
     }

@@ -1,22 +1,22 @@
 package org.netcrusher.core.filter;
 
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 /**
  * <p>Filter for tranferred data. Filtering is made in reactor's thread so all blocking I/O should be made in other
  * thread with the copy of the input buffer.</p>
  *
- *
  * <p>Filter that filters nothing:</p>
  * <pre>
- * void filter(ByteBuffer bb) {
+ * void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
  *     // no op
  * }
  * </pre>
  *
  * <p>Filter that inverses all bytes:</p>
  * <pre>
- * void filter(ByteBuffer bb) {
+ * void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
  *     if (bb.hasArray()) {
  *         final byte[] bytes = bb.array();
  *         final int offset = bb.arrayOffset() + bb.position();
@@ -32,12 +32,27 @@ import java.nio.ByteBuffer;
  * }
  *</pre>
  */
-public interface ByteBufferFilter {
+@FunctionalInterface
+public interface TransformFilter {
 
     /**
-     * Callback that filters input byte buffer and return output byte buffer
+     * <p>Callback that filters input byte buffer and return output byte buffer</p>
+     * <p><em>Verify that both bb.position() and bb.limit() are properly set after method returns</em></p>
+     * @param clientAddress Address of local client socket
      * @param bb Input byte buffer with position set to 0 and limit set to buffer size
      */
-    void filter(ByteBuffer bb);
+    void transform(InetSocketAddress clientAddress, ByteBuffer bb);
+
+    /**
+     * Chain this filter with other one
+     * @param otherFilter Other filter that will be called second
+     * @return Combined filter
+     */
+    default TransformFilter then(final TransformFilter otherFilter) {
+        return (clientAddress, bb) -> {
+            this.transform(clientAddress, bb);
+            otherFilter.transform(clientAddress, bb);
+        };
+    }
 
 }

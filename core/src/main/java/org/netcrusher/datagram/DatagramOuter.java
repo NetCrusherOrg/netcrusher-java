@@ -2,7 +2,8 @@ package org.netcrusher.datagram;
 
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
-import org.netcrusher.core.filter.ByteBufferFilter;
+import org.netcrusher.core.filter.PassFilter;
+import org.netcrusher.core.filter.TransformFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +12,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
@@ -31,9 +33,7 @@ public class DatagramOuter {
 
     private final InetSocketAddress connectAddress;
 
-    private final ByteBufferFilter[] incomingFilters;
-
-    private final ByteBufferFilter[] outgoingFilters;
+    private final DatagramFilters filters;
 
     private final DatagramQueue incoming;
 
@@ -61,8 +61,7 @@ public class DatagramOuter {
             DatagramInner inner,
             NioReactor reactor,
             DatagramCrusherSocketOptions socketOptions,
-            ByteBufferFilter[] incomingFilters,
-            ByteBufferFilter[] outgoingFilters,
+            DatagramFilters filters,
             InetSocketAddress clientAddress,
             InetSocketAddress connectAddress) throws IOException
     {
@@ -80,8 +79,7 @@ public class DatagramOuter {
         this.totalReadDatagrams = new AtomicInteger(0);
         this.totalSentDatagrams = new AtomicInteger(0);
 
-        this.incomingFilters = incomingFilters;
-        this.outgoingFilters = outgoingFilters;
+        this.filters = filters;
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
@@ -204,7 +202,14 @@ public class DatagramOuter {
                 break;
             }
 
-            final int sent = channel.send(entry.getBuffer(), entry.getAddress());
+            final int sent;
+            try {
+                sent = channel.send(entry.getBuffer(), entry.getAddress());
+            } catch (SocketException e) {
+                DatagramUtils.rethrowSocketException(e);
+                incoming.retry(entry);
+                break;
+            }
 
             if (emptyDatagram || sent > 0) {
                 if (entry.getBuffer().hasRemaining()) {
@@ -258,8 +263,10 @@ public class DatagramOuter {
 
             bb.flip();
 
-            filter(bb, incomingFilters);
-            inner.enqueue(clientAddress, bb);
+            boolean pass = filter(bb, filters.getIncomingTransformFilter(), filters.getIncomingPassFilter());
+            if (pass) {
+                inner.enqueue(clientAddress, bb);
+            }
 
             bb.clear();
 
@@ -268,18 +275,24 @@ public class DatagramOuter {
     }
 
     void enqueue(ByteBuffer bb) {
-        filter(bb, outgoingFilters);
-        boolean added = incoming.add(connectAddress, bb);
-        if (added) {
-            NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
+        boolean pass = filter(bb, filters.getOutgoingTransformFilter(), filters.getOutgoingPassFilter());
+        if (pass) {
+            boolean added = incoming.add(connectAddress, bb);
+            if (added) {
+                NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
+            }
         }
     }
 
-    private void filter(ByteBuffer bb, ByteBufferFilter[] filters) {
-        if (filters != null) {
-            for (ByteBufferFilter filter : filters) {
-                filter.filter(bb);
-            }
+    private boolean filter(ByteBuffer bb, TransformFilter transformFilter, PassFilter passFilter) {
+        if (transformFilter != null) {
+            transformFilter.transform(clientAddress, bb);
+        }
+
+        if (passFilter != null) {
+            return passFilter.pass(clientAddress, bb);
+        } else {
+            return true;
         }
     }
 

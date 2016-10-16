@@ -1,7 +1,5 @@
 package org.netcrusher;
 
-import org.netcrusher.core.filter.ByteBufferFilterRepository;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -54,11 +52,5 @@ public interface NetCrusher extends NetFreezer, Closeable {
      * @return Remote connect address
      */
     InetSocketAddress getConnectAddress();
-
-    /**
-     * Get filter repository to add a filter to
-     * @return Filter repository
-     */
-    ByteBufferFilterRepository getFilters();
 
 }

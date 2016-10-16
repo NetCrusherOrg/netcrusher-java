@@ -3,7 +3,6 @@ package org.netcrusher.tcp;
 import org.netcrusher.NetCrusher;
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
-import org.netcrusher.core.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +70,7 @@ public class TcpCrusher implements NetCrusher {
 
     private final int bufferSize;
 
-    private final ByteBufferFilterRepository filters;
+    private final TcpFilters filters;
 
     private final AtomicInteger createdPairsCount;
 
@@ -90,6 +89,7 @@ public class TcpCrusher implements NetCrusher {
             TcpCrusherSocketOptions socketOptions,
             Consumer<TcpPair> creationListener,
             Consumer<TcpPair> deletionListener,
+            TcpFilters filters,
             int bufferCount,
             int bufferSize)
     {
@@ -98,7 +98,7 @@ public class TcpCrusher implements NetCrusher {
         this.reactor = reactor;
         this.socketOptions = socketOptions;
         this.pairs = new ConcurrentHashMap<>(32);
-        this.filters = new ByteBufferFilterRepository();
+        this.filters = filters;
         this.bufferCount = bufferCount;
         this.bufferSize = bufferSize;
         this.creationListener = creationListener;
@@ -403,11 +403,6 @@ public class TcpCrusher implements NetCrusher {
     @Override
     public InetSocketAddress getConnectAddress() {
         return connectAddress;
-    }
-
-    @Override
-    public ByteBufferFilterRepository getFilters() {
-        return filters;
     }
 
     /**

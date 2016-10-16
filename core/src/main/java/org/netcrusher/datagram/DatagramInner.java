@@ -2,13 +2,12 @@ package org.netcrusher.datagram;
 
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
-import org.netcrusher.core.filter.ByteBufferFilter;
-import org.netcrusher.core.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
@@ -31,7 +30,7 @@ public class DatagramInner {
 
     private final DatagramCrusherSocketOptions socketOptions;
 
-    private final ByteBufferFilterRepository filters;
+    private final DatagramFilters filters;
 
     private final InetSocketAddress bindAddress;
 
@@ -65,7 +64,7 @@ public class DatagramInner {
             DatagramCrusher crusher,
             NioReactor reactor,
             DatagramCrusherSocketOptions socketOptions,
-            ByteBufferFilterRepository filters,
+            DatagramFilters filters,
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
             long maxIdleDurationMs) throws IOException
@@ -224,7 +223,14 @@ public class DatagramInner {
                 break;
             }
 
-            final int sent = channel.send(entry.getBuffer(), entry.getAddress());
+            final int sent;
+            try {
+                sent = channel.send(entry.getBuffer(), entry.getAddress());
+            } catch (SocketException e) {
+                DatagramUtils.rethrowSocketException(e);
+                incoming.retry(entry);
+                break;
+            }
 
             if (emptyDatagram || sent > 0) {
                 if (entry.getBuffer().hasRemaining()) {
@@ -288,11 +294,7 @@ public class DatagramInner {
                 clearOuters(maxIdleDurationMs);
             }
 
-            ByteBufferFilter[] incomingFilters = filters.getIncoming().createFilters(address);
-            ByteBufferFilter[] outgoingFilters = filters.getOutgoing().createFilters(address);
-
-            outer = new DatagramOuter(this, reactor, socketOptions,
-                incomingFilters, outgoingFilters, address, connectAddress);
+            outer = new DatagramOuter(this, reactor, socketOptions, filters, address, connectAddress);
             outer.unfreeze();
 
             outers.put(address, outer);

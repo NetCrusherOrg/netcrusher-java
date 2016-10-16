@@ -113,7 +113,7 @@ public class TcpTransfer {
 
             final long sent;
             try {
-                sent = channel.write(queue.getArray(), 0, size);
+                sent = channel.write(queue.getBufferArray(), 0, size);
             } finally {
                 queue.cleanReady();
             }
@@ -146,7 +146,7 @@ public class TcpTransfer {
 
             final long read;
             try {
-                read = channel.read(queue.getArray(), 0, size);
+                read = channel.read(queue.getBufferArray(), 0, size);
             } finally {
                 queue.cleanStage();
             }

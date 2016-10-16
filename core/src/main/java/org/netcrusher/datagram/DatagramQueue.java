@@ -9,6 +9,7 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.concurrent.TimeUnit;
 
 public class DatagramQueue implements Serializable {
 
@@ -65,9 +66,12 @@ public class DatagramQueue implements Serializable {
 
         private final ByteBuffer buffer;
 
-        public Entry(InetSocketAddress address, ByteBuffer buffer) {
+        private final long registeredNs;
+
+        private Entry(InetSocketAddress address, ByteBuffer buffer) {
             this.address = address;
             this.buffer = buffer;
+            this.registeredNs = System.nanoTime();
         }
 
         public InetSocketAddress getAddress() {
@@ -77,5 +81,14 @@ public class DatagramQueue implements Serializable {
         public ByteBuffer getBuffer() {
             return buffer;
         }
+
+        public long elapsedNs() {
+            return Math.max(0, System.nanoTime() - registeredNs);
+        }
+
+        public long elapsedMs() {
+            return TimeUnit.NANOSECONDS.toMillis(elapsedNs());
+        }
+
     }
 }

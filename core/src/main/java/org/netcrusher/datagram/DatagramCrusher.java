@@ -2,7 +2,6 @@ package org.netcrusher.datagram;
 
 import org.netcrusher.NetCrusher;
 import org.netcrusher.core.NioReactor;
-import org.netcrusher.core.filter.ByteBufferFilterRepository;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +46,7 @@ public class DatagramCrusher implements NetCrusher {
 
     private final long maxIdleDurationMs;
 
-    private final ByteBufferFilterRepository filters;
+    private final DatagramFilters filters;
 
     private DatagramInner inner;
 
@@ -58,6 +57,7 @@ public class DatagramCrusher implements NetCrusher {
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
             DatagramCrusherSocketOptions socketOptions,
+            DatagramFilters filters,
             long maxIdleDurationMs)
     {
         this.bindAddress = bindAddress;
@@ -66,7 +66,7 @@ public class DatagramCrusher implements NetCrusher {
         this.reactor = reactor;
         this.maxIdleDurationMs = maxIdleDurationMs;
         this.open = false;
-        this.filters = new ByteBufferFilterRepository();
+        this.filters = filters;
     }
 
     @Override
@@ -136,11 +136,6 @@ public class DatagramCrusher implements NetCrusher {
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
-    }
-
-    @Override
-    public ByteBufferFilterRepository getFilters() {
-        return filters;
     }
 
     @Override

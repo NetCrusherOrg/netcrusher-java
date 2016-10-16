@@ -1,5 +1,6 @@
 package org.netcrusher.datagram.bulk;
 
+import org.netcrusher.datagram.DatagramUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.net.StandardProtocolFamily;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -20,6 +22,8 @@ import java.util.Random;
 public class DatagramBulkClient implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramBulkClient.class);
+
+    private static final String ERROR_EPERM = "Operation not permitted";
 
     public static final int RCV_BUFFER_SIZE = 64 * 1024;
 
@@ -229,8 +233,16 @@ public class DatagramBulkClient implements Closeable {
             } catch (PortUnreachableException e) {
                 LOGGER.debug("Port is unreachable", e);
                 return false;
+            } catch (SocketException e) {
+                try {
+                    DatagramUtils.rethrowSocketException(e);
+                    continue;
+                } catch (SocketException e2) {
+                    LOGGER.error("Socket exception on write", e2);
+                    return false;
+                }
             } catch (IOException e) {
-                LOGGER.error("Exception on write", e);
+                LOGGER.error("IO exception on write", e);
                 return false;
             }
 

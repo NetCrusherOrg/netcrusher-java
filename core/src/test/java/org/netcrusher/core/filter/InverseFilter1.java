@@ -1,15 +1,17 @@
 package org.netcrusher.core.filter;
 
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
-public class InverseFilter1 implements ByteBufferFilter {
+/**
+ * Sample filter. Inverse all bytes in bytebuffer as an array
+ */
+public class InverseFilter1 implements TransformFilter {
 
-    public static final ByteBufferFilter INSTANCE = new InverseFilter1();
-
-    public static final ByteBufferFilterFactory FACTORY = (address) -> INSTANCE;
+    public static final TransformFilter INSTANCE = new InverseFilter1();
 
     @Override
-    public void filter(ByteBuffer bb) {
+    public void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
         if (!bb.hasArray()) {
             throw new IllegalArgumentException("Filter works with byte array buffer only");
         }

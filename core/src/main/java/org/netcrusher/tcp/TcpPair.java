@@ -3,8 +3,6 @@ package org.netcrusher.tcp;
 import org.netcrusher.NetFreezer;
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
-import org.netcrusher.core.filter.ByteBufferFilter;
-import org.netcrusher.core.filter.ByteBufferFilterRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +35,7 @@ public class TcpPair implements NetFreezer {
     TcpPair(
             TcpCrusher crusher,
             NioReactor reactor,
-            ByteBufferFilterRepository filters,
+            TcpFilters filters,
             SocketChannel inner,
             SocketChannel outer,
             int bufferCount,
@@ -53,10 +51,10 @@ public class TcpPair implements NetFreezer {
 
         this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
 
-        ByteBufferFilter[] outgoingFilters = filters.getOutgoing().createFilters(clientAddress);
-        TcpQueue innerToOuter = new TcpQueue(outgoingFilters, bufferCount, bufferSize);
-        ByteBufferFilter[] incomingFilters = filters.getIncoming().createFilters(clientAddress);
-        TcpQueue outerToInner = new TcpQueue(incomingFilters, bufferCount, bufferSize);
+        TcpQueue innerToOuter = new TcpQueue(filters.getOutgoingTransformFilter(), clientAddress,
+            bufferCount, bufferSize);
+        TcpQueue outerToInner = new TcpQueue(filters.getIncomingTransformFilter(), clientAddress,
+            bufferCount, bufferSize);
 
         this.innerTransfer = new TcpTransfer("INNER", reactor, this::closeInternal, inner, outerToInner, innerToOuter);
         this.outerTransfer = new TcpTransfer("OUTER", reactor, this::closeInternal, outer, innerToOuter, outerToInner);

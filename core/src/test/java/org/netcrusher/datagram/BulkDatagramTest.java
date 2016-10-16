@@ -37,15 +37,11 @@ public class BulkDatagramTest {
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
+            .withIncomingTransformFilter(NoopFilter.INSTANCE.then(InverseFilter2.INSTANCE))
+            .withOutgoingTransformFilter(InverseFilter1.INSTANCE.then(NoopFilter.INSTANCE))
+            .withIncomingPassFilter((addr, bb) -> true)
+            .withOutgoingPassFilter((addr, bb) -> true)
             .buildAndOpen();
-
-        crusher.getFilters().getOutgoing()
-            .append(InverseFilter2.FACTORY)
-            .append(NoopFilter.FACTORY);
-
-        crusher.getFilters().getIncoming()
-            .append(NoopFilter.FACTORY)
-            .append(InverseFilter1.FACTORY);
     }
 
     @After

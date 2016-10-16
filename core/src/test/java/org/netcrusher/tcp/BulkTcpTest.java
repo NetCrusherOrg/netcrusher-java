@@ -37,13 +37,9 @@ public class BulkTcpTest {
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, PORT_CRUSHER)
             .withConnectAddress(HOSTNAME, PORT_SERVER)
+            .withIncomingTransformFilter(NoopFilter.INSTANCE)
+            .withOutgoingTransformFilter(NoopFilter.INSTANCE)
             .buildAndOpen();
-
-        crusher.getFilters().getOutgoing()
-            .append(NoopFilter.FACTORY);
-
-        crusher.getFilters().getIncoming()
-            .append(NoopFilter.FACTORY);
     }
 
     @After

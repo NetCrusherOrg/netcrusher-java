@@ -1,16 +1,15 @@
 package org.netcrusher.core.filter;
 
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
-public class NoopFilter implements ByteBufferFilter {
+public class NoopFilter implements TransformFilter {
 
-    public static final ByteBufferFilter INSTANCE = new NoopFilter();
-
-    public static final ByteBufferFilterFactory FACTORY = (address) -> INSTANCE;
+    public static final TransformFilter INSTANCE = new NoopFilter();
 
     @Override
-    public void filter(ByteBuffer bb) {
-        // no op
+    public void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
+        // do nothing
     }
 
 }

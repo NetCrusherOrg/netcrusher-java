@@ -1,50 +1,57 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.filter.ByteBufferFilter;
+import org.netcrusher.core.filter.TransformFilter;
 
 import java.io.Serializable;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.concurrent.TimeUnit;
 
 public class TcpQueue implements Serializable {
 
-    private final Deque<ByteBuffer> ready;
+    private final Deque<Entry> ready;
 
-    private final Deque<ByteBuffer> stage;
+    private final Deque<Entry> stage;
 
-    private final ByteBuffer[] array;
+    private final Entry[] entryArray;
 
-    private final ByteBufferFilter[] filters;
+    private final ByteBuffer[] bufferArray;
 
-    public TcpQueue(ByteBufferFilter[] filters, int bufferCount, int bufferSize) {
+    private final TransformFilter filter;
+
+    private final InetSocketAddress clientAddress;
+
+    public TcpQueue(TransformFilter filter, InetSocketAddress clientAddress, int bufferCount, int bufferSize) {
         this.ready = new ArrayDeque<>(bufferCount);
         this.stage = new ArrayDeque<>(bufferCount);
-        this.array = new ByteBuffer[bufferCount];
-        this.filters = filters;
+        this.bufferArray = new ByteBuffer[bufferCount];
+        this.entryArray = new Entry[bufferCount];
+        this.filter = filter;
+        this.clientAddress = clientAddress;
 
         for (int i = 0; i < bufferCount; i++) {
-            ByteBuffer bb = ByteBuffer.allocate(bufferSize);
-            this.stage.add(bb);
+            this.stage.add(new Entry(bufferSize));
         }
     }
 
     public void clear() {
         stage.addAll(ready);
         ready.clear();
-        stage.forEach(ByteBuffer::clear);
+        stage.forEach((e) -> e.getBuffer().clear());
     }
 
     public int calculateReadyBytes() {
         int size = 0;
 
-        for (ByteBuffer bb : ready) {
-            size += bb.remaining();
+        for (Entry entry : ready) {
+            size += entry.getBuffer().remaining();
         }
 
-        ByteBuffer bbToSteal = stage.peekFirst();
-        if (bbToSteal != null) {
-            size += bbToSteal.position();
+        Entry entryToSteal = stage.peekFirst();
+        if (entryToSteal != null) {
+            size += entryToSteal.getBuffer().position();
         }
 
         return size;
@@ -53,8 +60,8 @@ public class TcpQueue implements Serializable {
     public int calculateStageBytes() {
         int size = 0;
 
-        for (ByteBuffer bb : stage) {
-            size += bb.remaining();
+        for (Entry entry : stage) {
+            size += entry.getBuffer().remaining();
         }
 
         return size;
@@ -69,19 +76,25 @@ public class TcpQueue implements Serializable {
     }
 
     public int requestReady() {
-        ByteBuffer bbToSteal = stage.peekFirst();
-        if (bbToSteal != null && bbToSteal.position() > 0) {
+        Entry entryToSteal = stage.peekFirst();
+        if (entryToSteal != null && entryToSteal.getBuffer().position() > 0) {
             steal();
         }
 
-        ready.toArray(array);
-        return ready.size();
+        final int size = ready.size();
+
+        ready.toArray(entryArray);
+        for (int i = 0; i < size; i++) {
+            bufferArray[i] = entryArray[i].getBuffer();
+        }
+
+        return size;
     }
 
     public void cleanReady() {
         while (!ready.isEmpty()) {
-            ByteBuffer bb = ready.getFirst();
-            if (bb.hasRemaining()) {
+            Entry entry = ready.getFirst();
+            if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {
                 donate();
@@ -90,14 +103,25 @@ public class TcpQueue implements Serializable {
     }
 
     public int requestStage() {
-        stage.toArray(array);
-        return stage.size();
+        final int size = stage.size();
+
+        stage.toArray(entryArray);
+        for (int i = 0; i < size; i++) {
+            bufferArray[i] = entryArray[i].getBuffer();
+        }
+
+        return size;
     }
 
     public void cleanStage() {
         while (!stage.isEmpty()) {
-            ByteBuffer bb = stage.getFirst();
-            if (bb.hasRemaining()) {
+            Entry entry = stage.getFirst();
+
+            if (entry.getBuffer().position() > 0) {
+                entry.schedule();
+            }
+
+            if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {
                 steal();
@@ -105,39 +129,62 @@ public class TcpQueue implements Serializable {
         }
     }
 
-    public ByteBuffer[] getArray() {
-        return array;
+    public ByteBuffer[] getBufferArray() {
+        return bufferArray;
     }
 
     private void steal() {
-        ByteBuffer bb = stage.removeFirst();
+        Entry entry = stage.removeFirst();
 
-        bb.flip();
+        entry.getBuffer().flip();
 
-        filter(bb);
+        if (filter != null) {
+            filter.transform(clientAddress, entry.getBuffer());
+        }
 
-        if (bb.hasRemaining()) {
-            ready.addLast(bb);
+        if (entry.getBuffer().hasRemaining()) {
+            ready.addLast(entry);
         } else {
-            bb.clear();
-            stage.add(bb);
+            entry.getBuffer().clear();
+            stage.add(entry);
         }
     }
 
     private void donate() {
-        ByteBuffer bb = ready.removeFirst();
+        Entry entry = ready.removeFirst();
 
-        bb.clear();
+        entry.getBuffer().clear();
 
-        stage.addLast(bb);
+        stage.addLast(entry);
     }
 
-    private void filter(ByteBuffer bb) {
-        if (filters != null) {
-            for (ByteBufferFilter filter : filters) {
-                filter.filter(bb);
-            }
+    private static final class Entry implements Serializable {
+
+        private final ByteBuffer buffer;
+
+        private long scheduledNs;
+
+        private Entry(int bufferSize) {
+            this.buffer = ByteBuffer.allocate(bufferSize);
+            this.scheduledNs = System.nanoTime();
         }
+
+        public void schedule() {
+            this.scheduledNs = System.nanoTime();
+        }
+
+        public ByteBuffer getBuffer() {
+            return buffer;
+        }
+
+        public long elapsedNs() {
+            return Math.max(0, System.nanoTime() - scheduledNs);
+        }
+
+        public long elapsedMs() {
+            return TimeUnit.NANOSECONDS.toMillis(elapsedNs());
+        }
+
     }
 
 }
