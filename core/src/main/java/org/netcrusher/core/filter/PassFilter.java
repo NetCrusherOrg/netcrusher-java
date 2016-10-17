@@ -22,11 +22,11 @@ public interface PassFilter {
 
     /**
      * Chain this filter with other one
-     * @param otherFilter Other filter that will be called second
+     * @param other Other filter that will be called second
      * @return Combined filter
      */
-    default PassFilter then(final PassFilter otherFilter) {
-        return (clientAddress, bb) -> this.check(clientAddress, bb) && otherFilter.check(clientAddress, bb);
+    default PassFilter then(PassFilter other) {
+        return (clientAddress, bb) -> this.check(clientAddress, bb) && other.check(clientAddress, bb);
     }
 
 }

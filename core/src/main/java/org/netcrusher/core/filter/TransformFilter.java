@@ -45,13 +45,13 @@ public interface TransformFilter {
 
     /**
      * Chain this filter with other one
-     * @param otherFilter Other filter that will be called second
+     * @param other Other filter that will be called second
      * @return Combined filter
      */
-    default TransformFilter then(final TransformFilter otherFilter) {
+    default TransformFilter then(TransformFilter other) {
         return (clientAddress, bb) -> {
             this.transform(clientAddress, bb);
-            otherFilter.transform(clientAddress, bb);
+            other.transform(clientAddress, bb);
         };
     }
 

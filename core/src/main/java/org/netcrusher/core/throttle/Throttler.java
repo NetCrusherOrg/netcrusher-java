@@ -5,6 +5,7 @@ import org.netcrusher.core.NioReactor;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
+@FunctionalInterface
 public interface Throttler {
 
     /**
@@ -24,5 +25,15 @@ public interface Throttler {
      * @see Throttler#NO_DELAY
      */
     long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb);
+
+    /**
+     * Chain this throttler with other one to sum both delays
+     * @param other Other throttler
+     * @return Combined throttler
+     */
+    default Throttler then(Throttler other) {
+        return (clientAddress, bb) ->
+            this.calculateDelayNs(clientAddress, bb) + other.calculateDelayNs(clientAddress, bb);
+    }
 
 }
