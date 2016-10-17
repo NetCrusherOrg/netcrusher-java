@@ -81,19 +81,19 @@ public class BulkDatagramTest {
 
         DatagramInner inner = crusher.getInner();
         Assert.assertNotNull(inner);
-        Assert.assertEquals(COUNT, inner.getReadByteMeter().countTotal());
-        Assert.assertEquals(COUNT, inner.getSentByteMeter().countTotal());
-        Assert.assertTrue(expectedDatagrams <= inner.getReadDatagramMeter().countTotal());
-        Assert.assertTrue(expectedDatagrams <= inner.getSentDatagramMeter().countTotal());
+        Assert.assertEquals(COUNT, inner.getReadByteMeter().getTotalCount());
+        Assert.assertEquals(COUNT, inner.getSentByteMeter().getTotalCount());
+        Assert.assertTrue(expectedDatagrams <= inner.getReadDatagramMeter().getTotalCount());
+        Assert.assertTrue(expectedDatagrams <= inner.getSentDatagramMeter().getTotalCount());
 
         Assert.assertEquals(1, crusher.getOuters().size());
         DatagramOuter outer = crusher.getOuters().iterator().next();
         Assert.assertNotNull(outer);
         Assert.assertNotNull(outer.getClientAddress());
-        Assert.assertEquals(COUNT, outer.getReadByteMeter().countTotal());
-        Assert.assertEquals(COUNT, outer.getSentByteMeter().countTotal());
-        Assert.assertTrue(expectedDatagrams <= outer.getReadDatagramMeter().countTotal());
-        Assert.assertTrue(expectedDatagrams <= outer.getSentDatagramMeter().countTotal());
+        Assert.assertEquals(COUNT, outer.getReadByteMeter().getTotalCount());
+        Assert.assertEquals(COUNT, outer.getSentByteMeter().getTotalCount());
+        Assert.assertTrue(expectedDatagrams <= outer.getReadDatagramMeter().getTotalCount());
+        Assert.assertTrue(expectedDatagrams <= outer.getSentDatagramMeter().getTotalCount());
 
         client.close();
         reflector.close();

@@ -78,10 +78,10 @@ public class BulkTcpTest {
         TcpPair pair = crusher.getPairs().iterator().next();
         Assert.assertNotNull(pair);
         Assert.assertNotNull(pair.getClientAddress());
-        Assert.assertEquals(COUNT, pair.getInnerTransfer().getReadMeter().countTotal());
-        Assert.assertEquals(COUNT, pair.getInnerTransfer().getSentMeter().countTotal());
-        Assert.assertEquals(COUNT, pair.getOuterTransfer().getReadMeter().countTotal());
-        Assert.assertEquals(COUNT, pair.getOuterTransfer().getSentMeter().countTotal());
+        Assert.assertEquals(COUNT, pair.getInnerTransfer().getReadMeter().getTotalCount());
+        Assert.assertEquals(COUNT, pair.getInnerTransfer().getSentMeter().getTotalCount());
+        Assert.assertEquals(COUNT, pair.getOuterTransfer().getReadMeter().getTotalCount());
+        Assert.assertEquals(COUNT, pair.getOuterTransfer().getSentMeter().getTotalCount());
 
         client1.close();
         client2.close();

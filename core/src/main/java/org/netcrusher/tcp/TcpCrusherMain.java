@@ -34,13 +34,13 @@ public class TcpCrusherMain extends AbstractCrusherMain {
             for (TcpPair pair : tcpCrusher.getPairs()) {
                 System.out.printf("Pair for <%s>\n", pair.getClientAddress());
                 System.out.printf("\tinner total read bytes: %d\n",
-                    pair.getInnerTransfer().getReadMeter().countTotal());
+                    pair.getInnerTransfer().getReadMeter().getTotalCount());
                 System.out.printf("\tinner total sent bytes: %d\n",
-                    pair.getInnerTransfer().getSentMeter().countTotal());
+                    pair.getInnerTransfer().getSentMeter().getTotalCount());
                 System.out.printf("\touter total read bytes: %d\n",
-                    pair.getOuterTransfer().getReadMeter().countTotal());
+                    pair.getOuterTransfer().getReadMeter().getTotalCount());
                 System.out.printf("\touter total sent bytes: %d\n",
-                    pair.getOuterTransfer().getSentMeter().countTotal());
+                    pair.getOuterTransfer().getSentMeter().getTotalCount());
             }
         }
     }

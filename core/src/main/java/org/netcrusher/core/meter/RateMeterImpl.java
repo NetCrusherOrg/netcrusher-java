@@ -24,17 +24,17 @@ public class RateMeterImpl implements RateMeter {
     }
 
     @Override
-    public Date created() {
-        return new Date(created);
+    public long getTotalElapsedMs() {
+        return System.currentTimeMillis() - created;
     }
 
     @Override
-    public long countTotal() {
+    public long getTotalCount() {
         return totalCount.get();
     }
 
     @Override
-    public long countPeriod(boolean reset) {
+    public long getPeriodCount(boolean reset) {
         final long nowNs = System.nanoTime();
         final long count = periodCount.get();
 
@@ -47,7 +47,7 @@ public class RateMeterImpl implements RateMeter {
     }
 
     @Override
-    public double ratePeriod(boolean reset) {
+    public double getPeriodRate(boolean reset) {
         final long nowNs = System.nanoTime();
         final long count = periodCount.get();
 

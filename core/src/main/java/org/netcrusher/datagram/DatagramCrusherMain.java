@@ -35,24 +35,24 @@ public class DatagramCrusherMain extends AbstractCrusherMain {
             System.out.printf("Inner\n");
 
             System.out.printf("\ttotal read bytes: %d\n",
-                datagramCrusher.getInner().getReadByteMeter().countTotal());
+                datagramCrusher.getInner().getReadByteMeter().getTotalCount());
             System.out.printf("\ttotal read datagrams: %d\n",
-                datagramCrusher.getInner().getReadDatagramMeter().countTotal());
+                datagramCrusher.getInner().getReadDatagramMeter().getTotalCount());
             System.out.printf("\ttotal sent bytes: %d\n",
-                datagramCrusher.getInner().getSentByteMeter().countTotal());
+                datagramCrusher.getInner().getSentByteMeter().getTotalCount());
             System.out.printf("\ttotal sent datagrams: %d\n",
-                datagramCrusher.getInner().getSentDatagramMeter().countTotal());
+                datagramCrusher.getInner().getSentDatagramMeter().getTotalCount());
 
             for (DatagramOuter outer : datagramCrusher.getOuters()) {
                 System.out.printf("Outer for <%s>\n", outer.getClientAddress());
                 System.out.printf("\ttotal read bytes: %d\n",
-                    outer.getReadByteMeter().countTotal());
+                    outer.getReadByteMeter().getTotalCount());
                 System.out.printf("\ttotal read datagrams: %d\n",
-                    outer.getReadDatagramMeter().countTotal());
+                    outer.getReadDatagramMeter().getTotalCount());
                 System.out.printf("\ttotal sent bytes: %d\n",
-                    outer.getSentByteMeter().countTotal());
+                    outer.getSentByteMeter().getTotalCount());
                 System.out.printf("\ttotal sent datagrams: %d\n",
-                    outer.getSentDatagramMeter().countTotal());
+                    outer.getSentDatagramMeter().getTotalCount());
                 System.out.printf("\tidle duration, ms: %d\n",
                     outer.getIdleDurationMs());
             }

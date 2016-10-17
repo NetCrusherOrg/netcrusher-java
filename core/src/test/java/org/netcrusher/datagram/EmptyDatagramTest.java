@@ -62,10 +62,10 @@ public class EmptyDatagramTest {
 
             // check
             Thread.sleep(500);
-            Assert.assertEquals(1, crusher.getInner().getReadDatagramMeter().countTotal());
-            Assert.assertEquals(0, crusher.getInner().getReadByteMeter().countTotal());
-            Assert.assertEquals(1, crusher.getInner().getSentDatagramMeter().countTotal());
-            Assert.assertEquals(0, crusher.getInner().getSentByteMeter().countTotal());
+            Assert.assertEquals(1, crusher.getInner().getReadDatagramMeter().getTotalCount());
+            Assert.assertEquals(0, crusher.getInner().getReadByteMeter().getTotalCount());
+            Assert.assertEquals(1, crusher.getInner().getSentDatagramMeter().getTotalCount());
+            Assert.assertEquals(0, crusher.getInner().getSentByteMeter().getTotalCount());
 
             // read
             bb.clear();
