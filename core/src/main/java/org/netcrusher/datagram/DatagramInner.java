@@ -2,6 +2,8 @@ package org.netcrusher.datagram;
 
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.meter.RateMeter;
+import org.netcrusher.core.meter.RateMeterImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,8 +19,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class DatagramInner {
 
@@ -48,13 +48,13 @@ public class DatagramInner {
 
     private final DatagramQueue incoming;
 
-    private final AtomicLong totalSentBytes;
+    private final RateMeterImpl sentByteMeter;
 
-    private final AtomicLong totalReadBytes;
+    private final RateMeterImpl readByteMeter;
 
-    private final AtomicInteger totalSentDatagrams;
+    private final RateMeterImpl sentDatagramMeter;
 
-    private final AtomicInteger totalReadDatagrams;
+    private final RateMeterImpl readDatagramMeter;
 
     private boolean open;
 
@@ -81,10 +81,10 @@ public class DatagramInner {
         this.frozen = true;
         this.open = true;
 
-        this.totalReadBytes = new AtomicLong(0);
-        this.totalSentBytes = new AtomicLong(0);
-        this.totalReadDatagrams = new AtomicInteger(0);
-        this.totalSentDatagrams = new AtomicInteger(0);
+        this.sentByteMeter = new RateMeterImpl();
+        this.readByteMeter = new RateMeterImpl();
+        this.sentDatagramMeter = new RateMeterImpl();
+        this.readDatagramMeter = new RateMeterImpl();
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
@@ -240,8 +240,8 @@ public class DatagramInner {
                     incoming.release(entry);
                 }
 
-                totalSentBytes.addAndGet(sent);
-                totalSentDatagrams.incrementAndGet();
+                sentByteMeter.update(sent);
+                sentDatagramMeter.increment();
 
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Send {} bytes to client <{}>", sent, entry.getAddress());
@@ -274,8 +274,8 @@ public class DatagramInner {
                 LOGGER.trace("Received {} bytes from inner <{}>", read, address);
             }
 
-            totalReadBytes.addAndGet(read);
-            totalReadDatagrams.incrementAndGet();
+            readByteMeter.update(read);
+            readDatagramMeter.increment();
 
             DatagramOuter outer = requestOuter(address);
 
@@ -336,34 +336,34 @@ public class DatagramInner {
 
     /**
      * How many bytes was sent from inner
-     * @return Bytes
+     * @return Rate meter
      */
-    public long getTotalSentBytes() {
-        return totalSentBytes.get();
+    public RateMeter getSentByteMeter() {
+        return sentByteMeter;
     }
 
     /**
      * How many bytes was received by inner
-     * @return Bytes
+     * @return Rate meter
      */
-    public long getTotalReadBytes() {
-        return totalReadBytes.get();
+    public RateMeter getReadByteMeter() {
+        return readByteMeter;
     }
 
     /**
      * How many datagrams was sent by inner
-     * @return Datagram count
+     * @return Datagram count meter
      */
-    public int getTotalSentDatagrams() {
-        return totalSentDatagrams.get();
+    public RateMeter getSentDatagramMeter() {
+        return sentDatagramMeter;
     }
 
     /**
      * How many datagrams was received by inner
-     * @return Datagram count
+     * @return Datagram count meter
      */
-    public int getTotalReadDatagrams() {
-        return totalReadDatagrams.get();
+    public RateMeter getReadDatagramMeter() {
+        return readDatagramMeter;
     }
 
 }

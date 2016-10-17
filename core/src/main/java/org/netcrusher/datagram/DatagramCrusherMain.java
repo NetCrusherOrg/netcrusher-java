@@ -35,21 +35,26 @@ public class DatagramCrusherMain extends AbstractCrusherMain {
             System.out.printf("Inner\n");
 
             System.out.printf("\ttotal read bytes: %d\n",
-                datagramCrusher.getInner().getTotalReadBytes());
+                datagramCrusher.getInner().getReadByteMeter().countTotal());
             System.out.printf("\ttotal read datagrams: %d\n",
-                datagramCrusher.getInner().getTotalReadDatagrams());
+                datagramCrusher.getInner().getReadDatagramMeter().countTotal());
             System.out.printf("\ttotal sent bytes: %d\n",
-                datagramCrusher.getInner().getTotalSentBytes());
+                datagramCrusher.getInner().getSentByteMeter().countTotal());
             System.out.printf("\ttotal sent datagrams: %d\n",
-                datagramCrusher.getInner().getTotalSentDatagrams());
+                datagramCrusher.getInner().getSentDatagramMeter().countTotal());
 
             for (DatagramOuter outer : datagramCrusher.getOuters()) {
                 System.out.printf("Outer for <%s>\n", outer.getClientAddress());
-                System.out.printf("\ttotal read bytes: %d\n", outer.getTotalReadBytes());
-                System.out.printf("\ttotal read datagrams: %d\n", outer.getTotalReadDatagrams());
-                System.out.printf("\ttotal sent bytes: %d\n", outer.getTotalSentBytes());
-                System.out.printf("\ttotal sent datagrams: %d\n", outer.getTotalSentDatagrams());
-                System.out.printf("\tidle duration, ms: %d\n", outer.getIdleDurationMs());
+                System.out.printf("\ttotal read bytes: %d\n",
+                    outer.getReadByteMeter().countTotal());
+                System.out.printf("\ttotal read datagrams: %d\n",
+                    outer.getReadDatagramMeter().countTotal());
+                System.out.printf("\ttotal sent bytes: %d\n",
+                    outer.getSentByteMeter().countTotal());
+                System.out.printf("\ttotal sent datagrams: %d\n",
+                    outer.getSentDatagramMeter().countTotal());
+                System.out.printf("\tidle duration, ms: %d\n",
+                    outer.getIdleDurationMs());
             }
         }
     }

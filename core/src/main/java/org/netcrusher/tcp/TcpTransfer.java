@@ -2,6 +2,8 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.core.NioReactor;
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.meter.RateMeter;
+import org.netcrusher.core.meter.RateMeterImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +14,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class TcpTransfer {
 
@@ -34,9 +35,9 @@ public class TcpTransfer {
 
     private final TcpQueue outgoing;
 
-    private final AtomicLong totalRead;
+    private final RateMeterImpl readMeter;
 
-    private final AtomicLong totalSent;
+    private final RateMeterImpl sentMeter;
 
     private TcpTransfer other;
 
@@ -49,8 +50,8 @@ public class TcpTransfer {
         this.selectionKey = reactor.getSelector().register(channel, 0, this::callback);
         this.incoming = incoming;
         this.outgoing = outgoing;
-        this.totalRead = new AtomicLong();
-        this.totalSent = new AtomicLong();
+        this.readMeter = new RateMeterImpl();
+        this.sentMeter = new RateMeterImpl();
     }
 
     private boolean isOpen() {
@@ -92,11 +93,12 @@ public class TcpTransfer {
     }
 
     private void handleEvent(SelectionKey selectionKey) throws IOException {
-        if (selectionKey.isReadable()) {
-            handleReadable(selectionKey, outgoing);
-        }
         if (selectionKey.isWritable()) {
             handleWritable(selectionKey, incoming);
+        }
+
+        if (selectionKey.isReadable()) {
+            handleReadable(selectionKey, outgoing);
         }
     }
 
@@ -117,7 +119,7 @@ public class TcpTransfer {
                 queue.cleanReady();
             }
 
-            totalSent.addAndGet(sent);
+            sentMeter.update(sent);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Written {} bytes to {}", sent, name);
@@ -154,7 +156,7 @@ public class TcpTransfer {
                 throw new EOFException();
             }
 
-            totalRead.addAndGet(read);
+            readMeter.update(read);
 
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Read {} bytes from {}", read, name);
@@ -166,10 +168,6 @@ public class TcpTransfer {
                 break;
             }
         }
-    }
-
-    String getName() {
-        return name;
     }
 
     TcpQueue getIncoming() {
@@ -200,30 +198,30 @@ public class TcpTransfer {
         }
     }
 
-    void notify(int operations) {
+    void setOther(TcpTransfer other) {
+        this.other = other;
+    }
+
+    private void notify(int operations) {
         if (selectionKey.isValid()) {
             NioUtils.setupInterestOps(selectionKey, operations);
         }
-    }
-
-    void setOther(TcpTransfer other) {
-        this.other = other;
     }
 
     /**
      * Request total read counter for this transfer
      * @return Read bytes count
      */
-    public long getTotalRead() {
-        return totalRead.get();
+    public RateMeter getReadMeter() {
+        return readMeter;
     }
 
     /**
      * Request total sent counter for this transfer
      * @return Sent bytes count
      */
-    public long getTotalSent() {
-        return totalSent.get();
+    public RateMeter getSentMeter() {
+        return sentMeter;
     }
 
 }
