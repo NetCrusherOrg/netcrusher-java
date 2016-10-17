@@ -38,8 +38,12 @@ public final class DatagramCrusherBuilder {
 
     private long maxIdleDurationMs;
 
+    private int queueLimit;
+
     private DatagramCrusherBuilder() {
         this.socketOptions = new DatagramCrusherSocketOptions();
+        this.maxIdleDurationMs = 0;
+        this.queueLimit = 16 * 1024;
     }
 
     /**
@@ -139,6 +143,16 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
+     * Set a maximum count of datagram in queue
+     * @param queueLimit Queue limit
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withQueueLimit(int queueLimit) {
+        this.queueLimit = queueLimit;
+        return this;
+    }
+
+    /**
      * Set outgoing (from the inner to the outer) transform filter
      * @param filter Filter instance
      * @return This builder instance to chain with other methods
@@ -227,13 +241,8 @@ public final class DatagramCrusherBuilder {
             incomingThrottler, outgoingThrottler
         );
 
-        return new DatagramCrusher(
-            reactor,
-            bindAddress,
-            connectAddress,
-            socketOptions.copy(),
-            filters,
-            maxIdleDurationMs);
+        return new DatagramCrusher(reactor, bindAddress, connectAddress, socketOptions.copy(),
+            filters, maxIdleDurationMs, queueLimit);
     }
 
     /**

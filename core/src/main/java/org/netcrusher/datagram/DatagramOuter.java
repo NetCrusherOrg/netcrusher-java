@@ -63,6 +63,7 @@ public class DatagramOuter {
             NioReactor reactor,
             DatagramCrusherSocketOptions socketOptions,
             DatagramFilters filters,
+            int queueLimit,
             InetSocketAddress clientAddress,
             InetSocketAddress connectAddress) throws IOException
     {
@@ -70,7 +71,7 @@ public class DatagramOuter {
         this.reactor = reactor;
         this.clientAddress = clientAddress;
         this.connectAddress = connectAddress;
-        this.incoming = new DatagramQueue();
+        this.incoming = new DatagramQueue(queueLimit);
         this.lastOperationTimestamp = System.currentTimeMillis();
         this.frozen = true;
         this.open = true;

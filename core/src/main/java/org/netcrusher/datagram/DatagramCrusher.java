@@ -46,6 +46,8 @@ public class DatagramCrusher implements NetCrusher {
 
     private final long maxIdleDurationMs;
 
+    private final int queueLimit;
+
     private final DatagramFilters filters;
 
     private DatagramInner inner;
@@ -58,7 +60,8 @@ public class DatagramCrusher implements NetCrusher {
             InetSocketAddress connectAddress,
             DatagramCrusherSocketOptions socketOptions,
             DatagramFilters filters,
-            long maxIdleDurationMs)
+            long maxIdleDurationMs,
+            int queueLimit)
     {
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
@@ -67,6 +70,7 @@ public class DatagramCrusher implements NetCrusher {
         this.maxIdleDurationMs = maxIdleDurationMs;
         this.open = false;
         this.filters = filters;
+        this.queueLimit = queueLimit;
     }
 
     @Override
@@ -76,7 +80,7 @@ public class DatagramCrusher implements NetCrusher {
         }
 
         this.inner = new DatagramInner(this, reactor, socketOptions, filters,
-            bindAddress, connectAddress, maxIdleDurationMs);
+            bindAddress, connectAddress, maxIdleDurationMs, queueLimit);
         this.inner.unfreeze();
 
         LOGGER.info("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);

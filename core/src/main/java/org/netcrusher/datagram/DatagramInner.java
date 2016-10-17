@@ -56,6 +56,8 @@ public class DatagramInner {
 
     private final RateMeterImpl readDatagramMeter;
 
+    private final int queueLimit;
+
     private boolean open;
 
     private volatile boolean frozen;
@@ -67,7 +69,8 @@ public class DatagramInner {
             DatagramFilters filters,
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
-            long maxIdleDurationMs) throws IOException
+            long maxIdleDurationMs,
+            int queueLimit) throws IOException
     {
         this.crusher = crusher;
         this.reactor = reactor;
@@ -76,8 +79,9 @@ public class DatagramInner {
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
         this.outers = new ConcurrentHashMap<>(32);
-        this.incoming = new DatagramQueue();
+        this.incoming = new DatagramQueue(queueLimit);
         this.maxIdleDurationMs = maxIdleDurationMs;
+        this.queueLimit = queueLimit;
         this.frozen = true;
         this.open = true;
 
@@ -293,7 +297,8 @@ public class DatagramInner {
                 clearOuters(maxIdleDurationMs);
             }
 
-            outer = new DatagramOuter(this, reactor, socketOptions, filters, address, connectAddress);
+            outer = new DatagramOuter(this, reactor, socketOptions, filters, queueLimit,
+                address, connectAddress);
             outer.unfreeze();
 
             outers.put(address, outer);

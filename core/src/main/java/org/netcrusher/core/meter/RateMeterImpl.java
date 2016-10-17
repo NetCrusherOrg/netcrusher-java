@@ -53,7 +53,7 @@ public class RateMeterImpl implements RateMeter {
 
         final long elapsedNs = Math.max(0, nowNs - periodMarkerNs.get());
 
-        double rate;
+        final double rate;
         if (elapsedNs > 0) {
             rate = ONE_SEC_IN_NS * count / elapsedNs;
         } else {

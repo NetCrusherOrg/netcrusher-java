@@ -7,19 +7,20 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.LinkedList;
 
 public class DatagramQueue implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramQueue.class);
 
-    private static final int LIMIT_COUNT = 16 * 1024;
-
     private final Deque<Entry> entries;
 
-    public DatagramQueue() {
-        this.entries = new LinkedList<>();
+    private final int limit;
+
+    public DatagramQueue(int limit) {
+        this.entries = new ArrayDeque<>(limit);
+        this.limit = limit;
     }
 
     public int size() {
@@ -31,20 +32,16 @@ public class DatagramQueue implements Serializable {
     }
 
     public boolean add(InetSocketAddress address, ByteBuffer bbToCopy, long delayNs) {
-        ByteBuffer bb = NioUtils.copy(bbToCopy);
-        Entry entry = new Entry(address, bb, delayNs);
-        return add(entry);
-    }
-
-    public boolean add(Entry entry) {
-        if (entries.size() > LIMIT_COUNT) {
-            LOGGER.warn("Pending limit is exceeded ({} datagrams). Packet is dropped", entries.size());
+        if (entries.size() < limit) {
+            ByteBuffer bb = NioUtils.copy(bbToCopy);
+            Entry entry = new Entry(address, bb, delayNs);
+            entries.addLast(entry);
+            return true;
+        } else {
+            LOGGER.warn("Pending limit is exceeded ({}). Datagram packet with {} bytes is dropped",
+                limit, bbToCopy.remaining());
             return false;
         }
-
-        entries.addLast(entry);
-
-        return true;
     }
 
     public void retry(Entry entry) {
