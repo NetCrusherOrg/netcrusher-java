@@ -35,9 +35,11 @@ public class RateMeterImpl implements RateMeter {
 
     @Override
     public long countPeriod(boolean reset) {
+        final long nowNs = System.nanoTime();
         final long count = periodCount.get();
 
         if (reset) {
+            periodMarkerNs.set(nowNs);
             periodCount.addAndGet(-count);
         }
 
@@ -47,8 +49,9 @@ public class RateMeterImpl implements RateMeter {
     @Override
     public double ratePeriod(boolean reset) {
         final long nowNs = System.nanoTime();
-        final long elapsedNs = Math.max(0, nowNs - periodMarkerNs.get());
         final long count = periodCount.get();
+
+        final long elapsedNs = Math.max(0, nowNs - periodMarkerNs.get());
 
         double rate;
         if (elapsedNs > 0) {
