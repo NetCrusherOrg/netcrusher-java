@@ -1,16 +1,19 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.NetCrusher;
 import org.netcrusher.core.AbstractCrusherMain;
 import org.netcrusher.core.NioReactor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
-public class TcpCrusherMain extends AbstractCrusherMain {
+public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(TcpCrusherMain.class);
 
     @Override
-    protected NetCrusher create(NioReactor reactor,
+    protected TcpCrusher create(NioReactor reactor,
                                 InetSocketAddress bindAddress,
                                 InetSocketAddress connectAddress) throws IOException
     {
@@ -18,31 +21,39 @@ public class TcpCrusherMain extends AbstractCrusherMain {
             .withReactor(reactor)
             .withBindAddress(bindAddress)
             .withConnectAddress(connectAddress)
+            .withDeletionListener((pair) -> {
+                LOGGER.info("Pair for <{}> is deleted", pair.getClientAddress());
+                reportPair(pair);
+            })
+            .withCreationListener((pair -> {
+                LOGGER.info("Pair for <{}> is created", pair.getClientAddress());
+            }))
             .buildAndOpen();
     }
 
     @Override
-    protected void status(NetCrusher crusher) throws IOException {
-        System.out.printf("TCP crusher for <%s>-<%s>\n", crusher.getBindAddress(), crusher.getConnectAddress());
+    protected void status(TcpCrusher crusher) throws IOException {
+        LOGGER.info("TCP crusher for <{}>-<{}>", crusher.getBindAddress(), crusher.getConnectAddress());
         super.status(crusher);
 
         if (crusher.isOpen()) {
-            TcpCrusher tcpCrusher = (TcpCrusher) crusher;
+            LOGGER.info("Total accepted: {}", crusher.getAcceptedCount());
 
-            System.out.printf("Total accepted: %d\n", tcpCrusher.getCreatedPairsCount());
-
-            for (TcpPair pair : tcpCrusher.getPairs()) {
-                System.out.printf("Pair for <%s>\n", pair.getClientAddress());
-                System.out.printf("\tinner total read bytes: %d\n",
-                    pair.getInnerTransfer().getReadMeter().getTotalCount());
-                System.out.printf("\tinner total sent bytes: %d\n",
-                    pair.getInnerTransfer().getSentMeter().getTotalCount());
-                System.out.printf("\touter total read bytes: %d\n",
-                    pair.getOuterTransfer().getReadMeter().getTotalCount());
-                System.out.printf("\touter total sent bytes: %d\n",
-                    pair.getOuterTransfer().getSentMeter().getTotalCount());
+            for (TcpPair pair : crusher.getPairs()) {
+                LOGGER.info("Pair for <{}>", pair.getClientAddress());
+                reportPair(pair);
             }
         }
+    }
+
+    private void reportPair(TcpPair pair) {
+        TcpTransfer inner = pair.getInnerTransfer();
+        LOGGER.info("\tinner total read bytes: {}", inner.getReadMeter().getTotal());
+        LOGGER.info("\tinner total sent bytes: {}", inner.getSentMeter().getTotal());
+
+        TcpTransfer outer = pair.getOuterTransfer();
+        LOGGER.info("\touter total read bytes: {}", outer.getReadMeter().getTotal());
+        LOGGER.info("\touter total sent bytes: {}", outer.getSentMeter().getTotal());
     }
 
     public static void main(String[] arguments) throws Exception {

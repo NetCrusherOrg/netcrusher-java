@@ -5,8 +5,6 @@ import java.util.concurrent.TimeUnit;
 
 public class RateMeterPeriod implements Serializable {
 
-    private static final long MS_PER_SEC = TimeUnit.SECONDS.toMillis(1);
-
     private final long count;
 
     private final long elapsedMs;
@@ -40,7 +38,7 @@ public class RateMeterPeriod implements Serializable {
      */
     public double getRatePer(long time, TimeUnit timeUnit) {
         if (elapsedMs > 0) {
-            return 1.0 * timeUnit.toMillis(time) * count / elapsedMs;
+            return 1.0 * timeUnit.toNanos(time) * count / elapsedMs / TimeUnit.MILLISECONDS.toNanos(1);
         } else {
             return Double.NaN;
         }
@@ -51,11 +49,12 @@ public class RateMeterPeriod implements Serializable {
      * @return Rate for the period
      */
     public double getRatePerSec() {
-        if (elapsedMs > 0) {
-            return 1.0 * MS_PER_SEC * count / elapsedMs;
-        } else {
-            return Double.NaN;
-        }
+        return getRatePer(1, TimeUnit.SECONDS);
     }
 
+    @Override
+    public String toString() {
+        return String.format("rate=%.6f evt/sec, count=%d, elapsed=%d ms",
+            getRatePerSec(), getCount(), getElapsedMs());
+    }
 }

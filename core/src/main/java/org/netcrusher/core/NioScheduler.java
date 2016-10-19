@@ -33,7 +33,7 @@ public class NioScheduler {
     }
 
     synchronized void close() {
-        if (open) {
+        if (!open) {
             return;
         }
 

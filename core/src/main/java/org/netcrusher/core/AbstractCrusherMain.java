@@ -1,13 +1,17 @@
 package org.netcrusher.core;
 
 import org.netcrusher.NetCrusher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 
-public abstract class AbstractCrusherMain {
+public abstract class AbstractCrusherMain<T extends NetCrusher> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrusherMain.class);
 
     protected int run(String[] arguments) {
         if (arguments == null || arguments.length != 2) {
@@ -19,7 +23,7 @@ public abstract class AbstractCrusherMain {
         try {
             bindAddress = parseInetSocketAddress(arguments[0]);
         } catch (IllegalArgumentException e) {
-            System.err.printf("Fail to parse address: %s\n", arguments[0]);
+            LOGGER.error("Fail to parse address: {}", arguments[0]);
             return 2;
         }
 
@@ -27,7 +31,7 @@ public abstract class AbstractCrusherMain {
         try {
             connectAddress = parseInetSocketAddress(arguments[1]);
         } catch (IllegalArgumentException e) {
-            System.err.printf("Fail to parse address: %s\n", arguments[1]);
+            LOGGER.error("Fail to parse address: {}", arguments[1]);
             return 2;
         }
 
@@ -35,44 +39,52 @@ public abstract class AbstractCrusherMain {
         try {
             reactor = new NioReactor();
         } catch (Exception e) {
-            System.err.printf("Fail to create reactor: %s\n", e);
+            LOGGER.error("Fail to create reactor", e);
             return 3;
         }
 
-        NetCrusher crusher;
+        T crusher;
         try {
             crusher = create(reactor, bindAddress, connectAddress);
         } catch (Exception e) {
-            System.err.printf("Fail to create crusher: %s\n", e);
+            LOGGER.error("Fail to create crusher", e);
             reactor.close();
             return 3;
         }
 
-        System.out.println("Print `HELP` for list of commands");
+        String version = getClass().getPackage().getImplementationVersion();
+        if (version != null && !version.isEmpty()) {
+            System.out.printf("# Version: %s\n", version);
+        }
+
+        System.out.println("# Print `HELP` for the list of the commands");
+
         repl(crusher);
 
         try {
             close(crusher);
         } catch (Exception e) {
-            System.err.printf("Fail to close crusher: %s\n", e);
+            LOGGER.error("Fail to close the crusher", e);
         }
 
         try {
             reactor.close();
         } catch (Exception e) {
-            System.err.printf("Fail to close reactor: %s\n", e);
+            LOGGER.error("Fail to close the reactor", e);
         }
+
+        LOGGER.info("Exiting..");
 
         return 0;
     }
 
-    protected void repl(NetCrusher crusher) {
+    protected void repl(T crusher) {
         try {
             try (InputStreamReader isr = new InputStreamReader(System.in);
                  BufferedReader br = new BufferedReader(isr))
             {
                 while (true) {
-                    System.out.printf("$ ");
+                    System.out.println("# enter the command in the next line");
 
                     String line = br.readLine();
                     if (line == null) {
@@ -87,11 +99,11 @@ public abstract class AbstractCrusherMain {
                 }
             }
         } catch (IOException e) {
-            System.err.printf("REPL error: %s\n", e);
+            LOGGER.error("REPL error", e);
         }
     }
 
-    protected void command(NetCrusher crusher, String command) throws IOException {
+    protected void command(T crusher, String command) throws IOException {
         switch (command) {
             case "OPEN":
                 open(crusher);
@@ -109,63 +121,63 @@ public abstract class AbstractCrusherMain {
                 unfreeze(crusher);
                 break;
             case "HELP":
-                System.out.println("Commands: OPEN,CLOSE,FREEZE,UNFREEZE,STATUS,HELP,QUIT");
+                LOGGER.info("Commands: OPEN,CLOSE,FREEZE,UNFREEZE,STATUS,HELP,QUIT");
                 break;
             default:
-                System.err.printf("Unknown command: %s\n", command);
+                LOGGER.warn("Unknown command: {}", command);
                 break;
         }
     }
 
-    protected void open(NetCrusher crusher) throws IOException {
+    protected void open(T crusher) throws IOException {
         if (crusher.isOpen()) {
-            System.out.println("Crusher is already opened");
+            LOGGER.info("Crusher is already opened");
         } else {
             crusher.open();
-            System.out.println("Crusher is opened");
+            LOGGER.info("Crusher is opened");
         }
     }
 
-    protected void close(NetCrusher crusher) throws IOException {
+    protected void close(T crusher) throws IOException {
         if (crusher.isOpen()) {
             crusher.close();
-            System.out.println("Crusher is closed");
+            LOGGER.info("Crusher is closed");
         } else {
-            System.out.println("Crusher is already closed");
+            LOGGER.info("Crusher is already closed");
         }
     }
 
-    protected void freeze(NetCrusher crusher) throws IOException {
+    protected void freeze(T crusher) throws IOException {
         if (crusher.isOpen()) {
             crusher.freeze();
-            System.out.println("Crusher is freezed");
+            LOGGER.info("Crusher is freezed");
         } else {
-            System.out.println("Crusher is closed");
+            LOGGER.info("Crusher is closed");
         }
     }
 
-    protected void unfreeze(NetCrusher crusher) throws IOException {
+    protected void unfreeze(T crusher) throws IOException {
         if (crusher.isOpen()) {
             crusher.unfreeze();
-            System.out.println("Crusher is freezed");
+            LOGGER.info("Crusher is freezed");
         } else {
-            System.out.println("Crusher is closed");
+            LOGGER.info("Crusher is closed");
         }
     }
 
-    protected void status(NetCrusher crusher) throws IOException {
+    protected void status(T crusher) throws IOException {
         if (crusher.isOpen()) {
-            System.out.println("Crusher is opened");
+            LOGGER.info("Crusher is opened");
             if (crusher.isFrozen()) {
-                System.out.println("Crusher is frozen");
+                LOGGER.info("Crusher is frozen");
             }
         } else {
-            System.out.println("Crusher is closed");
+            LOGGER.info("Crusher is closed");
         }
     }
 
     private void printUsage() {
-        System.out.printf("Execution: %s <bind-socket-address:port> <connect-socket-address:port>\n",
+        LOGGER.info("Execution: {} <bind-socket-address:port> <connect-socket-address:port>",
             this.getClass().getSimpleName());
     }
 
@@ -202,9 +214,9 @@ public abstract class AbstractCrusherMain {
         return address;
     }
 
-    protected abstract NetCrusher create(NioReactor reactor,
-                                         InetSocketAddress bindAddress,
-                                         InetSocketAddress connectAddress) throws IOException;
+    protected abstract T create(NioReactor reactor,
+                                InetSocketAddress bindAddress,
+                                InetSocketAddress connectAddress) throws IOException;
 
 }
 

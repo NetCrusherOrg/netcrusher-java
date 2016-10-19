@@ -19,7 +19,7 @@ public final class NoopThrottler implements Throttler {
 
     @Override
     public long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb) {
-        return NO_DELAY;
+        return 0;
     }
 
     @Override

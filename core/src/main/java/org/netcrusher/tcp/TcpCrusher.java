@@ -72,7 +72,7 @@ public class TcpCrusher implements NetCrusher {
 
     private final TcpFilters filters;
 
-    private final AtomicInteger createdPairsCount;
+    private final AtomicInteger acceptedCount;
 
     private ServerSocketChannel serverSocketChannel;
 
@@ -103,7 +103,7 @@ public class TcpCrusher implements NetCrusher {
         this.bufferSize = bufferSize;
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
-        this.createdPairsCount = new AtomicInteger(0);
+        this.acceptedCount = new AtomicInteger(0);
         this.open = false;
         this.frozen = true;
     }
@@ -378,7 +378,7 @@ public class TcpCrusher implements NetCrusher {
 
             pairs.put(pair.getClientAddress(), pair);
 
-            createdPairsCount.incrementAndGet();
+            acceptedCount.incrementAndGet();
 
             if (creationListener != null) {
                 reactor.getScheduler().execute(() -> creationListener.accept(pair));
@@ -416,8 +416,8 @@ public class TcpCrusher implements NetCrusher {
      * Get the total count of created tranfer pairs for all the time
      * @return Count
      */
-    public int getCreatedPairsCount() {
-        return createdPairsCount.get();
+    public int getAcceptedCount() {
+        return acceptedCount.get();
     }
 }
 

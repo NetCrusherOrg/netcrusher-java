@@ -6,4 +6,13 @@ then
     exit 1
 fi
 
-mvn exec:java "-Prun-tcp-crusher" "-Daddress.bind=$1" "-Daddress.connect=$2"
+mvn \
+    --quiet \
+    exec:java \
+    -P exec-java \
+    -Dorg.slf4j.simplelogger.defaultlog=info \
+    -Dorg.slf4j.simplelogger.showdatetime=true \
+    -Dorg.slf4j.simplelogger.showthreadname=false \
+    -Dorg.slf4j.simplelogger.showlogname=false \
+    -Dexec.mainClass=org.netcrusher.tcp.TcpCrusherMain \
+    -Dexec.args="$1 $2"

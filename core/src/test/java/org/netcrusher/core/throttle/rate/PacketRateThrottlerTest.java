@@ -35,8 +35,7 @@ public class PacketRateThrottlerTest {
                 return mockNowNs.get();
             }
         };
-
-     }
+    }
 
     @Test
     public void testBulk() throws Exception {
@@ -65,7 +64,7 @@ public class PacketRateThrottlerTest {
     public void testExcess() throws Exception {
         long delayNs;
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 9; i++) {
             delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
             Assert.assertEquals(0, delayNs);
 
@@ -73,6 +72,22 @@ public class PacketRateThrottlerTest {
         }
 
         delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
-        Assert.assertEquals(100_000_000, delayNs);
+        Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(100), delayNs);
+    }
+
+    @Test
+    public void testSmallRate() throws Exception {
+        // 1 packet per 100 seconds
+        PacketRateThrottler lazyThrottler = new PacketRateThrottler(1, 100, TimeUnit.SECONDS) {
+            @Override
+            protected long nowNs() {
+                return mockNowNs.get();
+            }
+        };
+
+        mockNowNs.addAndGet(TimeUnit.SECONDS.toNanos(1));
+
+        long delayNs = lazyThrottler.calculateDelayNs(stubAddress, stubBuffer);
+        Assert.assertEquals(TimeUnit.SECONDS.toNanos(99), delayNs);
     }
 }

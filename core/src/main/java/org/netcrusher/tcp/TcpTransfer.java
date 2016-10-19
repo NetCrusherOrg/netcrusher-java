@@ -63,7 +63,7 @@ public class TcpTransfer {
     }
 
     private void closeEOF() throws IOException {
-        if (outgoing.calculateReadyBytes() > 0) {
+        if (outgoing.calculateReadingBytes() > 0) {
             NioUtils.closeChannel(channel);
 
             reactor.getScheduler().schedule(() -> {
@@ -87,7 +87,7 @@ public class TcpTransfer {
         }
 
         // if other side is closed and there is no incoming data - close the pair
-        if (this.isOpen() && !other.isOpen() && incoming.calculateReadyBytes() == 0) {
+        if (this.isOpen() && !other.isOpen() && incoming.calculateReadingBytes() == 0) {
             closeInternal();
         }
     }
@@ -106,7 +106,7 @@ public class TcpTransfer {
         final SocketChannel channel = (SocketChannel) selectionKey.channel();
 
         while (true) {
-            final TcpQueueArray queueArray = queue.requestReady();
+            final TcpQueueArray queueArray = queue.requestReading();
             if (queueArray.isEmpty()) {
                 NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
                 break;
@@ -116,7 +116,7 @@ public class TcpTransfer {
             try {
                 sent = channel.write(queueArray.getArray(), queueArray.getOffset(), queueArray.getCount());
             } finally {
-                queue.cleanReady();
+                queue.cleanReading();
             }
 
             sentMeter.update(sent);
@@ -139,7 +139,7 @@ public class TcpTransfer {
         final SocketChannel channel = (SocketChannel) selectionKey.channel();
 
         while (true) {
-            final TcpQueueArray queueArray = queue.requestStage();
+            final TcpQueueArray queueArray = queue.requestWriting();
             if (queueArray.isEmpty()) {
                 NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_READ);
                 break;
@@ -149,7 +149,7 @@ public class TcpTransfer {
             try {
                 read = channel.read(queueArray.getArray(), queueArray.getOffset(), queueArray.getCount());
             } finally {
-                queue.cleanStage();
+                queue.cleanWriting();
             }
 
             if (read < 0) {
@@ -190,7 +190,7 @@ public class TcpTransfer {
 
     void unfreeze() {
         if (isOpen()) {
-            int ops = incoming.calculateReadyBytes() == 0 ?
+            int ops = incoming.calculateReadingBytes() == 0 ?
                 SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
             selectionKey.interestOps(ops);
         } else {

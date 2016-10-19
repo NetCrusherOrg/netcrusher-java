@@ -42,22 +42,22 @@ public abstract class AbstractRateThrottler implements Throttler {
 
         count += events(clientAddress, bb);
 
-        if (elapsedNs > periodNs || count > rate) {
+        long delayNs = 0;
+
+        if (elapsedNs >= periodNs || count >= rate) {
             final double registered = count;
             final double allowed = 1.0 * rate * elapsedNs / periodNs;
+
             if (registered > allowed) {
                 final double excess = registered - allowed;
-                final long pauseNs = Math.round(periodNs * excess / rate);
-                if (pauseNs > 0) {
-                    markerNs = nowNs + pauseNs;
-                    count = 0;
-
-                    return pauseNs;
-                }
+                delayNs = Math.round(periodNs * excess / rate);
             }
+
+            markerNs = nowNs + delayNs;
+            count = 0;
         }
 
-        return NO_DELAY;
+        return delayNs;
     }
 
     protected long nowNs() {

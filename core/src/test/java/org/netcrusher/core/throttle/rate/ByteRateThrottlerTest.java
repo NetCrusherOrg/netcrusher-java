@@ -75,11 +75,29 @@ public class ByteRateThrottlerTest {
         mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(250));
 
         delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
-        Assert.assertEquals(0, delayNs);
+        Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(750), delayNs);
 
-        mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(250));
+        mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(750));
 
         delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
-        Assert.assertEquals(1000000000, delayNs);
+        Assert.assertEquals(0, delayNs);
+    }
+
+    @Test
+    public void testSmallRate() throws Exception {
+        // 1 byte per 100 seconds
+        ByteRateThrottler lazyThrottler = new ByteRateThrottler(1, 100, TimeUnit.SECONDS) {
+            @Override
+            protected long nowNs() {
+                return mockNowNs.get();
+            }
+        };
+
+        mockNowNs.addAndGet(TimeUnit.SECONDS.toNanos(1));
+
+        stubBuffer.limit(1);
+
+        long delayNs = lazyThrottler.calculateDelayNs(stubAddress, stubBuffer);
+        Assert.assertEquals(TimeUnit.SECONDS.toNanos(99), delayNs);
     }
 }

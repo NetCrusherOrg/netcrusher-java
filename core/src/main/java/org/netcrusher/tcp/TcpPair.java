@@ -128,12 +128,12 @@ public class TcpPair implements NetFreezer {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Pair for '{}' is closed", clientAddress);
 
-                int incomingBytes = innerTransfer.getIncoming().calculateReadyBytes();
+                int incomingBytes = innerTransfer.getIncoming().calculateReadingBytes();
                 if (incomingBytes > 0) {
                     LOGGER.debug("The pair for {} has {} incoming bytes when closing", incomingBytes);
                 }
 
-                int outgoingBytes = innerTransfer.getOutgoing().calculateReadyBytes();
+                int outgoingBytes = innerTransfer.getOutgoing().calculateReadingBytes();
                 if (outgoingBytes > 0) {
                     LOGGER.debug("The pair for {} has {} outgoing bytes when closing", outgoingBytes);
                 }

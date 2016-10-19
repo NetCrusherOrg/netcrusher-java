@@ -12,9 +12,9 @@ import java.util.concurrent.TimeUnit;
 
 public class TcpQueue implements Serializable {
 
-    private final Deque<Entry> ready;
+    private final Deque<Entry> reading;
 
-    private final Deque<Entry> stage;
+    private final Deque<Entry> writing;
 
     private final Entry[] entryArray;
 
@@ -26,11 +26,10 @@ public class TcpQueue implements Serializable {
 
     private final InetSocketAddress clientAddress;
 
-    public TcpQueue(InetSocketAddress clientAddress,
-                    TransformFilter filter, Throttler throttler,
+    public TcpQueue(InetSocketAddress clientAddress, TransformFilter filter, Throttler throttler,
                     int bufferCount, int bufferSize) {
-        this.ready = new ArrayDeque<>(bufferCount);
-        this.stage = new ArrayDeque<>(bufferCount);
+        this.reading = new ArrayDeque<>(bufferCount);
+        this.writing = new ArrayDeque<>(bufferCount);
         this.bufferArray = new ByteBuffer[bufferCount];
         this.entryArray = new Entry[bufferCount];
         this.filter = filter;
@@ -38,24 +37,24 @@ public class TcpQueue implements Serializable {
         this.clientAddress = clientAddress;
 
         for (int i = 0; i < bufferCount; i++) {
-            this.stage.add(new Entry(bufferSize));
+            this.writing.add(new Entry(bufferSize));
         }
     }
 
     public void clear() {
-        stage.addAll(ready);
-        ready.clear();
-        stage.forEach((e) -> e.getBuffer().clear());
+        writing.addAll(reading);
+        reading.clear();
+        writing.forEach((e) -> e.getBuffer().clear());
     }
 
-    public int calculateReadyBytes() {
+    public int calculateReadingBytes() {
         int size = 0;
 
-        for (Entry entry : ready) {
+        for (Entry entry : reading) {
             size += entry.getBuffer().remaining();
         }
 
-        Entry entryToSteal = stage.peekFirst();
+        Entry entryToSteal = writing.peekFirst();
         if (entryToSteal != null) {
             size += entryToSteal.getBuffer().position();
         }
@@ -63,10 +62,10 @@ public class TcpQueue implements Serializable {
         return size;
     }
 
-    public int calculateStageBytes() {
+    public int calculateWritingBytes() {
         int size = 0;
 
-        for (Entry entry : stage) {
+        for (Entry entry : writing) {
             size += entry.getBuffer().remaining();
         }
 
@@ -74,25 +73,25 @@ public class TcpQueue implements Serializable {
     }
 
     public int countReady() {
-        return ready.size();
+        return reading.size();
     }
 
     public int countStage() {
-        return stage.size();
+        return writing.size();
     }
 
-    public TcpQueueArray requestReady() {
-        Entry entryToSteal = stage.peekFirst();
+    public TcpQueueArray requestReading() {
+        Entry entryToSteal = writing.peekFirst();
         if (entryToSteal != null && entryToSteal.getBuffer().position() > 0) {
-            steal();
+            freeWriting();
         }
 
-        final int size = ready.size();
+        final int size = reading.size();
         if (size == 0) {
             return TcpQueueArray.EMPTY;
         }
 
-        ready.toArray(entryArray);
+        reading.toArray(entryArray);
         for (int i = 0; i < size; i++) {
             bufferArray[i] = entryArray[i].getBuffer();
         }
@@ -100,24 +99,32 @@ public class TcpQueue implements Serializable {
         return new TcpQueueArray(bufferArray, 0, size);
     }
 
-    public void cleanReady() {
-        while (!ready.isEmpty()) {
-            Entry entry = ready.getFirst();
+    public void cleanReading() {
+        while (!reading.isEmpty()) {
+            Entry entry = reading.getFirst();
             if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {
-                donate();
+                freeReading();
             }
         }
     }
 
-    public TcpQueueArray requestStage() {
-        final int size = stage.size();
+    private void freeReading() {
+        Entry entry = reading.removeFirst();
+
+        entry.getBuffer().clear();
+
+        writing.addLast(entry);
+    }
+
+    public TcpQueueArray requestWriting() {
+        final int size = writing.size();
         if (size == 0) {
             return TcpQueueArray.EMPTY;
         }
 
-        stage.toArray(entryArray);
+        writing.toArray(entryArray);
         for (int i = 0; i < size; i++) {
             bufferArray[i] = entryArray[i].getBuffer();
         }
@@ -125,20 +132,20 @@ public class TcpQueue implements Serializable {
         return new TcpQueueArray(bufferArray, 0, size);
     }
 
-    public void cleanStage() {
-        while (!stage.isEmpty()) {
-            Entry entry = stage.getFirst();
+    public void cleanWriting() {
+        while (!writing.isEmpty()) {
+            Entry entry = writing.getFirst();
 
             if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {
-                steal();
+                freeWriting();
             }
         }
     }
 
-    private void steal() {
-        Entry entry = stage.removeFirst();
+    private void freeWriting() {
+        Entry entry = writing.removeFirst();
 
         ByteBuffer bb = entry.getBuffer();
         bb.flip();
@@ -152,24 +159,16 @@ public class TcpQueue implements Serializable {
             if (throttler != null) {
                 delayNs = throttler.calculateDelayNs(clientAddress, bb);
             } else {
-                delayNs = Throttler.NO_DELAY;
+                delayNs = 0;
             }
 
             entry.schedule(delayNs);
 
-            ready.addLast(entry);
+            reading.addLast(entry);
         } else {
             bb.clear();
-            stage.add(entry);
+            writing.add(entry);
         }
-    }
-
-    private void donate() {
-        Entry entry = ready.removeFirst();
-
-        entry.getBuffer().clear();
-
-        stage.addLast(entry);
     }
 
     private static final class Entry implements Serializable {

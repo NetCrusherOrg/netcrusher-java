@@ -13,12 +13,7 @@ import java.nio.ByteBuffer;
 public interface Throttler {
 
     /**
-     * A constant for no delay
-     */
-    long NO_DELAY = 0;
-
-    /**
-     * <p>Calculate delay for the buffer. Return NO_DELAY if the buffer should be sent immediately.</p>
+     * <p>Calculate delay for the buffer. Return 0 if the buffer should be sent immediately.</p>
      *
      * <p><em>Although returned delay has nanosecond precision the real time granularity
      * is much larger (normal precision is up to tens of millisecond)</em></p>
@@ -28,7 +23,6 @@ public interface Throttler {
      * @return How long the buffer should be postponed before sent (in milliseconds)
      *
      * @see NioReactor#NioReactor(long)
-     * @see Throttler#NO_DELAY
      */
     long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb);
 
