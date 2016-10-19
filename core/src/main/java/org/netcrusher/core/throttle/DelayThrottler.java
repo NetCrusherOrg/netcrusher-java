@@ -11,12 +11,22 @@ public class DelayThrottler implements Throttler {
 
     private final long delayNs;
 
-    public DelayThrottler(long delay, TimeUnit timeUnit) {
-        this.delayNs = timeUnit.toNanos(delay);
+    /**
+     * Constant delay for all packets
+     * @param delay Delay
+     * @param delayUnit Delay time unit
+     */
+    public DelayThrottler(long delay, TimeUnit delayUnit) {
+        this.delayNs = delayUnit.toNanos(delay);
     }
 
     @Override
     public long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb) {
         return delayNs;
+    }
+
+    @Override
+    public Throttler combine(Throttler other) {
+        return (clientAddress, bb) -> delayNs + other.calculateDelayNs(clientAddress, bb);
     }
 }

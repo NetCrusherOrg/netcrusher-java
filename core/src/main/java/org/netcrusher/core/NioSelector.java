@@ -102,9 +102,11 @@ public class NioSelector {
     /**
      * Internal method
      */
-    public SelectionKey register(SelectableChannel channel, int options,
-                                SelectionKeyCallback callback) throws IOException {
-        return executeOp(() -> channel.register(selector, options, callback));
+    public SelectionKey register(SelectableChannel channel,
+                                 int options,
+                                 SelectionKeyCallback callback) throws IOException
+    {
+        return execute(() -> channel.register(selector, options, callback));
     }
 
     /**
@@ -112,13 +114,13 @@ public class NioSelector {
      */
     public int wakeup() throws IOException {
         // fixes some strange behaviour on Windows: http://stackoverflow.com/a/39657002/827139
-        return executeOp(selector::selectNow);
+        return execute(selector::selectNow);
     }
 
     /**
      * Internal method
      */
-    public <T> T executeOp(Callable<T> callable) throws IOException {
+    public <T> T execute(Callable<T> callable) throws IOException {
         if (open) {
             if (Thread.currentThread().equals(thread)) {
                 try {

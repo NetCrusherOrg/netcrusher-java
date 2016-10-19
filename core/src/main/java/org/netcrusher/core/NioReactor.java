@@ -10,7 +10,7 @@ public class NioReactor implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NioReactor.class);
 
-    private static final long DEFAULT_TICK_MS = 10;
+    private static final long DEFAULT_TICK_MS = 50;
 
     private final NioSelector selector;
 
@@ -29,7 +29,7 @@ public class NioReactor implements Closeable {
     /**
      * Create NIO reactor with specific settings. The same reactor can be shared across multiple crushers.
      * @param tickMs Selector's timeout granularity in milliseconds. Determines throttling precision.
-     *               Default value is 10 milliseconds.
+     *               Default value is 50 milliseconds.
      * @throws IOException Exception on error
      */
     public NioReactor(long tickMs) throws IOException {

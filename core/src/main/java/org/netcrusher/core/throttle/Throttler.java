@@ -5,6 +5,10 @@ import org.netcrusher.core.NioReactor;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
+/**
+ * Throttling abstraction. As most throttlers have some state an usual throttler instance should
+ * not be shared across crushers.
+ */
 @FunctionalInterface
 public interface Throttler {
 
@@ -16,24 +20,26 @@ public interface Throttler {
     /**
      * <p>Calculate delay for the buffer. Return NO_DELAY if the buffer should be sent immediately.</p>
      *
-     * <p><em>Although the returned delay has nanosecond precision
-     * real time granularity is much bigger (normal precision is up to tens of millisecond)</em></p>
+     * <p><em>Although returned delay has nanosecond precision the real time granularity
+     * is much larger (normal precision is up to tens of millisecond)</em></p>
+     *
      * @param clientAddress Local client address
      * @param bb The buffer with data
-     * @return How long the buffer should be postponed before sent (in nanoseconds)
+     * @return How long the buffer should be postponed before sent (in milliseconds)
+     *
      * @see NioReactor#NioReactor(long)
      * @see Throttler#NO_DELAY
      */
     long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb);
 
     /**
-     * Chain this throttler with other one to sum both delays
+     * Combine this throttler with other one
      * @param other Other throttler
      * @return Combined throttler
      */
-    default Throttler then(Throttler other) {
+    default Throttler combine(Throttler other) {
         return (clientAddress, bb) ->
-            this.calculateDelayNs(clientAddress, bb) + other.calculateDelayNs(clientAddress, bb);
+            Math.max(this.calculateDelayNs(clientAddress, bb), other.calculateDelayNs(clientAddress, bb));
     }
 
 }

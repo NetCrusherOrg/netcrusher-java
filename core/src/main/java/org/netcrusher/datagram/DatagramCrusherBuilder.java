@@ -143,7 +143,7 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
-     * Set a maximum count of datagram in queue
+     * Set the maximum count of datagrams in transfer queue
      * @param queueLimit Queue limit
      * @return This builder instance to chain with other methods
      */

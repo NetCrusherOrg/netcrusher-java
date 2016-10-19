@@ -1,14 +1,11 @@
 package org.netcrusher.core.meter;
 
-import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class RateMeterImpl implements RateMeter {
 
-    private static final double ONE_SEC_IN_NS = TimeUnit.SECONDS.toNanos(1);
-
-    private final long created;
+    private final long createdMs;
 
     private final AtomicLong totalCount;
 
@@ -17,15 +14,15 @@ public class RateMeterImpl implements RateMeter {
     private final AtomicLong periodMarkerNs;
 
     public RateMeterImpl() {
-        this.created = System.currentTimeMillis();
+        this.createdMs = nowMs();
         this.totalCount = new AtomicLong(0);
         this.periodCount = new AtomicLong(0);
-        this.periodMarkerNs = new AtomicLong(System.nanoTime());
+        this.periodMarkerNs = new AtomicLong(nowNs());
     }
 
     @Override
     public long getTotalElapsedMs() {
-        return System.currentTimeMillis() - created;
+        return Math.max(0, nowMs() - createdMs);
     }
 
     @Override
@@ -34,38 +31,23 @@ public class RateMeterImpl implements RateMeter {
     }
 
     @Override
-    public long getPeriodCount(boolean reset) {
-        final long nowNs = System.nanoTime();
-        final long count = periodCount.get();
-
-        if (reset) {
-            periodMarkerNs.set(nowNs);
-            periodCount.addAndGet(-count);
-        }
-
-        return count;
+    public RateMeterPeriod getTotal() {
+        return new RateMeterPeriod(getTotalCount(), getTotalElapsedMs());
     }
 
     @Override
-    public double getPeriodRate(boolean reset) {
-        final long nowNs = System.nanoTime();
-        final long count = periodCount.get();
-
+    public RateMeterPeriod getPeriod(boolean reset) {
+        final long nowNs = nowNs();
         final long elapsedNs = Math.max(0, nowNs - periodMarkerNs.get());
-
-        final double rate;
-        if (elapsedNs > 0) {
-            rate = ONE_SEC_IN_NS * count / elapsedNs;
-        } else {
-            rate = 0;
-        }
+        final long elapsedMs = TimeUnit.NANOSECONDS.toMillis(elapsedNs);
+        final long count = periodCount.get();
 
         if (reset) {
             periodMarkerNs.set(nowNs);
             periodCount.addAndGet(-count);
         }
 
-        return rate;
+        return new RateMeterPeriod(count, elapsedMs);
     }
 
     public void update(long delta) {
@@ -79,6 +61,14 @@ public class RateMeterImpl implements RateMeter {
 
     public void decrement() {
         update(-1);
+    }
+
+    protected long nowNs() {
+        return System.nanoTime();
+    }
+
+    protected long nowMs() {
+        return System.currentTimeMillis();
     }
 }
 

@@ -217,7 +217,7 @@ public class TcpCrusher implements NetCrusher {
     public synchronized void freezeAcceptor() throws IOException {
         if (open) {
             if (!frozen) {
-                reactor.getSelector().executeOp(() -> {
+                reactor.getSelector().execute(() -> {
                     if (serverSelectionKey.isValid()) {
                         serverSelectionKey.interestOps(0);
                     }
@@ -264,7 +264,7 @@ public class TcpCrusher implements NetCrusher {
     public synchronized void unfreezeAcceptor() throws IOException {
         if (open) {
             if (frozen) {
-                reactor.getSelector().executeOp(() ->
+                reactor.getSelector().execute(() ->
                     serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
 
                 frozen = false;

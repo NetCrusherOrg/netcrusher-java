@@ -3,28 +3,27 @@ package org.netcrusher.core.meter;
 public interface RateMeter {
 
     /**
-     * Get elapsed time from the moment of creation
-     * @return Elapsed time in milliseconds
-     */
-    long getTotalElapsedMs();
-
-    /**
      * Request total count (bytes, events, items)
      * @return Number of events for all time
      */
     long getTotalCount();
 
     /**
-     * Request period count (bytes, events, items) - the number of events from the last rate() call
-     * @param reset true if period should be reset
-     * @return Number of events for the last period
+     * Get elapsed time from the moment of creation
+     * @return Elapsed time in milliseconds
      */
-    long getPeriodCount(boolean reset);
+    long getTotalElapsedMs();
 
     /**
-     * Request period rate - the number of event per seconds from the last rate() call
-     * @param reset true if period should be reset
-     * @return Number per the last period
+     * Get total count and elapsed time
+     * @return Total statistics
      */
-    double getPeriodRate(boolean reset);
+    RateMeterPeriod getTotal();
+
+    /**
+     * Request period rate - the number of event per seconds from the last reset
+     * @param reset true if period should be reset
+     * @return Period statistics
+     */
+    RateMeterPeriod getPeriod(boolean reset);
 }

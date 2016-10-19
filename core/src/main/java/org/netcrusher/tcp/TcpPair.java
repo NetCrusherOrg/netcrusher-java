@@ -79,7 +79,7 @@ public class TcpPair implements NetFreezer {
     public synchronized void freeze() throws IOException {
         if (open) {
             if (!frozen) {
-                reactor.getSelector().executeOp(() -> {
+                reactor.getSelector().execute(() -> {
                     innerTransfer.freeze();
                     outerTransfer.freeze();
                     return true;
@@ -95,7 +95,7 @@ public class TcpPair implements NetFreezer {
     public synchronized void unfreeze() throws IOException {
         if (open) {
             if (frozen) {
-                reactor.getSelector().executeOp(() -> {
+                reactor.getSelector().execute(() -> {
                     innerTransfer.unfreeze();
                     outerTransfer.unfreeze();
                     return true;

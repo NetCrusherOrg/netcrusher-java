@@ -105,7 +105,7 @@ public class DatagramInner {
     synchronized void unfreeze() throws IOException {
         if (open) {
             if (frozen) {
-                reactor.getSelector().executeOp(() -> {
+                reactor.getSelector().execute(() -> {
                     int ops = incoming.isEmpty() ?
                         SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
                     selectionKey.interestOps(ops);
@@ -125,7 +125,7 @@ public class DatagramInner {
     synchronized void freeze() throws IOException {
         if (open) {
             if (!frozen) {
-                reactor.getSelector().executeOp(() -> {
+                reactor.getSelector().execute(() -> {
                     if (selectionKey.isValid()) {
                         selectionKey.interestOps(0);
                     }

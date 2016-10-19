@@ -9,10 +9,14 @@ import org.netcrusher.core.filter.NoopFilter;
 import org.netcrusher.core.throttle.NoopThrottler;
 import org.netcrusher.tcp.bulk.TcpBulkClient;
 import org.netcrusher.tcp.bulk.TcpBulkServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 
 public class BulkTcpTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BulkTcpTest.class);
 
     private static final int PORT_CRUSHER = 10081;
 
@@ -42,6 +46,8 @@ public class BulkTcpTest {
             .withIncomingThrottler(NoopThrottler.INSTANCE)
             .withOutgoingTransformFilter(NoopFilter.INSTANCE)
             .withOutgoingThrottler(NoopThrottler.INSTANCE)
+            .withCreationListener((pair) -> LOGGER.info("Pair is created for <{}>", pair.getClientAddress()))
+            .withDeletionListener((pair) -> LOGGER.info("Pair is deleted for <{}>", pair.getClientAddress()))
             .buildAndOpen();
     }
 
