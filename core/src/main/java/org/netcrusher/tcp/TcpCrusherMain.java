@@ -10,12 +10,12 @@ import java.net.InetSocketAddress;
 public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     private static final String CMD_PAIR_FREEZE = "PAIR-FREEZE";
-
     private static final String CMD_PAIR_UNFREEZE = "PAIR-UNFREEZE";
-
     private static final String CMD_PAIR_CLOSE = "PAIR-CLOSE";
-
     private static final String CMD_PAIR_STATUS = "PAIR-STATUS";
+
+    private static final String CMD_ACCEPTOR_FREEZE = "ACCEPTOR-FREEZE";
+    private static final String CMD_ACCEPTOR_UNFREEZE = "ACCEPTOR-UNFREEZE";
 
     @Override
     protected TcpCrusher create(NioReactor reactor,
@@ -71,6 +71,10 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
         LOGGER.info("\t" + CMD_PAIR_UNFREEZE + " <addr> - unfreezes the TCP pair");
         LOGGER.info("\t" + CMD_PAIR_CLOSE + " <addr>    - closes the TCP pair");
         LOGGER.info("\t" + CMD_PAIR_STATUS + " <addr>   - prints status of the TCP pair");
+
+        LOGGER.info("Commands for the acceptor:");
+        LOGGER.info("\t" + CMD_ACCEPTOR_FREEZE + "   - freezes the acceptor");
+        LOGGER.info("\t" + CMD_ACCEPTOR_UNFREEZE + " - unfreezes the acceptor");
     }
 
     @Override
@@ -83,6 +87,10 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             closePair(crusher, command);
         } else if (command.startsWith(CMD_PAIR_STATUS)) {
             statusPair(crusher, command);
+        } else if (command.equals(CMD_ACCEPTOR_FREEZE)) {
+            freezeAcceptor(crusher);
+        } else if (command.equals(CMD_ACCEPTOR_UNFREEZE)) {
+            unfreezeAcceptor(crusher);
         } else {
             super.command(crusher, command);
         }
@@ -127,6 +135,24 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             reportPair(pair);
         } else {
             LOGGER.info("Pair for <{}> is not found", addr);
+        }
+    }
+
+    protected void freezeAcceptor(TcpCrusher crusher) throws IOException {
+        if (crusher.isOpen()) {
+            crusher.freezeAcceptor();
+            LOGGER.info("Acceptor is frozen");
+        } else {
+            LOGGER.info("Crusher is already closed");
+        }
+    }
+
+    protected void unfreezeAcceptor(TcpCrusher crusher) throws IOException {
+        if (crusher.isOpen()) {
+            crusher.unfreezeAcceptor();
+            LOGGER.info("Acceptor is unfrozen");
+        } else {
+            LOGGER.info("Crusher is already closed");
         }
     }
 

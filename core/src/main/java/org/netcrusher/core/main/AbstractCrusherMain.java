@@ -145,10 +145,10 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected void open(T crusher) throws IOException {
         if (crusher.isOpen()) {
-            LOGGER.info("Crusher is already opened");
+            LOGGER.info("Crusher is already open");
         } else {
             crusher.open();
-            LOGGER.info("Crusher is opened");
+            LOGGER.info("Crusher is open");
         }
     }
 
@@ -181,7 +181,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected void status(T crusher) throws IOException {
         if (crusher.isOpen()) {
-            LOGGER.info("Crusher is opened");
+            LOGGER.info("Crusher is open");
             if (crusher.isFrozen()) {
                 LOGGER.info("Crusher is frozen");
             }
@@ -207,8 +207,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected abstract T create(NioReactor reactor,
-                                InetSocketAddress bindAddress,
-                                InetSocketAddress connectAddress) throws IOException;
+        InetSocketAddress bindAddress, InetSocketAddress connectAddress) throws IOException;
 
 }
 
