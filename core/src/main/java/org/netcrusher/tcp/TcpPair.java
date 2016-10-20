@@ -1,7 +1,7 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

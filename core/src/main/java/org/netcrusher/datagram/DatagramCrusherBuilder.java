@@ -1,6 +1,6 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.throttle.Throttler;

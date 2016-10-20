@@ -1,6 +1,8 @@
-package org.netcrusher.core;
+package org.netcrusher.core.main;
 
 import org.netcrusher.NetCrusher;
+import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,7 +13,15 @@ import java.net.InetSocketAddress;
 
 public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrusherMain.class);
+    protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrusherMain.class);
+
+    protected static final String CMD_OPEN = "OPEN";
+    protected static final String CMD_CLOSE = "CLOSE";
+    protected static final String CMD_FREEZE = "FREEZE";
+    protected static final String CMD_UNFREEZE = "UNFREEZE";
+    protected static final String CMD_STATUS = "STATUS";
+    protected static final String CMD_HELP = "HELP";
+    protected static final String CMD_QUIT = "QUIT";
 
     protected int run(String[] arguments) {
         if (arguments == null || arguments.length != 2) {
@@ -21,7 +31,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
         InetSocketAddress bindAddress;
         try {
-            bindAddress = parseInetSocketAddress(arguments[0]);
+            bindAddress = NioUtils.parseInetSocketAddress(arguments[0]);
         } catch (IllegalArgumentException e) {
             LOGGER.error("Fail to parse address: {}", arguments[0]);
             return 2;
@@ -29,7 +39,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
         InetSocketAddress connectAddress;
         try {
-            connectAddress = parseInetSocketAddress(arguments[1]);
+            connectAddress = NioUtils.parseInetSocketAddress(arguments[1]);
         } catch (IllegalArgumentException e) {
             LOGGER.error("Fail to parse address: {}", arguments[1]);
             return 2;
@@ -94,7 +104,11 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
                     if ("QUIT".equals(line)) {
                         break;
                     } else {
-                        command(crusher, line);
+                        try {
+                            command(crusher, line);
+                        } catch (Throwable e) {
+                            LOGGER.error("Command failed: '{}'", line, e);
+                        }
                     }
                 }
             }
@@ -105,26 +119,26 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected void command(T crusher, String command) throws IOException {
         switch (command) {
-            case "OPEN":
+            case CMD_OPEN:
                 open(crusher);
                 break;
-            case "CLOSE":
+            case CMD_CLOSE:
                 close(crusher);
                 break;
-            case "STATUS":
+            case CMD_STATUS:
                 status(crusher);
                 break;
-            case "FREEZE":
+            case CMD_FREEZE:
                 freeze(crusher);
                 break;
-            case "UNFREEZE":
+            case CMD_UNFREEZE:
                 unfreeze(crusher);
                 break;
-            case "HELP":
-                LOGGER.info("Commands: OPEN,CLOSE,FREEZE,UNFREEZE,STATUS,HELP,QUIT");
+            case CMD_HELP:
+                printHelp();
                 break;
             default:
-                LOGGER.warn("Unknown command: {}", command);
+                LOGGER.warn("Command is unknown: '{}'", command);
                 break;
         }
     }
@@ -176,42 +190,20 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    private void printUsage() {
+    protected void printUsage() {
         LOGGER.info("Execution: {} <bind-socket-address:port> <connect-socket-address:port>",
             this.getClass().getSimpleName());
     }
 
-    private static InetSocketAddress parseInetSocketAddress(String text) {
-        if (text == null || text.isEmpty()) {
-            throw new IllegalArgumentException("Address is empty");
-        }
-
-        int index = text.lastIndexOf(':');
-        if (index == -1 || index == text.length() - 1) {
-            throw new IllegalArgumentException("Port is found in: " + text);
-        }
-        if (index == 0) {
-            throw new IllegalArgumentException("Host is found in: " + text);
-        }
-
-        String host = text.substring(0, index);
-
-        String portStr = text.substring(index + 1, text.length());
-        int port;
-        try {
-            port = Integer.parseInt(portStr);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Port is not integer in address: " + text);
-        }
-
-        InetSocketAddress address;
-        try {
-            address = new InetSocketAddress(host, port);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Failed to parse address: " + text);
-        }
-
-        return address;
+    protected void printHelp() {
+        LOGGER.info("Commands:");
+        LOGGER.info("\t" + CMD_OPEN + "     - opens the crusher");
+        LOGGER.info("\t" + CMD_CLOSE + "    - closes the crusher (sockets will be closed)");
+        LOGGER.info("\t" + CMD_FREEZE + "   - freezes the crusher (open but transfer engine is not working)");
+        LOGGER.info("\t" + CMD_UNFREEZE + " - unfreezes the crusher");
+        LOGGER.info("\t" + CMD_STATUS + "   - prints the status of the connection");
+        LOGGER.info("\t" + CMD_HELP + "     - prints this help");
+        LOGGER.info("\t" + CMD_QUIT + "     - quits the program");
     }
 
     protected abstract T create(NioReactor reactor,

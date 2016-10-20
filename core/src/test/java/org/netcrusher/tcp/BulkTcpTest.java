@@ -4,7 +4,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.filter.NoopFilter;
 import org.netcrusher.core.throttle.NoopThrottler;
 import org.netcrusher.tcp.bulk.TcpBulkClient;

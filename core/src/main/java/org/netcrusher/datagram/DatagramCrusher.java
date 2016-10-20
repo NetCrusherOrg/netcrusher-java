@@ -1,7 +1,7 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.NetCrusher;
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

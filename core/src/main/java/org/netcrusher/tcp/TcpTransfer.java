@@ -1,6 +1,6 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.meter.RateMeter;
 import org.netcrusher.core.meter.RateMeterImpl;

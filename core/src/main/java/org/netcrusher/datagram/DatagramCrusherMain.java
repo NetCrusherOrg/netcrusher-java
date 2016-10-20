@@ -1,7 +1,7 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.AbstractCrusherMain;
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.main.AbstractCrusherMain;
+import org.netcrusher.core.reactor.NioReactor;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -25,25 +25,25 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
 
     @Override
     protected void status(DatagramCrusher crusher) throws IOException {
-        System.out.printf("Datagram crusher for <%s>-<%s>\n", crusher.getBindAddress(), crusher.getConnectAddress());
+        LOGGER.info("Datagram crusher for <{}>-<{}>", crusher.getBindAddress(), crusher.getConnectAddress());
         super.status(crusher);
 
         if (crusher.isOpen()) {
-            System.out.printf("Inner\n");
+            LOGGER.info("Inner");
 
             DatagramInner inner = crusher.getInner();
-            System.out.printf("\ttotal read bytes: %s\n", inner.getReadByteMeter().getTotal());
-            System.out.printf("\ttotal read datagrams: %s\n", inner.getReadDatagramMeter().getTotal());
-            System.out.printf("\ttotal sent bytes: %s\n", inner.getSentByteMeter().getTotal());
-            System.out.printf("\ttotal sent datagrams: %s\n", inner.getSentDatagramMeter().getTotal());
+            LOGGER.info("\ttotal read bytes: {}", inner.getReadByteMeter().getTotal());
+            LOGGER.info("\ttotal read datagrams: {}", inner.getReadDatagramMeter().getTotal());
+            LOGGER.info("\ttotal sent bytes: {}", inner.getSentByteMeter().getTotal());
+            LOGGER.info("\ttotal sent datagrams: {}", inner.getSentDatagramMeter().getTotal());
 
             for (DatagramOuter outer : crusher.getOuters()) {
-                System.out.printf("Outer for <%s>\n", outer.getClientAddress());
-                System.out.printf("\ttotal read bytes: %s\n", outer.getReadByteMeter().getTotal());
-                System.out.printf("\ttotal read datagrams: %s\n", outer.getReadDatagramMeter().getTotal());
-                System.out.printf("\ttotal sent bytes: %s\n", outer.getSentByteMeter());
-                System.out.printf("\ttotal sent datagrams: %s\n", outer.getSentDatagramMeter().getTotal());
-                System.out.printf("\tidle duration, ms: %d\n", outer.getIdleDurationMs());
+                LOGGER.info("Outer for {}", outer.getClientAddress());
+                LOGGER.info("\ttotal read bytes: {}", outer.getReadByteMeter().getTotal());
+                LOGGER.info("\ttotal read datagrams: {}", outer.getReadDatagramMeter().getTotal());
+                LOGGER.info("\ttotal sent bytes: {}", outer.getSentByteMeter());
+                LOGGER.info("\ttotal sent datagrams: {}", outer.getSentDatagramMeter().getTotal());
+                LOGGER.info("\tidle duration, ms: {}", outer.getIdleDurationMs());
             }
         }
     }

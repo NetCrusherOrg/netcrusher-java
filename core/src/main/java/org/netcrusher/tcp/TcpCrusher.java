@@ -1,7 +1,7 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetCrusher;
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,21 +169,6 @@ public class TcpCrusher implements NetCrusher {
             }
         } else {
             throw new IllegalStateException("Crusher is not open");
-        }
-    }
-
-    /**
-     * Close the pair by client address
-     * @param clientAddress Client address
-     * @throws IOException
-     */
-    public void closePair(InetSocketAddress clientAddress) throws IOException {
-        TcpPair pair = pairs.remove(clientAddress);
-        if (pair != null) {
-            pair.closeExternal();
-            if (deletionListener != null) {
-                reactor.getScheduler().execute(() -> deletionListener.accept(pair));
-            }
         }
     }
 
@@ -410,6 +395,37 @@ public class TcpCrusher implements NetCrusher {
      */
     public Collection<TcpPair> getPairs() {
         return new ArrayList<>(this.pairs.values());
+    }
+
+    /**
+     * Close the pair by client address
+     * @param clientAddress Client address
+     * @return Returns true if the pair is found and closed
+     * @throws IOException Exception on error
+     */
+    public boolean closePair(InetSocketAddress clientAddress) throws IOException {
+        TcpPair pair = pairs.remove(clientAddress);
+        if (pair != null) {
+            pair.closeExternal();
+
+            if (deletionListener != null) {
+                reactor.getScheduler().execute(() -> deletionListener.accept(pair));
+            }
+
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Request TCP pair by client address
+     * @param clientAddress Client address
+     * @return TCP pair
+     * @throws IOException Exception on error
+     */
+    public TcpPair getPair(InetSocketAddress clientAddress) throws IOException {
+        return pairs.get(clientAddress);
     }
 
     /**

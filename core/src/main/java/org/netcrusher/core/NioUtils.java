@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.AbstractSelectableChannel;
@@ -45,4 +46,38 @@ public final class NioUtils {
             selectionKey.interestOps(selectionKey.interestOps() & ~options);
         }
     }
+
+    public static InetSocketAddress parseInetSocketAddress(String text) {
+        if (text == null || text.isEmpty()) {
+            throw new IllegalArgumentException("Address is empty");
+        }
+
+        int index = text.lastIndexOf(':');
+        if (index == -1 || index == text.length() - 1) {
+            throw new IllegalArgumentException("Port is found in: " + text);
+        }
+        if (index == 0) {
+            throw new IllegalArgumentException("Host is found in: " + text);
+        }
+
+        String host = text.substring(0, index);
+
+        String portStr = text.substring(index + 1, text.length());
+        int port;
+        try {
+            port = Integer.parseInt(portStr);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Port is not integer in address: " + text);
+        }
+
+        InetSocketAddress address;
+        try {
+            address = new InetSocketAddress(host, port);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Failed to parse address: " + text);
+        }
+
+        return address;
+    }
+
 }

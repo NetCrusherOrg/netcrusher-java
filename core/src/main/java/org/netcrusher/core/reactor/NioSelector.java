@@ -1,4 +1,4 @@
-package org.netcrusher.core;
+package org.netcrusher.core.reactor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +10,7 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Iterator;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -26,7 +27,9 @@ public class NioSelector {
 
     private final Selector selector;
 
-    private final Queue<NioSelectorOp<?>> ops;
+    private final Queue<NioSelectorPostOp> postOperationQueue;
+
+    private final Queue<NioSelectorScheduledOp> scheduledOperationQueue;
 
     private final long tickMs;
 
@@ -38,7 +41,8 @@ public class NioSelector {
         }
 
         this.selector = Selector.open();
-        this.ops = new ConcurrentLinkedQueue<>();
+        this.postOperationQueue = new ConcurrentLinkedQueue<>();
+        this.scheduledOperationQueue = new PriorityQueue<>();
 
         this.thread = new Thread(this::loop);
         this.thread.setName("NetCrusher selector event loop");
@@ -57,7 +61,7 @@ public class NioSelector {
         LOGGER.debug("Selector is closing");
         boolean interrupted = false;
 
-        ops.clear();
+        postOperationQueue.clear();
 
         try {
             wakeup();
@@ -129,13 +133,13 @@ public class NioSelector {
                     throw new IOException("Fail to execute selector op", e);
                 }
             } else {
-                NioSelectorOp<T> op = new NioSelectorOp<>(callable);
-                ops.add(op);
+                NioSelectorPostOp<T> postOperation = new NioSelectorPostOp<>(callable);
+                postOperationQueue.add(postOperation);
 
                 selector.wakeup();
 
                 try {
-                    return op.await();
+                    return postOperation.await();
                 } catch (InterruptedException e) {
                     throw new InterruptedIOException("Reactor operation was interrupted");
                 } catch (ExecutionException e) {
@@ -147,10 +151,22 @@ public class NioSelector {
         }
     }
 
+    /**
+     * Internal method
+     */
+    public void schedule(long scheduledNs, Runnable runnable) {
+        if (tickMs == 0) {
+            throw new IllegalStateException("Tick value should be set on selector");
+        }
+
+        scheduledOperationQueue.add(new NioSelectorScheduledOp(scheduledNs, runnable));
+    }
+
     private void loop() {
         LOGGER.debug("Selector event loop started");
 
         while (!Thread.currentThread().isInterrupted()) {
+            // block on getting selection keys ready to act
             int count;
             try {
                 count = selector.select(tickMs);
@@ -161,6 +177,7 @@ public class NioSelector {
                 break;
             }
 
+            // execute all selection key callbacks
             if (count > 0) {
                 Set<SelectionKey> keys = selector.selectedKeys();
 
@@ -181,9 +198,23 @@ public class NioSelector {
                 }
             }
 
-            NioSelectorOp<?> op;
-            while ((op = ops.poll()) != null) {
-                op.run();
+            // execute all ready scheduled operations
+            NioSelectorScheduledOp scheduledOperation;
+            while ((scheduledOperation = scheduledOperationQueue.peek()) != null) {
+                if (scheduledOperation.isReady(tickMs)) {
+                    scheduledOperation = scheduledOperationQueue.poll();
+                    if (scheduledOperation != null) {
+                        scheduledOperation.run();
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            // execute all post operations
+            NioSelectorPostOp postOperation;
+            while ((postOperation = postOperationQueue.poll()) != null) {
+                postOperation.run();
             }
         }
 

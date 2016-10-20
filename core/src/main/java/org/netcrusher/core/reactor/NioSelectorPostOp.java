@@ -1,24 +1,24 @@
-package org.netcrusher.core;
+package org.netcrusher.core.reactor;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-public class NioSelectorOp<T> implements Runnable {
+public class NioSelectorPostOp<T> implements Runnable {
 
     private final CompletableFuture<T> future;
 
-    private final Callable<T> callable;
+    private final Callable<T> delegate;
 
-    public NioSelectorOp(Callable<T> callable) {
-        this.callable = callable;
+    public NioSelectorPostOp(Callable<T> delegate) {
+        this.delegate = delegate;
         this.future = new CompletableFuture<>();
     }
 
     @Override
     public void run() {
         try {
-            T result = callable.call();
+            T result = delegate.call();
             future.complete(result);
         } catch (Throwable e) {
             future.completeExceptionally(e);

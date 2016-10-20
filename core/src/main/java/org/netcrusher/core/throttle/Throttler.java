@@ -1,6 +1,6 @@
 package org.netcrusher.core.throttle;
 
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;

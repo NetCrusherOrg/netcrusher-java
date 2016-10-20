@@ -1,6 +1,6 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.throttle.Throttler;
 
