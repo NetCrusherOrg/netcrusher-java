@@ -1,11 +1,11 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
-import org.netcrusher.core.meter.RateMeter;
 import org.netcrusher.core.meter.RateMeterImpl;
+import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.Throttler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +22,7 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.UnresolvedAddressException;
 
-public class DatagramOuter {
+class DatagramOuter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramOuter.class);
 
@@ -318,52 +318,22 @@ public class DatagramOuter {
         return true;
     }
 
-    /**
-     * Get inner client address for this connection
-     * @return Address
-     */
-    public InetSocketAddress getClientAddress() {
+    InetSocketAddress getClientAddress() {
         return clientAddress;
     }
 
-    /**
-     * How long was the connection idle
-     * @return Idle duration is milliseconds
-     */
-    public long getIdleDurationMs() {
+    long getIdleDurationMs() {
         return System.currentTimeMillis() - lastOperationTimestamp;
     }
 
-    /**
-     * How many bytes was sent from outer
-     * @return Byte meter
-     */
-    public RateMeter getSentByteMeter() {
-        return sentByteMeter;
+    RateMeters getByteMeters() {
+        return new RateMeters(readByteMeter, sentByteMeter);
     }
 
-    /**
-     * How many bytes was received by outer
-     * @return Byte meter
-     */
-    public RateMeter getReadByteMeter() {
-        return readByteMeter;
-    }
-
-    /**
-     * How many datagrams was sent by outer
-     * @return Datagram count
-     */
-    public RateMeter getSentDatagramMeter() {
-        return sentDatagramMeter;
-    }
-
-    /**
-     * How many datagrams was received by outer
-     * @return Datagram count
-     */
-    public RateMeter getReadDatagramMeter() {
-        return readDatagramMeter;
+    RateMeters getPacketMeters() {
+        return new RateMeters(readDatagramMeter, sentDatagramMeter);
     }
 }
+
+
 

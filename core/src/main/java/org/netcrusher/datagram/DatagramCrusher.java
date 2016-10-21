@@ -1,7 +1,10 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.NetCrusher;
+import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.datagram.callback.DatagramClientCreation;
+import org.netcrusher.datagram.callback.DatagramClientDeletion;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +12,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * <p>DatagramCrusher - a UDP proxy for test purposes. To create a new instance use DatagramCrusherBuilder</p>
@@ -21,9 +27,7 @@ import java.util.Collection;
  *     .withRemoteAddress("time-nw.nist.gov", 37)
  *     .buildAndOpen();
  *
- * // do some test on localhost:10081
- * crusher.crush();
- * // do other test on localhost:10081
+ * // ... do something
  *
  * crusher.close();
  * reactor.close();
@@ -44,11 +48,15 @@ public class DatagramCrusher implements NetCrusher {
 
     private final InetSocketAddress connectAddress;
 
-    private final long maxIdleDurationMs;
-
     private final int queueLimit;
 
     private final DatagramFilters filters;
+
+    private final AtomicInteger clientTotalCount;
+
+    private final DatagramClientCreation creationListener;
+
+    private final DatagramClientDeletion deletionListener;
 
     private DatagramInner inner;
 
@@ -60,17 +68,20 @@ public class DatagramCrusher implements NetCrusher {
             InetSocketAddress connectAddress,
             DatagramCrusherSocketOptions socketOptions,
             DatagramFilters filters,
-            long maxIdleDurationMs,
+            DatagramClientCreation creationListener,
+            DatagramClientDeletion deletionListener,
             int queueLimit)
     {
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
         this.socketOptions = socketOptions;
         this.reactor = reactor;
-        this.maxIdleDurationMs = maxIdleDurationMs;
         this.open = false;
         this.filters = filters;
         this.queueLimit = queueLimit;
+        this.clientTotalCount = new AtomicInteger(0);
+        this.creationListener = creationListener;
+        this.deletionListener = deletionListener;
     }
 
     @Override
@@ -80,8 +91,10 @@ public class DatagramCrusher implements NetCrusher {
         }
 
         this.inner = new DatagramInner(this, reactor, socketOptions, filters,
-            bindAddress, connectAddress, maxIdleDurationMs, queueLimit);
+            bindAddress, connectAddress, queueLimit);
         this.inner.unfreeze();
+
+        clientTotalCount.set(0);
 
         LOGGER.info("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);
 
@@ -152,28 +165,106 @@ public class DatagramCrusher implements NetCrusher {
         return connectAddress;
     }
 
-    /**
-     * Get outer socket controllers
-     * @return Collection of outer socket controllers
-     */
-    public Collection<DatagramOuter> getOuters() {
+    @Override
+    public synchronized Collection<InetSocketAddress> getClientAddresses() {
         if (open) {
-            return inner.getOuters();
+            return inner.getOuters().stream()
+                .map(DatagramOuter::getClientAddress)
+                .collect(Collectors.toList());
+        } else {
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
+    public synchronized RateMeters getClientByteMeters(InetSocketAddress clientAddress) {
+        if (open) {
+            DatagramOuter outer = this.inner.getOuter(clientAddress);
+            if (outer != null) {
+                return outer.getByteMeters();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get client packet meters
+     * @return Rate meters
+     */
+    public synchronized RateMeters getClientPacketMeters(InetSocketAddress clientAddress) {
+        if (open) {
+            DatagramOuter outer = this.inner.getOuter(clientAddress);
+            if (outer != null) {
+                return outer.getPacketMeters();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get inner socket byte meters
+     * @return Rate meters
+     */
+    public synchronized RateMeters getInnerByteMeters() {
+        if (open) {
+            return new RateMeters(inner.getReadByteMeter(), inner.getSentByteMeter());
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
     }
 
     /**
-     * Get inner socket controller
-     * @return Inner socket controller
+     * Get inner socket packet meters
+     * @return Rate meters
      */
-    public DatagramInner getInner() {
+    public synchronized RateMeters getInnerPacketMeters() {
         if (open) {
-            return inner;
+            return new RateMeters(inner.getReadPacketMeter(), inner.getSentPacketMeter());
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
     }
 
+    @Override
+    public synchronized boolean closeClient(InetSocketAddress clientAddress) throws IOException {
+        if (open) {
+            return this.inner.closeOuter(clientAddress);
+        }
+
+        return false;
+    }
+
+    /**
+     * Close idle clients
+     * @param maxIdleDurationMs Maximum allowed idle time (in milliseconds)
+     * @throws IOException Exception on error
+     */
+    public synchronized void closeIdleClients(long maxIdleDurationMs) throws IOException {
+        if (open) {
+            this.inner.closeIdleOuters(maxIdleDurationMs);
+        }
+    }
+
+    @Override
+    public int getClientTotalCount() {
+        return clientTotalCount.get();
+    }
+
+    void notifyOuterCreated(DatagramOuter outer) {
+        clientTotalCount.incrementAndGet();
+
+        if (creationListener != null) {
+            reactor.getScheduler().execute(() ->
+                creationListener.created(outer.getClientAddress()));
+        }
+    }
+
+    void notifyOuterDeleted(DatagramOuter outer) {
+        if (deletionListener != null) {
+            reactor.getScheduler().execute(() ->
+                deletionListener.deleted(outer.getClientAddress(), outer.getByteMeters(), outer.getPacketMeters()));
+        }
+    }
 }

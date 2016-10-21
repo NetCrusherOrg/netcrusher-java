@@ -1,8 +1,8 @@
 # NetCrusher for Java
 
-NetCrusher is TCP/UDP proxy for java that sit in the middle between client and server and allows to check both sides on proper failover.
+NetCrusher is TCP/UDP proxy for Java that is placed in the middle between client and server and allows to check both sides on failover.
 
-* emulates network failures that lead to remote socket closing
+* emulates network failures
 * emulates frozen connection
 * allows to check the state of connections
 * allows to filter/dump data
@@ -28,7 +28,7 @@ TcpCrusher crusher = TcpCrusherBuilder.builder()
 // emulate reconnect
 crusher.reopen();
 
-// ... check the connection is reestablished
+// ... check the client connection is reestablished successfully
 
 // closing
 crusher.close();

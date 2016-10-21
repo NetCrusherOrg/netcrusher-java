@@ -4,6 +4,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.filter.NoopFilter;
 import org.netcrusher.core.throttle.NoopThrottler;
@@ -46,8 +47,8 @@ public class BulkTcpTest {
             .withIncomingThrottler(NoopThrottler.INSTANCE)
             .withOutgoingTransformFilter(NoopFilter.INSTANCE)
             .withOutgoingThrottler(NoopThrottler.INSTANCE)
-            .withCreationListener((pair) -> LOGGER.info("Pair is created for <{}>", pair.getClientAddress()))
-            .withDeletionListener((pair) -> LOGGER.info("Pair is deleted for <{}>", pair.getClientAddress()))
+            .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
+            .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
     }
 
@@ -80,14 +81,13 @@ public class BulkTcpTest {
         TcpBulkClient client2 = server.getClients().iterator().next();
         client2.await(20000);
 
-        Assert.assertEquals(1, crusher.getPairs().size());
-        TcpPair pair = crusher.getPairs().iterator().next();
-        Assert.assertNotNull(pair);
-        Assert.assertNotNull(pair.getClientAddress());
-        Assert.assertEquals(COUNT, pair.getInnerTransfer().getReadMeter().getTotalCount());
-        Assert.assertEquals(COUNT, pair.getInnerTransfer().getSentMeter().getTotalCount());
-        Assert.assertEquals(COUNT, pair.getOuterTransfer().getReadMeter().getTotalCount());
-        Assert.assertEquals(COUNT, pair.getOuterTransfer().getSentMeter().getTotalCount());
+        Assert.assertEquals(1, crusher.getClientAddresses().size());
+        InetSocketAddress clientAddress = crusher.getClientAddresses().iterator().next();
+        Assert.assertNotNull(clientAddress);
+
+        RateMeters clientMeters = crusher.getClientByteMeters(clientAddress);
+        Assert.assertEquals(COUNT, clientMeters.getReadMeter().getTotalCount());
+        Assert.assertEquals(COUNT, clientMeters.getSentMeter().getTotalCount());
 
         client1.close();
         client2.close();

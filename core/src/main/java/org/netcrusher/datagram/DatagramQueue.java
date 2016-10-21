@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
-public class DatagramQueue implements Serializable {
+class DatagramQueue implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramQueue.class);
 

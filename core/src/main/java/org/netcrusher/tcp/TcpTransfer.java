@@ -15,7 +15,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.TimeUnit;
 
-public class TcpTransfer {
+class TcpTransfer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpTransfer.class);
 
@@ -126,7 +126,7 @@ public class TcpTransfer {
             }
 
             if (queue.countStage()  > 0) {
-                other.notify(SelectionKey.OP_READ);
+                other.addOperations(SelectionKey.OP_READ);
             }
 
             if (sent == 0) {
@@ -163,7 +163,7 @@ public class TcpTransfer {
             }
 
             if (read > 0) {
-                other.notify(SelectionKey.OP_WRITE);
+                other.addOperations(SelectionKey.OP_WRITE);
             } else {
                 break;
             }
@@ -202,7 +202,7 @@ public class TcpTransfer {
         this.other = other;
     }
 
-    private void notify(int operations) {
+    private void addOperations(int operations) {
         if (selectionKey.isValid()) {
             NioUtils.setupInterestOps(selectionKey, operations);
         }
@@ -212,7 +212,7 @@ public class TcpTransfer {
      * Request total read counter for this transfer
      * @return Read bytes count
      */
-    public RateMeter getReadMeter() {
+    RateMeter getReadMeter() {
         return readMeter;
     }
 
@@ -220,7 +220,7 @@ public class TcpTransfer {
      * Request total sent counter for this transfer
      * @return Sent bytes count
      */
-    public RateMeter getSentMeter() {
+    RateMeter getSentMeter() {
         return sentMeter;
     }
 

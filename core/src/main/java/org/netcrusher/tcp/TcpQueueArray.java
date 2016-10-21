@@ -2,7 +2,7 @@ package org.netcrusher.tcp;
 
 import java.nio.ByteBuffer;
 
-public final class TcpQueueArray {
+class TcpQueueArray {
 
     public static final TcpQueueArray EMPTY = new TcpQueueArray(null, -1, 0);
 

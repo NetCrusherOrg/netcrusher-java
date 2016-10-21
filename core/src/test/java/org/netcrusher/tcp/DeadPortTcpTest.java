@@ -53,9 +53,9 @@ public class DeadPortTcpTest {
         channel.configureBlocking(true);
         channel.connect(new InetSocketAddress(HOSTNAME, CRUSHER_PORT));
 
-        Assert.assertEquals(0, crusher.getPairs().size());
+        Assert.assertEquals(0, crusher.getClientAddresses().size());
         Thread.sleep(3000);
-        Assert.assertEquals(0, crusher.getPairs().size());
+        Assert.assertEquals(0, crusher.getClientAddresses().size());
 
         ByteBuffer bb = ByteBuffer.allocate(100);
         bb.put((byte) 0x01);

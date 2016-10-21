@@ -3,6 +3,9 @@ package org.netcrusher.core.meter;
 import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Statistics for period (total or specific time)
+ */
 public class RateMeterPeriod implements Serializable {
 
     private final long count;

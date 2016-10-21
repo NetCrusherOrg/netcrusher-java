@@ -4,6 +4,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.bulk.DatagramBulkReflector;
 
@@ -62,10 +63,14 @@ public class EmptyDatagramTest {
 
             // check
             Thread.sleep(500);
-            Assert.assertEquals(1, crusher.getInner().getReadDatagramMeter().getTotalCount());
-            Assert.assertEquals(0, crusher.getInner().getReadByteMeter().getTotalCount());
-            Assert.assertEquals(1, crusher.getInner().getSentDatagramMeter().getTotalCount());
-            Assert.assertEquals(0, crusher.getInner().getSentByteMeter().getTotalCount());
+
+            RateMeters innerByteMeters = crusher.getInnerByteMeters();
+            Assert.assertEquals(0, innerByteMeters.getReadMeter().getTotalCount());
+            Assert.assertEquals(0, innerByteMeters.getSentMeter().getTotalCount());
+
+            RateMeters innerPacketMeters = crusher.getInnerPacketMeters();
+            Assert.assertEquals(1, innerPacketMeters.getReadMeter().getTotalCount());
+            Assert.assertEquals(1, innerPacketMeters.getSentMeter().getTotalCount());
 
             // read
             bb.clear();

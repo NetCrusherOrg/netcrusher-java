@@ -197,6 +197,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             if (crusher.isFrozen()) {
                 LOGGER.info("Crusher is frozen");
             }
+            LOGGER.info("Total number of registered clients: {}", crusher.getClientTotalCount());
         } else {
             LOGGER.info("Crusher is closed");
         }

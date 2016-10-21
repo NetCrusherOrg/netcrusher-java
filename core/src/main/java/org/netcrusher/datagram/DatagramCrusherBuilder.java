@@ -1,9 +1,11 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.datagram.callback.DatagramClientCreation;
+import org.netcrusher.datagram.callback.DatagramClientDeletion;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -24,6 +26,10 @@ public final class DatagramCrusherBuilder {
 
     private DatagramCrusherSocketOptions socketOptions;
 
+    private DatagramClientCreation creationListener;
+
+    private DatagramClientDeletion deletionListener;
+
     private TransformFilter incomingTransformFilter;
 
     private TransformFilter outgoingTransformFilter;
@@ -36,13 +42,10 @@ public final class DatagramCrusherBuilder {
 
     private Throttler outgoingThrottler;
 
-    private long maxIdleDurationMs;
-
     private int queueLimit;
 
     private DatagramCrusherBuilder() {
         this.socketOptions = new DatagramCrusherSocketOptions();
-        this.maxIdleDurationMs = 0;
         this.queueLimit = 16 * 1024;
     }
 
@@ -131,18 +134,6 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
-     * Set a maximum idle duration for outgoing socket channel. If no any activity is registered on the channel for
-     * the specified period - the channel will be closed. If value is not set all channels will exist until
-     * the crusher instance remains open.
-     * @param maxIdleDurationMs Maximum idle duration in milliseconds
-     * @return This builder instance to chain with other methods
-     */
-    public DatagramCrusherBuilder withMaxIdleDurationMs(long maxIdleDurationMs) {
-        this.maxIdleDurationMs = maxIdleDurationMs;
-        return this;
-    }
-
-    /**
      * Set the maximum count of datagrams in transfer queue
      * @param queueLimit Queue limit
      * @return This builder instance to chain with other methods
@@ -219,6 +210,26 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
+     * Set a listener for a new proxy connection
+     * @param creationListener Listener implementation
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withCreationListener(DatagramClientCreation creationListener) {
+        this.creationListener = creationListener;
+        return this;
+    }
+
+    /**
+     * Set a listener for a proxy connection to be deleted
+     * @param deletionListener Listener implementation
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withDeletionListener(DatagramClientDeletion deletionListener) {
+        this.deletionListener = deletionListener;
+        return this;
+    }
+
+    /**
      * Builds a new DatagramCrusher instance
      * @return DatagramCrusher instance
      */
@@ -242,7 +253,7 @@ public final class DatagramCrusherBuilder {
         );
 
         return new DatagramCrusher(reactor, bindAddress, connectAddress, socketOptions.copy(),
-            filters, maxIdleDurationMs, queueLimit);
+            filters, creationListener, deletionListener, queueLimit);
     }
 
     /**

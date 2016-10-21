@@ -1,5 +1,8 @@
 package org.netcrusher.core.meter;
 
+/**
+ * Total and period statistics (number of events and time)
+ */
 public interface RateMeter {
 
     /**

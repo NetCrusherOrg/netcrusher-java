@@ -1,9 +1,10 @@
 package org.netcrusher.core.meter;
 
+import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class RateMeterImpl implements RateMeter {
+public class RateMeterImpl implements RateMeter, Serializable {
 
     private final long createdMs;
 

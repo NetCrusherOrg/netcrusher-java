@@ -1,14 +1,13 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.main.AbstractCrusherMain;
+import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
 public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
-
-    private static final long MAX_IDLE_DURATION_MS = 60000;
 
     @Override
     protected DatagramCrusher create(NioReactor reactor,
@@ -19,7 +18,6 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
             .withReactor(reactor)
             .withBindAddress(bindAddress)
             .withConnectAddress(connectAddress)
-            .withMaxIdleDurationMs(MAX_IDLE_DURATION_MS)
             .buildAndOpen();
     }
 
@@ -31,19 +29,28 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
         if (crusher.isOpen()) {
             LOGGER.info("Inner");
 
-            DatagramInner inner = crusher.getInner();
-            LOGGER.info("\ttotal read bytes: {}", inner.getReadByteMeter().getTotal());
-            LOGGER.info("\ttotal read datagrams: {}", inner.getReadDatagramMeter().getTotal());
-            LOGGER.info("\ttotal sent bytes: {}", inner.getSentByteMeter().getTotal());
-            LOGGER.info("\ttotal sent datagrams: {}", inner.getSentDatagramMeter().getTotal());
+            RateMeters innerByteMeters = crusher.getInnerByteMeters();
+            LOGGER.info("\ttotal read bytes: {}", innerByteMeters.getReadMeter().getTotal());
+            LOGGER.info("\ttotal sent bytes: {}", innerByteMeters.getSentMeter().getTotal());
 
-            for (DatagramOuter outer : crusher.getOuters()) {
-                LOGGER.info("Outer for {}", outer.getClientAddress());
-                LOGGER.info("\ttotal read bytes: {}", outer.getReadByteMeter().getTotal());
-                LOGGER.info("\ttotal read datagrams: {}", outer.getReadDatagramMeter().getTotal());
-                LOGGER.info("\ttotal sent bytes: {}", outer.getSentByteMeter());
-                LOGGER.info("\ttotal sent datagrams: {}", outer.getSentDatagramMeter().getTotal());
-                LOGGER.info("\tidle duration, ms: {}", outer.getIdleDurationMs());
+            RateMeters innerPacketMeters = crusher.getInnerPacketMeters();
+            LOGGER.info("\ttotal read datagrams: {}", innerPacketMeters.getReadMeter().getTotal());
+            LOGGER.info("\ttotal sent datagrams: {}", innerPacketMeters.getSentMeter().getTotal());
+
+            for (InetSocketAddress clientAddress : crusher.getClientAddresses()) {
+                LOGGER.info("Outer for <{}>", clientAddress);
+
+                RateMeters outerByteMeters = crusher.getClientByteMeters(clientAddress);
+                if (outerByteMeters != null) {
+                    LOGGER.info("\ttotal read bytes: {}", outerByteMeters.getReadMeter().getTotal());
+                    LOGGER.info("\ttotal sent bytes: {}", outerByteMeters.getSentMeter().getTotal());
+                }
+
+                RateMeters outerPacketMeters = crusher.getClientPacketMeters(clientAddress);
+                if (outerPacketMeters != null) {
+                    LOGGER.info("\ttotal read datagrams: {}", outerPacketMeters.getReadMeter().getTotal());
+                    LOGGER.info("\ttotal sent datagrams: {}", outerPacketMeters.getSentMeter().getTotal());
+                }
             }
         }
     }

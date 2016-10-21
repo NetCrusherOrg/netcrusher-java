@@ -1,7 +1,9 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.NetFreezer;
 import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.main.AbstractCrusherMain;
+import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 
 import java.io.IOException;
@@ -26,13 +28,13 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             .withReactor(reactor)
             .withBindAddress(bindAddress)
             .withConnectAddress(connectAddress)
-            .withDeletionListener((pair) -> {
-                LOGGER.info("Pair for <{}> is deleted", pair.getClientAddress());
-                reportPair(pair);
+            .withCreationListener((addr) -> {
+                LOGGER.info("Client for <{}> is created", addr);
             })
-            .withCreationListener((pair -> {
-                LOGGER.info("Pair for <{}> is created", pair.getClientAddress());
-            }))
+            .withDeletionListener((addr, meters) -> {
+                LOGGER.info("Client for <{}> is deleted", addr);
+                reportClientMeters(meters);
+            })
             .buildAndOpen();
     }
 
@@ -42,24 +44,22 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
         super.status(crusher);
 
         if (crusher.isOpen()) {
-            LOGGER.info("Total accepted: {}", crusher.getAcceptedCount());
-
-            for (TcpPair pair : crusher.getPairs()) {
-                reportPair(pair);
-            }
+            crusher.getClientAddresses().forEach((addr) -> this.reportClient(crusher, addr));
         }
     }
 
-    private void reportPair(TcpPair pair) {
-        LOGGER.info("Pair statistics for <{}>", pair.getClientAddress());
+    private void reportClient(TcpCrusher crusher, InetSocketAddress clientAddress) {
+        LOGGER.info("Pair statistics for <{}>", clientAddress);
 
-        TcpTransfer inner = pair.getInnerTransfer();
-        LOGGER.info("\tinner total read bytes: {}", inner.getReadMeter().getTotal());
-        LOGGER.info("\tinner total sent bytes: {}", inner.getSentMeter().getTotal());
+        RateMeters meters = crusher.getClientByteMeters(clientAddress);
+        if (meters != null) {
+            reportClientMeters(meters);
+        }
+    }
 
-        TcpTransfer outer = pair.getOuterTransfer();
-        LOGGER.info("\touter total read bytes: {}", outer.getReadMeter().getTotal());
-        LOGGER.info("\touter total sent bytes: {}", outer.getSentMeter().getTotal());
+    private void reportClientMeters(RateMeters meters) {
+        LOGGER.info("\ttotal read bytes: {}", meters.getReadMeter().getTotal());
+        LOGGER.info("\ttotal sent bytes: {}", meters.getSentMeter().getTotal());
     }
 
     @Override
@@ -98,7 +98,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void freezePair(TcpCrusher crusher, String command) throws IOException {
         InetSocketAddress addr = parseAddress(command);
-        TcpPair pair = crusher.getPair(addr);
+        NetFreezer pair = crusher.getClientFreezer(addr);
         if (pair != null) {
             pair.freeze();
             LOGGER.info("Pair for <{}> is frozen", addr);
@@ -109,7 +109,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void unfreezePair(TcpCrusher crusher, String command) throws IOException {
         InetSocketAddress addr = parseAddress(command);
-        TcpPair pair = crusher.getPair(addr);
+        NetFreezer pair = crusher.getClientFreezer(addr);
         if (pair != null) {
             pair.unfreeze();
             LOGGER.info("Pair for <{}> is unfrozen", addr);
@@ -120,7 +120,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void closePair(TcpCrusher crusher, String command) throws IOException {
         InetSocketAddress addr = parseAddress(command);
-        boolean closed = crusher.closePair(addr);
+        boolean closed = crusher.closeClient(addr);
         if (closed) {
             LOGGER.info("Pair for <{}> is closed", addr);
         } else {
@@ -130,12 +130,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void statusPair(TcpCrusher crusher, String command) throws IOException {
         InetSocketAddress addr = parseAddress(command);
-        TcpPair pair = crusher.getPair(addr);
-        if (pair != null) {
-            reportPair(pair);
-        } else {
-            LOGGER.info("Pair for <{}> is not found", addr);
-        }
+        reportClient(crusher, addr);
     }
 
     protected void freezeAcceptor(TcpCrusher crusher) throws IOException {

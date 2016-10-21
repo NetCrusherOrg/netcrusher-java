@@ -1,8 +1,12 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetCrusher;
-import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.NetFreezer;
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.tcp.callback.TcpClientCreation;
+import org.netcrusher.tcp.callback.TcpClientDeletion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,15 +20,15 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.nio.channels.UnsupportedAddressTypeException;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * <p>TcpCrusher - a TCP proxy for test purposes. To create a new instance use TcpCrusherBuilder</p>
@@ -37,9 +41,7 @@ import java.util.function.Consumer;
  *     .withRemoteAddress("google.com", 80)
  *     .buildAndOpen();
  *
- * // do some test on localhost:10080
- * crusher.crush();
- * // do other test on localhost:10080
+ * // ... do something
  *
  * crusher.close();
  * reactor.close();
@@ -62,9 +64,9 @@ public class TcpCrusher implements NetCrusher {
 
     private final Map<InetSocketAddress, TcpPair> pairs;
 
-    private final Consumer<TcpPair> creationListener;
+    private final TcpClientCreation creationListener;
 
-    private final Consumer<TcpPair> deletionListener;
+    private final TcpClientDeletion deletionListener;
 
     private final int bufferCount;
 
@@ -72,7 +74,7 @@ public class TcpCrusher implements NetCrusher {
 
     private final TcpFilters filters;
 
-    private final AtomicInteger acceptedCount;
+    private final AtomicInteger clientTotalCount;
 
     private ServerSocketChannel serverSocketChannel;
 
@@ -87,8 +89,8 @@ public class TcpCrusher implements NetCrusher {
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
             TcpCrusherSocketOptions socketOptions,
-            Consumer<TcpPair> creationListener,
-            Consumer<TcpPair> deletionListener,
+            TcpClientCreation creationListener,
+            TcpClientDeletion deletionListener,
             TcpFilters filters,
             int bufferCount,
             int bufferSize)
@@ -103,7 +105,7 @@ public class TcpCrusher implements NetCrusher {
         this.bufferSize = bufferSize;
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
-        this.acceptedCount = new AtomicInteger(0);
+        this.clientTotalCount = new AtomicInteger(0);
         this.open = false;
         this.frozen = true;
     }
@@ -125,6 +127,8 @@ public class TcpCrusher implements NetCrusher {
         }
 
         serverSelectionKey = reactor.getSelector().register(serverSocketChannel, 0, (selectionKey) -> this.accept());
+
+        clientTotalCount.set(0);
 
         LOGGER.info("TcpCrusher <{}>-<{}> is open", bindAddress, connectAddress);
 
@@ -164,8 +168,13 @@ public class TcpCrusher implements NetCrusher {
      */
     public synchronized void closeAllPairs() throws IOException {
         if (open) {
-            for (TcpPair pair : getPairs()) {
-                closePair(pair.getClientAddress());
+            for (TcpPair pair : pairs.values()) {
+                pair.closeExternal();
+
+                if (deletionListener != null) {
+                    reactor.getScheduler().execute(() ->
+                        deletionListener.deleted(pair.getClientAddress(), pair.getRateMeters()));
+                }
             }
         } else {
             throw new IllegalStateException("Crusher is not open");
@@ -363,10 +372,10 @@ public class TcpCrusher implements NetCrusher {
 
             pairs.put(pair.getClientAddress(), pair);
 
-            acceptedCount.incrementAndGet();
+            clientTotalCount.incrementAndGet();
 
             if (creationListener != null) {
-                reactor.getScheduler().execute(() -> creationListener.accept(pair));
+                reactor.getScheduler().execute(() -> creationListener.created(pair.getClientAddress()));
             }
         } catch (ClosedChannelException | CancelledKeyException e) {
             LOGGER.debug("One of the channels is already closed", e);
@@ -389,51 +398,64 @@ public class TcpCrusher implements NetCrusher {
         return connectAddress;
     }
 
-    /**
-     * Get collection of active tranfer pairs
-     * @return Collection of tranfer pairs
-     */
-    public Collection<TcpPair> getPairs() {
-        return new ArrayList<>(this.pairs.values());
-    }
-
-    /**
-     * Close the pair by client address
-     * @param clientAddress Client address
-     * @return Returns true if the pair is found and closed
-     * @throws IOException Exception on error
-     */
-    public boolean closePair(InetSocketAddress clientAddress) throws IOException {
-        TcpPair pair = pairs.remove(clientAddress);
-        if (pair != null) {
-            pair.closeExternal();
-
-            if (deletionListener != null) {
-                reactor.getScheduler().execute(() -> deletionListener.accept(pair));
-            }
-
-            return true;
+    @Override
+    public Collection<InetSocketAddress> getClientAddresses() {
+        if (open) {
+            return this.pairs.values().stream()
+                .map(TcpPair::getClientAddress)
+                .collect(Collectors.toList());
         } else {
-            return false;
+            return Collections.emptyList();
         }
     }
 
-    /**
-     * Request TCP pair by client address
-     * @param clientAddress Client address
-     * @return TCP pair
-     * @throws IOException Exception on error
-     */
-    public TcpPair getPair(InetSocketAddress clientAddress) throws IOException {
-        return pairs.get(clientAddress);
+    @Override
+    public RateMeters getClientByteMeters(InetSocketAddress clientAddress) {
+        if (open) {
+            TcpPair pair = this.pairs.get(clientAddress);
+            if (pair != null) {
+                return pair.getRateMeters();
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public boolean closeClient(InetSocketAddress clientAddress) throws IOException {
+        if (open) {
+            TcpPair pair = pairs.remove(clientAddress);
+            if (pair != null) {
+                pair.closeExternal();
+
+                if (deletionListener != null) {
+                    reactor.getScheduler().execute(() ->
+                        deletionListener.deleted(pair.getClientAddress(), pair.getRateMeters()));
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
-     * Get the total count of created tranfer pairs for all the time
-     * @return Count
+     * Request freezer for the specific client
+     * @param clientAddress Client address
+     * @return Freezer or null if client address is not registered
      */
-    public int getAcceptedCount() {
-        return acceptedCount.get();
+    public NetFreezer getClientFreezer(InetSocketAddress clientAddress) {
+        if (open) {
+            return pairs.get(clientAddress);
+        } else {
+            return null;
+        }
+    }
+
+    @Override
+    public int getClientTotalCount() {
+        return clientTotalCount.get();
     }
 }
 

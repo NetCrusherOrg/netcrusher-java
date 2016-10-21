@@ -1,8 +1,9 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
-import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,7 +11,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 
-public class TcpPair implements NetFreezer {
+class TcpPair implements NetFreezer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpPair.class);
 
@@ -68,11 +69,37 @@ public class TcpPair implements NetFreezer {
     }
 
     private void closeInternal() throws IOException {
-        LOGGER.debug("Pair for <{}> will be self-closed", clientAddress);
+        LOGGER.debug("Pair for <{}> is closing itself", clientAddress);
+
         reactor.getScheduler().execute(() -> {
-            crusher.closePair(this.getClientAddress());
+            crusher.closeClient(this.getClientAddress());
             return true;
         });
+    }
+
+    synchronized void closeExternal() throws IOException {
+        if (open) {
+            freeze();
+
+            NioUtils.closeChannel(inner);
+            NioUtils.closeChannel(outer);
+
+            open = false;
+
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("Pair for '{}' is closed", clientAddress);
+
+                int incomingBytes = innerTransfer.getIncoming().calculateReadingBytes();
+                if (incomingBytes > 0) {
+                    LOGGER.debug("The pair for {} has {} incoming bytes when closing", incomingBytes);
+                }
+
+                int outgoingBytes = innerTransfer.getOutgoing().calculateReadingBytes();
+                if (outgoingBytes > 0) {
+                    LOGGER.debug("The pair for {} has {} outgoing bytes when closing", outgoingBytes);
+                }
+            }
+        }
     }
 
     @Override
@@ -116,61 +143,12 @@ public class TcpPair implements NetFreezer {
         }
     }
 
-    synchronized void closeExternal() throws IOException {
-        if (open) {
-            freeze();
-
-            NioUtils.closeChannel(inner);
-            NioUtils.closeChannel(outer);
-
-            open = false;
-
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Pair for '{}' is closed", clientAddress);
-
-                int incomingBytes = innerTransfer.getIncoming().calculateReadingBytes();
-                if (incomingBytes > 0) {
-                    LOGGER.debug("The pair for {} has {} incoming bytes when closing", incomingBytes);
-                }
-
-                int outgoingBytes = innerTransfer.getOutgoing().calculateReadingBytes();
-                if (outgoingBytes > 0) {
-                    LOGGER.debug("The pair for {} has {} outgoing bytes when closing", outgoingBytes);
-                }
-            }
-        }
-    }
-
-    /**
-     * Returns client address for 'inner' connection
-     * @return Socket address
-     */
-    public InetSocketAddress getClientAddress() {
+    InetSocketAddress getClientAddress() {
         return clientAddress;
     }
 
-    /**
-     * Get inner socket statistics
-     * @return Inner socket statistics
-     */
-    public TcpTransfer getInnerTransfer() {
-        return innerTransfer;
-    }
-
-    /**
-     * Get outer socket statistics
-     * @return Outer socket statistics
-     */
-    public TcpTransfer getOuterTransfer() {
-        return outerTransfer;
-    }
-
-    /**
-     * Check is TCP pair open
-     * @return Returns <em>true</em> if the pair is open
-     */
-    public boolean isOpen() {
-        return open;
+    RateMeters getRateMeters() {
+        return new RateMeters(innerTransfer.getSentMeter(), outerTransfer.getSentMeter());
     }
 
 }

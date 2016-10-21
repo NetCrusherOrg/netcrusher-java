@@ -10,7 +10,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.TimeUnit;
 
-public class TcpQueue implements Serializable {
+class TcpQueue implements Serializable {
 
     private final Deque<Entry> reading;
 

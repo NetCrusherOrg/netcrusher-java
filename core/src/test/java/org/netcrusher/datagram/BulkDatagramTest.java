@@ -4,17 +4,22 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.filter.InverseFilter1;
 import org.netcrusher.core.filter.InverseFilter2;
 import org.netcrusher.core.filter.NoopFilter;
+import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.NoopThrottler;
 import org.netcrusher.datagram.bulk.DatagramBulkClient;
 import org.netcrusher.datagram.bulk.DatagramBulkReflector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 
 public class BulkDatagramTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BulkDatagramTest.class);
 
     private static final int CLIENT_PORT = 10182;
 
@@ -44,6 +49,8 @@ public class BulkDatagramTest {
             .withOutgoingTransformFilter(InverseFilter1.INSTANCE.then(NoopFilter.INSTANCE))
             .withOutgoingPassFilter((addr, bb) -> true)
             .withOutgoingThrottler(NoopThrottler.INSTANCE)
+            .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
+            .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
     }
 
@@ -79,21 +86,25 @@ public class BulkDatagramTest {
 
         long expectedDatagrams = (COUNT + DatagramBulkClient.SND_BUFFER_SIZE - 1) / DatagramBulkClient.SND_BUFFER_SIZE;
 
-        DatagramInner inner = crusher.getInner();
-        Assert.assertNotNull(inner);
-        Assert.assertEquals(COUNT, inner.getReadByteMeter().getTotalCount());
-        Assert.assertEquals(COUNT, inner.getSentByteMeter().getTotalCount());
-        Assert.assertTrue(expectedDatagrams <= inner.getReadDatagramMeter().getTotalCount());
-        Assert.assertTrue(expectedDatagrams <= inner.getSentDatagramMeter().getTotalCount());
+        RateMeters innerByteMeters = crusher.getInnerByteMeters();
+        Assert.assertEquals(COUNT, innerByteMeters.getReadMeter().getTotalCount());
+        Assert.assertEquals(COUNT, innerByteMeters.getSentMeter().getTotalCount());
 
-        Assert.assertEquals(1, crusher.getOuters().size());
-        DatagramOuter outer = crusher.getOuters().iterator().next();
-        Assert.assertNotNull(outer);
-        Assert.assertNotNull(outer.getClientAddress());
-        Assert.assertEquals(COUNT, outer.getReadByteMeter().getTotalCount());
-        Assert.assertEquals(COUNT, outer.getSentByteMeter().getTotalCount());
-        Assert.assertTrue(expectedDatagrams <= outer.getReadDatagramMeter().getTotalCount());
-        Assert.assertTrue(expectedDatagrams <= outer.getSentDatagramMeter().getTotalCount());
+        RateMeters innerPacketMeters = crusher.getInnerPacketMeters();
+        Assert.assertTrue(expectedDatagrams <= innerPacketMeters.getReadMeter().getTotalCount());
+        Assert.assertTrue(expectedDatagrams <= innerPacketMeters.getSentMeter().getTotalCount());
+
+        Assert.assertEquals(1, crusher.getClientAddresses().size());
+        InetSocketAddress clientAddress = crusher.getClientAddresses().iterator().next();
+        Assert.assertNotNull(clientAddress);
+
+        RateMeters outerByteMeters = crusher.getClientByteMeters(clientAddress);
+        Assert.assertEquals(COUNT, outerByteMeters.getReadMeter().getTotalCount());
+        Assert.assertEquals(COUNT, outerByteMeters.getSentMeter().getTotalCount());
+
+        RateMeters outerPacketMeters = crusher.getClientPacketMeters(clientAddress);
+        Assert.assertTrue(expectedDatagrams <= outerPacketMeters.getReadMeter().getTotalCount());
+        Assert.assertTrue(expectedDatagrams <= outerPacketMeters.getSentMeter().getTotalCount());
 
         client.close();
         reflector.close();

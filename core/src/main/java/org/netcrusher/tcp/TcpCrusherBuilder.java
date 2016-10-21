@@ -1,13 +1,14 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.tcp.callback.TcpClientCreation;
+import org.netcrusher.tcp.callback.TcpClientDeletion;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
-import java.util.function.Consumer;
 
 /**
  * Builder for TcpCrusher instance
@@ -22,9 +23,9 @@ public final class TcpCrusherBuilder {
 
     private TcpCrusherSocketOptions socketOptions;
 
-    private Consumer<TcpPair> creationListener;
+    private TcpClientCreation creationListener;
 
-    private Consumer<TcpPair> deletionListener;
+    private TcpClientDeletion deletionListener;
 
     private TransformFilter incomingTransformFilter;
 
@@ -109,7 +110,7 @@ public final class TcpCrusherBuilder {
      * @param creationListener Listener implementation
      * @return This builder instance to chain with other methods
      */
-    public TcpCrusherBuilder withCreationListener(Consumer<TcpPair> creationListener) {
+    public TcpCrusherBuilder withCreationListener(TcpClientCreation creationListener) {
         this.creationListener = creationListener;
         return this;
     }
@@ -119,7 +120,7 @@ public final class TcpCrusherBuilder {
      * @param deletionListener Listener implementation
      * @return This builder instance to chain with other methods
      */
-    public TcpCrusherBuilder withDeletionListener(Consumer<TcpPair> deletionListener) {
+    public TcpCrusherBuilder withDeletionListener(TcpClientDeletion deletionListener) {
         this.deletionListener = deletionListener;
         return this;
     }

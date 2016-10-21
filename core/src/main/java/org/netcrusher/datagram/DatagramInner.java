@@ -1,9 +1,9 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.meter.RateMeter;
 import org.netcrusher.core.meter.RateMeterImpl;
+import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,13 +14,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DatagramInner {
+class DatagramInner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramInner.class);
 
@@ -36,8 +35,6 @@ public class DatagramInner {
 
     private final InetSocketAddress connectAddress;
 
-    private final long maxIdleDurationMs;
-
     private final DatagramChannel channel;
 
     private final SelectionKey selectionKey;
@@ -52,9 +49,9 @@ public class DatagramInner {
 
     private final RateMeterImpl readByteMeter;
 
-    private final RateMeterImpl sentDatagramMeter;
+    private final RateMeterImpl sentPacketMeter;
 
-    private final RateMeterImpl readDatagramMeter;
+    private final RateMeterImpl readPacketMeter;
 
     private final int queueLimit;
 
@@ -69,7 +66,6 @@ public class DatagramInner {
             DatagramFilters filters,
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
-            long maxIdleDurationMs,
             int queueLimit) throws IOException
     {
         this.crusher = crusher;
@@ -80,15 +76,14 @@ public class DatagramInner {
         this.connectAddress = connectAddress;
         this.outers = new ConcurrentHashMap<>(32);
         this.incoming = new DatagramQueue(queueLimit);
-        this.maxIdleDurationMs = maxIdleDurationMs;
         this.queueLimit = queueLimit;
         this.frozen = true;
         this.open = true;
 
         this.sentByteMeter = new RateMeterImpl();
         this.readByteMeter = new RateMeterImpl();
-        this.sentDatagramMeter = new RateMeterImpl();
-        this.readDatagramMeter = new RateMeterImpl();
+        this.sentPacketMeter = new RateMeterImpl();
+        this.readPacketMeter = new RateMeterImpl();
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
@@ -158,8 +153,14 @@ public class DatagramInner {
                 LOGGER.warn("On closing inner has {} incoming datagrams", incoming.size());
             }
 
-            outers.values().forEach(DatagramOuter::closeExternal);
-            outers.clear();
+            Iterator<DatagramOuter> outerIterator = outers.values().iterator();
+            while (outerIterator.hasNext()) {
+                DatagramOuter outer = outerIterator.next();
+                outerIterator.remove();
+
+                outer.closeExternal();
+                crusher.notifyOuterDeleted(outer);
+            }
 
             NioUtils.closeChannel(channel);
 
@@ -168,13 +169,6 @@ public class DatagramInner {
             open = false;
 
             LOGGER.debug("Inner on <{}> is closed", bindAddress);
-        }
-    }
-
-    void closeOuter(InetSocketAddress clientAddress) {
-        DatagramOuter outer = outers.remove(clientAddress);
-        if (outer != null) {
-            outer.closeExternal();
         }
     }
 
@@ -245,7 +239,7 @@ public class DatagramInner {
                 }
 
                 sentByteMeter.update(sent);
-                sentDatagramMeter.increment();
+                sentPacketMeter.increment();
 
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Send {} bytes to client <{}>", sent, entry.getAddress());
@@ -279,7 +273,7 @@ public class DatagramInner {
             }
 
             readByteMeter.update(read);
-            readDatagramMeter.increment();
+            readPacketMeter.increment();
 
             DatagramOuter outer = requestOuter(address);
 
@@ -293,39 +287,16 @@ public class DatagramInner {
         DatagramOuter outer = outers.get(address);
 
         if (outer == null) {
-            if (maxIdleDurationMs > 0) {
-                clearOuters(maxIdleDurationMs);
-            }
-
             outer = new DatagramOuter(this, reactor, socketOptions, filters, queueLimit,
                 address, connectAddress);
             outer.unfreeze();
 
             outers.put(address, outer);
+
+            crusher.notifyOuterCreated(outer);
         }
 
         return outer;
-    }
-
-    private void clearOuters(long maxIdleDurationMs) {
-        int countBefore = outers.size();
-        if (countBefore > 0) {
-            Iterator<DatagramOuter> outerIterator = outers.values().iterator();
-
-            while (outerIterator.hasNext()) {
-                DatagramOuter outer = outerIterator.next();
-
-                if (outer.getIdleDurationMs() > maxIdleDurationMs) {
-                    outer.closeExternal();
-                    outerIterator.remove();
-                }
-            }
-
-            int countAfter = outers.size();
-            if (countAfter < countBefore) {
-                LOGGER.debug("Outer connections are cleared ({} -> {})", countBefore, countAfter);
-            }
-        }
     }
 
     void enqueue(InetSocketAddress address, ByteBuffer bbToCopy, long delayNs) {
@@ -335,40 +306,62 @@ public class DatagramInner {
         }
     }
 
-    Collection<DatagramOuter> getOuters() {
-        return new ArrayList<>(outers.values());
+    boolean closeOuter(InetSocketAddress clientAddress) {
+        DatagramOuter outer = outers.remove(clientAddress);
+        if (outer != null) {
+            outer.closeExternal();
+            crusher.notifyOuterDeleted(outer);
+
+            return true;
+        } else {
+            return false;
+        }
     }
 
-    /**
-     * How many bytes was sent from inner
-     * @return Rate meter
-     */
-    public RateMeter getSentByteMeter() {
+    void closeIdleOuters(long maxIdleDurationMs) {
+        int countBefore = outers.size();
+        if (countBefore > 0) {
+            Iterator<DatagramOuter> outerIterator = outers.values().iterator();
+
+            while (outerIterator.hasNext()) {
+                DatagramOuter outer = outerIterator.next();
+
+                if (outer.getIdleDurationMs() > maxIdleDurationMs) {
+                    outerIterator.remove();
+
+                    outer.closeExternal();
+                    crusher.notifyOuterDeleted(outer);
+                }
+            }
+
+            int countAfter = outers.size();
+            LOGGER.debug("Outer connections are cleared ({} -> {})", countBefore, countAfter);
+        }
+    }
+
+
+    DatagramOuter getOuter(InetSocketAddress clientAddress) {
+        return outers.get(clientAddress);
+    }
+
+    Collection<DatagramOuter> getOuters() {
+        return outers.values();
+    }
+
+    RateMeter getSentByteMeter() {
         return sentByteMeter;
     }
 
-    /**
-     * How many bytes was received by inner
-     * @return Rate meter
-     */
-    public RateMeter getReadByteMeter() {
+    RateMeter getReadByteMeter() {
         return readByteMeter;
     }
 
-    /**
-     * How many datagrams was sent by inner
-     * @return Datagram count meter
-     */
-    public RateMeter getSentDatagramMeter() {
-        return sentDatagramMeter;
+    RateMeter getSentPacketMeter() {
+        return sentPacketMeter;
     }
 
-    /**
-     * How many datagrams was received by inner
-     * @return Datagram count meter
-     */
-    public RateMeter getReadDatagramMeter() {
-        return readDatagramMeter;
+    RateMeter getReadPacketMeter() {
+        return readPacketMeter;
     }
 
 }
