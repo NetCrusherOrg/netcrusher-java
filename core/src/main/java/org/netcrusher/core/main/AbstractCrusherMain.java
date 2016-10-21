@@ -17,6 +17,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected static final String CMD_OPEN = "OPEN";
     protected static final String CMD_CLOSE = "CLOSE";
+    protected static final String CMD_REOPEN = "REOPEN";
     protected static final String CMD_FREEZE = "FREEZE";
     protected static final String CMD_UNFREEZE = "UNFREEZE";
     protected static final String CMD_STATUS = "STATUS";
@@ -125,6 +126,9 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             case CMD_CLOSE:
                 close(crusher);
                 break;
+            case CMD_REOPEN:
+                reopen(crusher);
+                break;
             case CMD_STATUS:
                 status(crusher);
                 break;
@@ -156,6 +160,14 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         if (crusher.isOpen()) {
             crusher.close();
             LOGGER.info("Crusher is closed");
+        } else {
+        }
+    }
+
+    protected void reopen(T crusher) throws IOException {
+        if (crusher.isOpen()) {
+            crusher.reopen();
+            LOGGER.info("Crusher is reopen");
         } else {
             LOGGER.info("Crusher is already closed");
         }
@@ -199,6 +211,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         LOGGER.info("Commands:");
         LOGGER.info("\t" + CMD_OPEN + "     - opens the crusher");
         LOGGER.info("\t" + CMD_CLOSE + "    - closes the crusher (sockets will be closed)");
+        LOGGER.info("\t" + CMD_REOPEN + "   - closes and opens the crusher again");
         LOGGER.info("\t" + CMD_FREEZE + "   - freezes the crusher (open but transfer engine is not working)");
         LOGGER.info("\t" + CMD_UNFREEZE + " - unfreezes the crusher");
         LOGGER.info("\t" + CMD_STATUS + "   - prints the status of the connection");

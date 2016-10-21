@@ -6,9 +6,9 @@ NetCrusher is TCP/UDP proxy for java that sit in the middle between client and s
 * emulates frozen connection
 * allows to check the state of connections
 * allows to filter/dump data
-* emulates slow network (TBD)
+* throttling (delay and/or throughtput control)
 
-NetCrusher is build on top of Java NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
+NetCrusher is build on top of Java 8 NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
 
 Documentation is available on https://netcrusherorg.github.io/netcrusher-java/
 
@@ -23,14 +23,12 @@ TcpCrusher crusher = TcpCrusherBuilder.builder()
     .withConnectAddress("google.com", 80)
     .buildAndOpen();
 
-// now you connect to localhost:10080
-SomeResource resource = new SomeResource("localhost", 10080);
+// ... some actions
 
-// emulate disconnect
-crusher.crush();
+// emulate reconnect
+crusher.reopen();
 
-// check how the application goes
-Assert.assertTrue(resource.isValid());
+// ... check the connection is reestablished
 
 // closing
 crusher.close();
@@ -48,12 +46,10 @@ DatagramCrusher crusher = DatagramCrusherBuilder.builder()
     .withConnectAddress("time-nw.nist.gov", 37)
     .buildAndOpen();
 
-// start getting RFC-868 timestamp on localhost:10188
+// ... some actions
 
-// emulate disconnect - listening socket on localhost:10188 will be reopened
-crusher.crush();
-
-// check everything is still allright
+// check data is sent
+Assert.assertTrue(crusher.getInner().getReadDatagramMeter().getTotal() > 0);
 
 // closing
 crusher.close();

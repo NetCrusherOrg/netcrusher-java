@@ -173,7 +173,7 @@ public class TcpCrusher implements NetCrusher {
     }
 
     @Override
-    public synchronized void crush() throws IOException {
+    public synchronized void reopen() throws IOException {
         if (open) {
             close();
             open();

@@ -39,7 +39,7 @@ public interface NetCrusher extends NetFreezer, Closeable {
      * @see NetCrusher#open()
      * @see NetCrusher#close()
      */
-    void crush() throws IOException;
+    void reopen() throws IOException;
 
     /**
      * Get the address which is used to bind on
@@ -52,5 +52,6 @@ public interface NetCrusher extends NetFreezer, Closeable {
      * @return Remote connect address
      */
     InetSocketAddress getConnectAddress();
+
 
 }

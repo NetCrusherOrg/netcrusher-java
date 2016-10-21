@@ -26,14 +26,4 @@ public interface Throttler {
      */
     long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb);
 
-    /**
-     * Combine this throttler with other one
-     * @param other Other throttler
-     * @return Combined throttler
-     */
-    default Throttler combine(Throttler other) {
-        return (clientAddress, bb) ->
-            Math.max(this.calculateDelayNs(clientAddress, bb), other.calculateDelayNs(clientAddress, bb));
-    }
-
 }

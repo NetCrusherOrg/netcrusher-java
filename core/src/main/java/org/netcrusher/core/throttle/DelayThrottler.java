@@ -24,9 +24,4 @@ public class DelayThrottler implements Throttler {
     public long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb) {
         return delayNs;
     }
-
-    @Override
-    public Throttler combine(Throttler other) {
-        return (clientAddress, bb) -> delayNs + other.calculateDelayNs(clientAddress, bb);
-    }
 }
