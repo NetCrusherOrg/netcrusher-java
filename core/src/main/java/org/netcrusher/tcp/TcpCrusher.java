@@ -110,6 +110,22 @@ public class TcpCrusher implements NetCrusher {
         this.frozen = true;
     }
 
+    private void notifyPairCreated(TcpPair pair) {
+        clientTotalCount.incrementAndGet();
+
+        if (creationListener != null) {
+            reactor.getScheduler().execute(() ->
+                creationListener.created(pair.getClientAddress()));
+        }
+    }
+
+    private void notifyPairDeleted(TcpPair pair) {
+        if (deletionListener != null) {
+            reactor.getScheduler().execute(() ->
+                deletionListener.deleted(pair.getClientAddress(), pair.getByteMeters()));
+        }
+    }
+
     @Override
     public synchronized void open() throws IOException {
         if (open) {
@@ -170,11 +186,7 @@ public class TcpCrusher implements NetCrusher {
         if (open) {
             for (TcpPair pair : pairs.values()) {
                 pair.closeExternal();
-
-                if (deletionListener != null) {
-                    reactor.getScheduler().execute(() ->
-                        deletionListener.deleted(pair.getClientAddress(), pair.getRateMeters()));
-                }
+                notifyPairDeleted(pair);
             }
         } else {
             throw new IllegalStateException("Crusher is not open");
@@ -372,11 +384,7 @@ public class TcpCrusher implements NetCrusher {
 
             pairs.put(pair.getClientAddress(), pair);
 
-            clientTotalCount.incrementAndGet();
-
-            if (creationListener != null) {
-                reactor.getScheduler().execute(() -> creationListener.created(pair.getClientAddress()));
-            }
+            notifyPairCreated(pair);
         } catch (ClosedChannelException | CancelledKeyException e) {
             LOGGER.debug("One of the channels is already closed", e);
             NioUtils.closeChannel(socketChannel1);
@@ -414,7 +422,7 @@ public class TcpCrusher implements NetCrusher {
         if (open) {
             TcpPair pair = this.pairs.get(clientAddress);
             if (pair != null) {
-                return pair.getRateMeters();
+                return pair.getByteMeters();
             }
         }
 
@@ -427,12 +435,7 @@ public class TcpCrusher implements NetCrusher {
             TcpPair pair = pairs.remove(clientAddress);
             if (pair != null) {
                 pair.closeExternal();
-
-                if (deletionListener != null) {
-                    reactor.getScheduler().execute(() ->
-                        deletionListener.deleted(pair.getClientAddress(), pair.getRateMeters()));
-                }
-
+                notifyPairDeleted(pair);
                 return true;
             }
         }

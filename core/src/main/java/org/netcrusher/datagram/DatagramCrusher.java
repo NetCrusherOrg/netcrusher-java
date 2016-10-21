@@ -84,6 +84,22 @@ public class DatagramCrusher implements NetCrusher {
         this.deletionListener = deletionListener;
     }
 
+    void notifyOuterCreated(DatagramOuter outer) {
+        clientTotalCount.incrementAndGet();
+
+        if (creationListener != null) {
+            reactor.getScheduler().execute(() ->
+                creationListener.created(outer.getClientAddress()));
+        }
+    }
+
+    void notifyOuterDeleted(DatagramOuter outer) {
+        if (deletionListener != null) {
+            reactor.getScheduler().execute(() ->
+                deletionListener.deleted(outer.getClientAddress(), outer.getByteMeters(), outer.getPacketMeters()));
+        }
+    }
+
     @Override
     public synchronized void open() throws IOException {
         if (open) {
@@ -252,19 +268,4 @@ public class DatagramCrusher implements NetCrusher {
         return clientTotalCount.get();
     }
 
-    void notifyOuterCreated(DatagramOuter outer) {
-        clientTotalCount.incrementAndGet();
-
-        if (creationListener != null) {
-            reactor.getScheduler().execute(() ->
-                creationListener.created(outer.getClientAddress()));
-        }
-    }
-
-    void notifyOuterDeleted(DatagramOuter outer) {
-        if (deletionListener != null) {
-            reactor.getScheduler().execute(() ->
-                deletionListener.deleted(outer.getClientAddress(), outer.getByteMeters(), outer.getPacketMeters()));
-        }
-    }
 }

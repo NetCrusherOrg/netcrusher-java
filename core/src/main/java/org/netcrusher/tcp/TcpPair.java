@@ -147,7 +147,7 @@ class TcpPair implements NetFreezer {
         return clientAddress;
     }
 
-    RateMeters getRateMeters() {
+    RateMeters getByteMeters() {
         return new RateMeters(innerTransfer.getSentMeter(), outerTransfer.getSentMeter());
     }
 

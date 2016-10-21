@@ -64,6 +64,8 @@ public class EmptyDatagramTest {
             // check
             Thread.sleep(500);
 
+            Assert.assertEquals(1, crusher.getClientTotalCount());
+
             RateMeters innerByteMeters = crusher.getInnerByteMeters();
             Assert.assertEquals(0, innerByteMeters.getReadMeter().getTotalCount());
             Assert.assertEquals(0, innerByteMeters.getSentMeter().getTotalCount());
