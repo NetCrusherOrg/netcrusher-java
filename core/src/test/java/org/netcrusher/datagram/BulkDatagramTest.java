@@ -7,6 +7,7 @@ import org.junit.Test;
 import org.netcrusher.core.filter.InverseFilter1;
 import org.netcrusher.core.filter.InverseFilter2;
 import org.netcrusher.core.filter.NoopFilter;
+import org.netcrusher.core.filter.TransformFilters;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.NoopThrottler;
@@ -43,10 +44,10 @@ public class BulkDatagramTest {
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
-            .withIncomingTransformFilter(NoopFilter.INSTANCE.then(InverseFilter2.INSTANCE))
+            .withIncomingTransformFilter(TransformFilters.all(NoopFilter.INSTANCE, InverseFilter2.INSTANCE))
             .withIncomingPassFilter((addr, bb) -> true)
             .withIncomingThrottler(NoopThrottler.INSTANCE)
-            .withOutgoingTransformFilter(InverseFilter1.INSTANCE.then(NoopFilter.INSTANCE))
+            .withOutgoingTransformFilter(TransformFilters.all(InverseFilter1.INSTANCE, NoopFilter.INSTANCE))
             .withOutgoingPassFilter((addr, bb) -> true)
             .withOutgoingThrottler(NoopThrottler.INSTANCE)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))

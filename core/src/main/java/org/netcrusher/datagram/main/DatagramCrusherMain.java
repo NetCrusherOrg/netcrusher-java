@@ -1,8 +1,10 @@
-package org.netcrusher.datagram;
+package org.netcrusher.datagram.main;
 
 import org.netcrusher.core.main.AbstractCrusherMain;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.datagram.DatagramCrusher;
+import org.netcrusher.datagram.DatagramCrusherBuilder;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -49,8 +51,12 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
     }
 
     protected void closeIdle(DatagramCrusher crusher, String command) throws IOException {
-        crusher.closeIdleClients(60, TimeUnit.SECONDS);
-        LOGGER.info("Idle clients are closed");
+        if (crusher.isOpen()) {
+            int closed = crusher.closeIdleClients(60, TimeUnit.SECONDS);
+            LOGGER.info("Idle clients are closed: {}", closed);
+        } else {
+            LOGGER.info("Crusher is no open");
+        }
     }
 
     @Override

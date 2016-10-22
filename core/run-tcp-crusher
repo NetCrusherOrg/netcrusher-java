@@ -10,10 +10,7 @@ mvn \
     --offline \
     --quiet \
     exec:java \
-    -P exec-java \
-    -Dorg.slf4j.simplelogger.defaultlog=info \
-    -Dorg.slf4j.simplelogger.showdatetime=true \
-    -Dorg.slf4j.simplelogger.showthreadname=false \
-    -Dorg.slf4j.simplelogger.showlogname=false \
-    -Dexec.mainClass=org.netcrusher.tcp.TcpCrusherMain \
+    -Dlogback.configurationFile=logback-run.xml \
+    -Dexec.classpathScope=test \
+    -Dexec.mainClass=org.netcrusher.tcp.main.TcpCrusherMain \
     -Dexec.args="$1 $2"

@@ -1,9 +1,11 @@
-package org.netcrusher.tcp;
+package org.netcrusher.tcp.main;
 
 import org.netcrusher.NetFreezer;
 import org.netcrusher.core.main.AbstractCrusherMain;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.tcp.TcpCrusher;
+import org.netcrusher.tcp.TcpCrusherBuilder;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -67,9 +69,9 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
     @Override
     protected void command(TcpCrusher crusher, String command) throws IOException {
         if (command.startsWith(CMD_CLIENT_FREEZE)) {
-            freezePair(crusher, command);
+            freezeClient(crusher, command);
         } else if (command.startsWith(CMD_CLIENT_UNFREEZE)) {
-            unfreezePair(crusher, command);
+            unfreezeClient(crusher, command);
         } else if (command.equals(CMD_ACCEPTOR_FREEZE)) {
             freezeAcceptor(crusher);
         } else if (command.equals(CMD_ACCEPTOR_UNFREEZE)) {
@@ -79,7 +81,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
         }
     }
 
-    protected void freezePair(TcpCrusher crusher, String command) throws IOException {
+    protected void freezeClient(TcpCrusher crusher, String command) throws IOException {
         InetSocketAddress addr = parseAddress(command);
         NetFreezer pair = crusher.getClientFreezer(addr);
         if (pair != null) {
@@ -90,7 +92,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
         }
     }
 
-    protected void unfreezePair(TcpCrusher crusher, String command) throws IOException {
+    protected void unfreezeClient(TcpCrusher crusher, String command) throws IOException {
         InetSocketAddress addr = parseAddress(command);
         NetFreezer pair = crusher.getClientFreezer(addr);
         if (pair != null) {

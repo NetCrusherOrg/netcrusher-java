@@ -35,7 +35,7 @@ public final class Throttlers {
         }
 
         return (clientAddress, bb) -> {
-            long delayNs = 0;
+            long delayNs = Throttler.NO_DELAY_NS;
             for (Throttler throttler : throttlers) {
                 delayNs = Math.max(delayNs, throttler.calculateDelayNs(clientAddress, bb));
             }

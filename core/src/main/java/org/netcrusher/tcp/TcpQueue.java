@@ -159,7 +159,7 @@ class TcpQueue implements Serializable {
             if (throttler != null) {
                 delayNs = throttler.calculateDelayNs(clientAddress, bb);
             } else {
-                delayNs = 0;
+                delayNs = Throttler.NO_DELAY_NS;
             }
 
             entry.schedule(delayNs);

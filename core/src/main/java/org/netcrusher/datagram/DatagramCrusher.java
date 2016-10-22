@@ -259,9 +259,11 @@ public class DatagramCrusher implements NetCrusher {
      * @param timeUnit Time unit of idle time
      * @throws IOException Exception on error
      */
-    public synchronized void closeIdleClients(long maxIdleDuration, TimeUnit timeUnit) throws IOException {
+    public synchronized int closeIdleClients(long maxIdleDuration, TimeUnit timeUnit) throws IOException {
         if (open) {
-            this.inner.closeIdleOuters(timeUnit.toMillis(maxIdleDuration));
+            return this.inner.closeIdleOuters(timeUnit.toMillis(maxIdleDuration));
+        } else {
+            return 0;
         }
     }
 

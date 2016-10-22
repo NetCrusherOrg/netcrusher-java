@@ -4,6 +4,7 @@ import org.netcrusher.core.reactor.NioReactor;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Throttling abstraction. As most throttlers have some state an usual throttler instance should
@@ -11,6 +12,8 @@ import java.nio.ByteBuffer;
  */
 @FunctionalInterface
 public interface Throttler {
+
+    long NO_DELAY_NS = -TimeUnit.MILLISECONDS.toNanos(1);
 
     /**
      * <p>Calculate delay for the buffer. Return 0 if the buffer should be sent immediately.</p>

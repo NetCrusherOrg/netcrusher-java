@@ -43,16 +43,4 @@ public interface TransformFilter {
      */
     void transform(InetSocketAddress clientAddress, ByteBuffer bb);
 
-    /**
-     * Chain this filter with other one
-     * @param other Other filter that will be called second
-     * @return Combined filter
-     */
-    default TransformFilter then(TransformFilter other) {
-        return (clientAddress, bb) -> {
-            this.transform(clientAddress, bb);
-            other.transform(clientAddress, bb);
-        };
-    }
-
 }

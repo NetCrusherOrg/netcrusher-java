@@ -20,13 +20,4 @@ public interface PassFilter {
      */
     boolean check(InetSocketAddress clientAddress, ByteBuffer bb);
 
-    /**
-     * Chain this filter with other one
-     * @param other Other filter that will be called second
-     * @return Combined filter
-     */
-    default PassFilter then(PassFilter other) {
-        return (clientAddress, bb) -> this.check(clientAddress, bb) && other.check(clientAddress, bb);
-    }
-
 }

@@ -272,7 +272,7 @@ class DatagramOuter {
                 if (throttler != null) {
                     delayNs = throttler.calculateDelayNs(clientAddress, bb);
                 } else {
-                    delayNs = 0;
+                    delayNs = Throttler.NO_DELAY_NS;
                 }
 
                 inner.enqueue(clientAddress, bb, delayNs);
@@ -293,7 +293,7 @@ class DatagramOuter {
             if (throttler != null) {
                 delayNs = throttler.calculateDelayNs(clientAddress, bb);
             } else {
-                delayNs = 0;
+                delayNs = Throttler.NO_DELAY_NS;
             }
 
             final boolean added = incoming.add(connectAddress, bb, delayNs);

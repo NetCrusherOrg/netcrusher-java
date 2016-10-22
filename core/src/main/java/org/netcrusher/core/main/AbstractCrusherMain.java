@@ -205,6 +205,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             }
 
             LOGGER.info("Total number of registered clients: {}", crusher.getClientTotalCount());
+            LOGGER.info("Total number of active clients: {}", crusher.getClientAddresses().size());
 
             for (InetSocketAddress clientAddress : crusher.getClientAddresses()) {
                 statusClient(crusher, clientAddress);

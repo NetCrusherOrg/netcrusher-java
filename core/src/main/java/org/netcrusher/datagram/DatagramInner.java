@@ -318,7 +318,7 @@ class DatagramInner {
         }
     }
 
-    void closeIdleOuters(long maxIdleDurationMs) {
+    int closeIdleOuters(long maxIdleDurationMs) {
         int countBefore = outers.size();
         if (countBefore > 0) {
             Iterator<DatagramOuter> outerIterator = outers.values().iterator();
@@ -335,7 +335,10 @@ class DatagramInner {
             }
 
             int countAfter = outers.size();
-            LOGGER.debug("Outer connections are cleared ({} -> {})", countBefore, countAfter);
+
+            return countBefore - countAfter;
+        } else {
+            return 0;
         }
     }
 
