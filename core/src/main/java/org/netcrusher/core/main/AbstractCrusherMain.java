@@ -177,7 +177,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     protected void freeze(T crusher) throws IOException {
         if (crusher.isOpen()) {
             crusher.freeze();
-            LOGGER.info("Crusher is freezed");
+            LOGGER.info("Crusher is frozen");
         } else {
             LOGGER.info("Crusher is closed");
         }
@@ -186,7 +186,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     protected void unfreeze(T crusher) throws IOException {
         if (crusher.isOpen()) {
             crusher.unfreeze();
-            LOGGER.info("Crusher is freezed");
+            LOGGER.info("Crusher is unfrozen");
         } else {
             LOGGER.info("Crusher is closed");
         }

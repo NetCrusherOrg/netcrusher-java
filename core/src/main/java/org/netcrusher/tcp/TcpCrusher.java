@@ -127,6 +127,7 @@ public class TcpCrusher implements NetCrusher {
 
         clientTotalCount.set(0);
 
+        frozen = true;
         open = true;
 
         LOGGER.info("TcpCrusher <{}>-<{}> is open", bindAddress, connectAddress);
@@ -191,6 +192,7 @@ public class TcpCrusher implements NetCrusher {
         if (open) {
             acceptor.freeze();
             freezeAllPairs();
+            frozen = true;
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
@@ -221,6 +223,7 @@ public class TcpCrusher implements NetCrusher {
         if (open) {
             unfreezeAllPairs();
             acceptor.unfreeze();
+            frozen = false;
         } else {
             throw new IllegalStateException("Crusher is not open");
         }

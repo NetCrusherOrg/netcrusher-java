@@ -10,7 +10,7 @@ public class NioReactor implements Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NioReactor.class);
 
-    private static final long DEFAULT_TICK_MS = 50;
+    private static final long DEFAULT_TICK_MS = 0;
 
     private final NioSelector selector;
 
