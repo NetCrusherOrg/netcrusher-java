@@ -4,6 +4,8 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.netcrusher.core.filter.LoggingFilter;
+import org.netcrusher.core.filter.LoggingFilterLevel;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.DatagramCrusher;
@@ -33,10 +35,12 @@ public class DatagramCrusherRFC868Test {
         reactor = new NioReactor();
 
         crusher = DatagramCrusherBuilder.builder()
-            .withReactor(reactor)
-            .withBindAddress(LOCAL_ADDRESS)
-            .withConnectAddress(REMOTE_ADDRESS)
-            .buildAndOpen();
+                .withReactor(reactor)
+                .withBindAddress(LOCAL_ADDRESS)
+                .withConnectAddress(REMOTE_ADDRESS)
+                .withIncomingTransformFilter(new LoggingFilter("incoming", LoggingFilterLevel.DEBUG))
+                .withOutgoingTransformFilter(new LoggingFilter("outgoing", LoggingFilterLevel.DEBUG))
+                .buildAndOpen();
     }
 
     @After
