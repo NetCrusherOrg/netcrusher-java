@@ -105,7 +105,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void freezeAcceptor(TcpCrusher crusher) throws IOException {
         if (crusher.isOpen()) {
-            crusher.freezeAcceptor();
+            crusher.getAcceptorFreezer().freeze();
             LOGGER.info("Acceptor is frozen");
         } else {
             LOGGER.info("Crusher is already closed");
@@ -114,7 +114,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void unfreezeAcceptor(TcpCrusher crusher) throws IOException {
         if (crusher.isOpen()) {
-            crusher.unfreezeAcceptor();
+            crusher.getAcceptorFreezer().unfreeze();
             LOGGER.info("Acceptor is unfrozen");
         } else {
             LOGGER.info("Crusher is already closed");
