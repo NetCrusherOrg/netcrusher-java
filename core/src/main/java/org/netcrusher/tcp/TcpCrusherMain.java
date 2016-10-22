@@ -1,7 +1,6 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
-import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.main.AbstractCrusherMain;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
@@ -11,10 +10,8 @@ import java.net.InetSocketAddress;
 
 public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
-    private static final String CMD_PAIR_FREEZE = "PAIR-FREEZE";
-    private static final String CMD_PAIR_UNFREEZE = "PAIR-UNFREEZE";
-    private static final String CMD_PAIR_CLOSE = "PAIR-CLOSE";
-    private static final String CMD_PAIR_STATUS = "PAIR-STATUS";
+    private static final String CMD_CLIENT_FREEZE = "CLIENT-FREEZE";
+    private static final String CMD_CLIENT_UNFREEZE = "CLIENT-UNFREEZE";
 
     private static final String CMD_ACCEPTOR_FREEZE = "ACCEPTOR-FREEZE";
     private static final String CMD_ACCEPTOR_UNFREEZE = "ACCEPTOR-UNFREEZE";
@@ -31,33 +28,25 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             .withCreationListener((addr) -> {
                 LOGGER.info("Client for <{}> is created", addr);
             })
-            .withDeletionListener((addr, meters) -> {
+            .withDeletionListener((addr, byteMeters) -> {
                 LOGGER.info("Client for <{}> is deleted", addr);
-                reportClientMeters(meters);
+                statusClientMeters(byteMeters);
             })
             .buildAndOpen();
     }
 
     @Override
-    protected void status(TcpCrusher crusher) throws IOException {
-        LOGGER.info("TCP crusher for <{}>-<{}>", crusher.getBindAddress(), crusher.getConnectAddress());
-        super.status(crusher);
-
-        if (crusher.isOpen()) {
-            crusher.getClientAddresses().forEach((addr) -> this.reportClient(crusher, addr));
+    protected void statusClient(TcpCrusher crusher, InetSocketAddress addr) throws IOException {
+        RateMeters byteMeters = crusher.getClientByteMeters(addr);
+        if (byteMeters != null) {
+            LOGGER.info("Client statistics for <{}>", addr);
+            statusClientMeters(byteMeters);
+        } else {
+            LOGGER.info("Client for <{}> is not found", addr);
         }
     }
 
-    private void reportClient(TcpCrusher crusher, InetSocketAddress clientAddress) {
-        LOGGER.info("Pair statistics for <{}>", clientAddress);
-
-        RateMeters meters = crusher.getClientByteMeters(clientAddress);
-        if (meters != null) {
-            reportClientMeters(meters);
-        }
-    }
-
-    private void reportClientMeters(RateMeters meters) {
+    private void statusClientMeters(RateMeters meters) {
         LOGGER.info("\ttotal read bytes: {}", meters.getReadMeter().getTotal());
         LOGGER.info("\ttotal sent bytes: {}", meters.getSentMeter().getTotal());
     }
@@ -66,27 +55,21 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
     protected void printHelp() {
         super.printHelp();
 
-        LOGGER.info("Commands for TCP pairs:");
-        LOGGER.info("\t" + CMD_PAIR_FREEZE + " <addr>   - freezes the TCP pair");
-        LOGGER.info("\t" + CMD_PAIR_UNFREEZE + " <addr> - unfreezes the TCP pair");
-        LOGGER.info("\t" + CMD_PAIR_CLOSE + " <addr>    - closes the TCP pair");
-        LOGGER.info("\t" + CMD_PAIR_STATUS + " <addr>   - prints status of the TCP pair");
+        LOGGER.info("Commands for TCP clients:");
+        LOGGER.info("\t" + CMD_CLIENT_FREEZE + " <addr>   - freezes the TCP client");
+        LOGGER.info("\t" + CMD_CLIENT_UNFREEZE + " <addr> - unfreezes the TCP client");
 
-        LOGGER.info("Commands for the acceptor:");
-        LOGGER.info("\t" + CMD_ACCEPTOR_FREEZE + "   - freezes the acceptor");
-        LOGGER.info("\t" + CMD_ACCEPTOR_UNFREEZE + " - unfreezes the acceptor");
+        LOGGER.info("Commands for the TCP acceptor:");
+        LOGGER.info("\t" + CMD_ACCEPTOR_FREEZE + "   - freezes the TCP acceptor");
+        LOGGER.info("\t" + CMD_ACCEPTOR_UNFREEZE + " - unfreezes the TCP acceptor");
     }
 
     @Override
     protected void command(TcpCrusher crusher, String command) throws IOException {
-        if (command.startsWith(CMD_PAIR_FREEZE)) {
+        if (command.startsWith(CMD_CLIENT_FREEZE)) {
             freezePair(crusher, command);
-        } else if (command.startsWith(CMD_PAIR_UNFREEZE)) {
+        } else if (command.startsWith(CMD_CLIENT_UNFREEZE)) {
             unfreezePair(crusher, command);
-        } else if (command.startsWith(CMD_PAIR_CLOSE)) {
-            closePair(crusher, command);
-        } else if (command.startsWith(CMD_PAIR_STATUS)) {
-            statusPair(crusher, command);
         } else if (command.equals(CMD_ACCEPTOR_FREEZE)) {
             freezeAcceptor(crusher);
         } else if (command.equals(CMD_ACCEPTOR_UNFREEZE)) {
@@ -118,21 +101,6 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
         }
     }
 
-    protected void closePair(TcpCrusher crusher, String command) throws IOException {
-        InetSocketAddress addr = parseAddress(command);
-        boolean closed = crusher.closeClient(addr);
-        if (closed) {
-            LOGGER.info("Pair for <{}> is closed", addr);
-        } else {
-            LOGGER.info("Pair for <{}> is not found", addr);
-        }
-    }
-
-    protected void statusPair(TcpCrusher crusher, String command) throws IOException {
-        InetSocketAddress addr = parseAddress(command);
-        reportClient(crusher, addr);
-    }
-
     protected void freezeAcceptor(TcpCrusher crusher) throws IOException {
         if (crusher.isOpen()) {
             crusher.freezeAcceptor();
@@ -148,15 +116,6 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             LOGGER.info("Acceptor is unfrozen");
         } else {
             LOGGER.info("Crusher is already closed");
-        }
-    }
-
-    private InetSocketAddress parseAddress(String command) {
-        String[] items = command.split(" ", 2);
-        if (items.length == 2) {
-            return NioUtils.parseInetSocketAddress(items[1]);
-        } else {
-            throw new IllegalArgumentException("Fail to parse address from command: " + command);
         }
     }
 

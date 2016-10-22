@@ -7,6 +7,7 @@ then
 fi
 
 mvn \
+    --offline \
     --quiet \
     exec:java \
     -P exec-java \

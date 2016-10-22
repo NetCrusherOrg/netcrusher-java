@@ -48,9 +48,9 @@ class DatagramOuter {
 
     private final RateMeterImpl readByteMeter;
 
-    private final RateMeterImpl sentDatagramMeter;
+    private final RateMeterImpl sentPacketMeter;
 
-    private final RateMeterImpl readDatagramMeter;
+    private final RateMeterImpl readPacketMeter;
 
     private boolean open;
 
@@ -78,8 +78,8 @@ class DatagramOuter {
 
         this.readByteMeter = new RateMeterImpl();
         this.sentByteMeter = new RateMeterImpl();
-        this.readDatagramMeter = new RateMeterImpl();
-        this.sentDatagramMeter = new RateMeterImpl();
+        this.readPacketMeter = new RateMeterImpl();
+        this.sentPacketMeter = new RateMeterImpl();
 
         this.filters = filters;
 
@@ -222,7 +222,7 @@ class DatagramOuter {
                 }
 
                 sentByteMeter.update(sent);
-                sentDatagramMeter.increment();
+                sentPacketMeter.increment();
 
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Send {} bytes to client <{}>", sent, entry.getAddress());
@@ -262,7 +262,7 @@ class DatagramOuter {
             }
 
             readByteMeter.update(read);
-            readDatagramMeter.increment();
+            readPacketMeter.increment();
 
             final boolean passed = filter(bb, filters.getIncomingTransformFilter(), filters.getIncomingPassFilter());
             if (passed) {
@@ -331,7 +331,7 @@ class DatagramOuter {
     }
 
     RateMeters getPacketMeters() {
-        return new RateMeters(readDatagramMeter, sentDatagramMeter);
+        return new RateMeters(readPacketMeter, sentPacketMeter);
     }
 }
 

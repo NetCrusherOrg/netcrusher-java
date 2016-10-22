@@ -15,14 +15,17 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrusherMain.class);
 
-    protected static final String CMD_OPEN = "OPEN";
-    protected static final String CMD_CLOSE = "CLOSE";
-    protected static final String CMD_REOPEN = "REOPEN";
-    protected static final String CMD_FREEZE = "FREEZE";
-    protected static final String CMD_UNFREEZE = "UNFREEZE";
-    protected static final String CMD_STATUS = "STATUS";
-    protected static final String CMD_HELP = "HELP";
-    protected static final String CMD_QUIT = "QUIT";
+    private static final String CMD_OPEN = "OPEN";
+    private static final String CMD_CLOSE = "CLOSE";
+    private static final String CMD_REOPEN = "REOPEN";
+    private static final String CMD_FREEZE = "FREEZE";
+    private static final String CMD_UNFREEZE = "UNFREEZE";
+    private static final String CMD_STATUS = "STATUS";
+    private static final String CMD_HELP = "HELP";
+    private static final String CMD_QUIT = "QUIT";
+
+    private static final String CMD_CLIENT_CLOSE = "CLIENT-CLOSE";
+    private static final String CMD_CLIENT_STATUS = "CLIENT-STATUS";
 
     protected int run(String[] arguments) {
         if (arguments == null || arguments.length != 2) {
@@ -102,7 +105,9 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
                         break;
                     }
 
-                    if ("QUIT".equals(line)) {
+                    if (line.isEmpty()) {
+                        LOGGER.warn("Command is empty");
+                    } else if ("QUIT".equals(line)) {
                         break;
                     } else {
                         try {
@@ -119,31 +124,26 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected void command(T crusher, String command) throws IOException {
-        switch (command) {
-            case CMD_OPEN:
-                open(crusher);
-                break;
-            case CMD_CLOSE:
-                close(crusher);
-                break;
-            case CMD_REOPEN:
-                reopen(crusher);
-                break;
-            case CMD_STATUS:
-                status(crusher);
-                break;
-            case CMD_FREEZE:
-                freeze(crusher);
-                break;
-            case CMD_UNFREEZE:
-                unfreeze(crusher);
-                break;
-            case CMD_HELP:
-                printHelp();
-                break;
-            default:
-                LOGGER.warn("Command is unknown: '{}'", command);
-                break;
+        if (command.equals(CMD_OPEN)) {
+            open(crusher);
+        } else if (command.equals(CMD_CLOSE)) {
+            close(crusher);
+        } else if (command.equals(CMD_REOPEN)) {
+            reopen(crusher);
+        } else if (command.equals(CMD_STATUS)) {
+            status(crusher);
+        } else if (command.equals(CMD_FREEZE)) {
+            freeze(crusher);
+        } else if (command.equals(CMD_UNFREEZE)) {
+            unfreeze(crusher);
+        } else if (command.equals(CMD_HELP)) {
+            printHelp();
+        } else if (command.startsWith(CMD_CLIENT_CLOSE)) {
+            closeClient(crusher, command);
+        } else if (command.startsWith(CMD_CLIENT_STATUS)) {
+            statusClient(crusher, command);
+        } else {
+            LOGGER.warn("Command is unknown: '{}'", command);
         }
     }
 
@@ -161,6 +161,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             crusher.close();
             LOGGER.info("Crusher is closed");
         } else {
+            LOGGER.info("Crusher is already closed");
         }
     }
 
@@ -169,7 +170,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             crusher.reopen();
             LOGGER.info("Crusher is reopen");
         } else {
-            LOGGER.info("Crusher is already closed");
+            LOGGER.info("Crusher is closed");
         }
     }
 
@@ -192,15 +193,44 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected void status(T crusher) throws IOException {
+        LOGGER.info("{} crusher for <{}>-<{}>", new Object[] {
+            crusher.getClass().getSimpleName(), crusher.getBindAddress(), crusher.getConnectAddress()
+        });
+
         if (crusher.isOpen()) {
             LOGGER.info("Crusher is open");
+
             if (crusher.isFrozen()) {
                 LOGGER.info("Crusher is frozen");
             }
+
             LOGGER.info("Total number of registered clients: {}", crusher.getClientTotalCount());
+
+            for (InetSocketAddress clientAddress : crusher.getClientAddresses()) {
+                statusClient(crusher, clientAddress);
+            }
         } else {
             LOGGER.info("Crusher is closed");
         }
+    }
+
+    protected void closeClient(T crusher, String command) throws IOException {
+        InetSocketAddress addr = parseAddress(command);
+        boolean closed = crusher.closeClient(addr);
+        if (closed) {
+            LOGGER.info("Client for <{}> is closed", addr);
+        } else {
+            LOGGER.info("Client for <{}> is not found", addr);
+        }
+    }
+
+    protected void statusClient(T crusher, String command) throws IOException {
+        InetSocketAddress addr = parseAddress(command);
+        statusClient(crusher, addr);
+    }
+
+    protected void statusClient(T crusher, InetSocketAddress addr) throws IOException {
+        LOGGER.info("Client statistics for <{}>", addr);
     }
 
     protected void printUsage() {
@@ -218,6 +248,20 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         LOGGER.info("\t" + CMD_STATUS + "   - prints the status of the connection");
         LOGGER.info("\t" + CMD_HELP + "     - prints this help");
         LOGGER.info("\t" + CMD_QUIT + "     - quits the program");
+
+        LOGGER.info("Commands for clients:");
+        LOGGER.info("\t" + CMD_CLIENT_CLOSE + " <addr>    - closes the client");
+        LOGGER.info("\t" + CMD_CLIENT_STATUS + " <addr>   - prints status of the client");
+
+    }
+
+    protected static InetSocketAddress parseAddress(String command) {
+        String[] items = command.split(" ", 2);
+        if (items.length == 2) {
+            return NioUtils.parseInetSocketAddress(items[1]);
+        } else {
+            throw new IllegalArgumentException("Fail to parse address from command: " + command);
+        }
     }
 
     protected abstract T create(NioReactor reactor,

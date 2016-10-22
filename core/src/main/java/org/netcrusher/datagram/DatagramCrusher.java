@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -225,7 +226,7 @@ public class DatagramCrusher implements NetCrusher {
      */
     public synchronized RateMeters getInnerByteMeters() {
         if (open) {
-            return new RateMeters(inner.getReadByteMeter(), inner.getSentByteMeter());
+            return inner.getByteMeters();
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
@@ -237,7 +238,7 @@ public class DatagramCrusher implements NetCrusher {
      */
     public synchronized RateMeters getInnerPacketMeters() {
         if (open) {
-            return new RateMeters(inner.getReadPacketMeter(), inner.getSentPacketMeter());
+            return inner.getPacketMeters();
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
@@ -254,12 +255,13 @@ public class DatagramCrusher implements NetCrusher {
 
     /**
      * Close idle clients
-     * @param maxIdleDurationMs Maximum allowed idle time (in milliseconds)
+     * @param maxIdleDuration Maximum allowed idle time
+     * @param timeUnit Time unit of idle time
      * @throws IOException Exception on error
      */
-    public synchronized void closeIdleClients(long maxIdleDurationMs) throws IOException {
+    public synchronized void closeIdleClients(long maxIdleDuration, TimeUnit timeUnit) throws IOException {
         if (open) {
-            this.inner.closeIdleOuters(maxIdleDurationMs);
+            this.inner.closeIdleOuters(timeUnit.toMillis(maxIdleDuration));
         }
     }
 

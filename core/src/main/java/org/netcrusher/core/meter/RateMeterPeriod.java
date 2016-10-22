@@ -57,7 +57,7 @@ public class RateMeterPeriod implements Serializable {
 
     @Override
     public String toString() {
-        return String.format("rate=%.6f evt/sec, count=%d, elapsed=%d ms",
-            getRatePerSec(), getCount(), getElapsedMs());
+        return String.format("count=%d, elapsed=%d ms, rate=%.6f evt/sec",
+            getCount(), getElapsedMs(), getRatePerSec());
     }
 }

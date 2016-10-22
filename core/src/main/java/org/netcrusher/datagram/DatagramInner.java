@@ -1,8 +1,8 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.NioUtils;
-import org.netcrusher.core.meter.RateMeter;
 import org.netcrusher.core.meter.RateMeterImpl;
+import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -348,20 +348,11 @@ class DatagramInner {
         return outers.values();
     }
 
-    RateMeter getSentByteMeter() {
-        return sentByteMeter;
+    RateMeters getByteMeters() {
+        return new RateMeters(readByteMeter, sentByteMeter);
     }
 
-    RateMeter getReadByteMeter() {
-        return readByteMeter;
+    RateMeters getPacketMeters() {
+        return new RateMeters(readPacketMeter, sentPacketMeter);
     }
-
-    RateMeter getSentPacketMeter() {
-        return sentPacketMeter;
-    }
-
-    RateMeter getReadPacketMeter() {
-        return readPacketMeter;
-    }
-
 }
