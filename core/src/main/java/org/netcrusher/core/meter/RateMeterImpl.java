@@ -41,14 +41,15 @@ public class RateMeterImpl implements RateMeter, Serializable {
         final long nowNs = nowNs();
         final long elapsedNs = Math.max(0, nowNs - periodMarkerNs.get());
         final long elapsedMs = TimeUnit.NANOSECONDS.toMillis(elapsedNs);
-        final long count = periodCount.get();
 
         if (reset) {
             periodMarkerNs.set(nowNs);
-            periodCount.addAndGet(-count);
+            final long count = periodCount.getAndSet(0);
+            return new RateMeterPeriod(count, elapsedMs);
+        } else {
+            final long count = periodCount.get();
+            return new RateMeterPeriod(count, elapsedMs);
         }
-
-        return new RateMeterPeriod(count, elapsedMs);
     }
 
     public void update(long delta) {
