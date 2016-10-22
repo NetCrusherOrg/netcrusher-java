@@ -49,6 +49,7 @@
     </issueManagement>
 
     <modules>
+        <module>sample-apache-http</module>
         <module>sample-datagram-rfc868</module>
         <module>sample-hsqldb-bonecp</module>
         <module>sample-zookeeper</module>

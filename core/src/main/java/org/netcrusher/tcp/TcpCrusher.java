@@ -302,11 +302,7 @@ public class TcpCrusher implements NetCrusher {
      * @return Freezer or null if client address is not registered
      */
     public NetFreezer getClientFreezer(InetSocketAddress clientAddress) {
-        if (open) {
-            return pairs.get(clientAddress);
-        } else {
-            throw new IllegalStateException("Crusher is not open");
-        }
+        return pairs.get(clientAddress);
     }
 
     /**
