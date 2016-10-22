@@ -188,6 +188,7 @@ public class TcpCrusher implements NetCrusher {
                 pair.closeExternal();
                 notifyPairDeleted(pair);
             }
+            pairs.clear();
         } else {
             throw new IllegalStateException("Crusher is not open");
         }

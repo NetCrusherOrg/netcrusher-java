@@ -231,7 +231,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected void statusClient(T crusher, InetSocketAddress addr) throws IOException {
-        LOGGER.info("Client statistics for <{}>", addr);
+        LOGGER.info("Client address <{}>", addr);
     }
 
     protected void printUsage() {
@@ -253,7 +253,6 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         LOGGER.info("Commands for clients:");
         LOGGER.info("\t" + CMD_CLIENT_CLOSE + " <addr>    - closes the client");
         LOGGER.info("\t" + CMD_CLIENT_STATUS + " <addr>   - prints status of the client");
-
     }
 
     protected static InetSocketAddress parseAddress(String command) {

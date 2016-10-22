@@ -7,7 +7,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 
@@ -91,7 +91,7 @@ public class DbTest {
     public void testDisconnect() throws Exception {
         // create a connection
         Connection connection = connectionPool.getConnection();
-        Assert.assertEquals(1, crusher.getPairs().size());
+        Assert.assertEquals(1, crusher.getClientAddresses().size());
 
         // query some data
         connection.createStatement().executeQuery(SQL_CHECK);
@@ -105,7 +105,7 @@ public class DbTest {
         }
 
         // disconnect
-        crusher.crush();
+        crusher.reopen();
 
         // the query should fail
         try {
@@ -124,7 +124,7 @@ public class DbTest {
 
         // get a new fresh one from the pool
         connection = connectionPool.getConnection();
-        Assert.assertEquals(1, crusher.getPairs().size());
+        Assert.assertEquals(1, crusher.getClientAddresses().size());
 
         // query some data
         connection.createStatement().executeQuery(SQL_CHECK);
@@ -137,7 +137,7 @@ public class DbTest {
     public void testFreeze() throws Exception {
         // create a connection
         Connection connection = connectionPool.getConnection();
-        Assert.assertEquals(1, crusher.getPairs().size());
+        Assert.assertEquals(1, crusher.getClientAddresses().size());
 
         // query some data
         connection.createStatement().executeQuery(SQL_CHECK);
@@ -145,10 +145,10 @@ public class DbTest {
         // disconnect
         crusher.freezeAllPairs();
 
-        reactor.getScheduler().schedule(3000, TimeUnit.MILLISECONDS, () -> {
+        reactor.getScheduler().schedule(() -> {
             crusher.unfreezeAllPairs();
             return true;
-        });
+        }, 3000, TimeUnit.MILLISECONDS);
 
         // the query should fail
         connection.createStatement().executeQuery(SQL_CHECK);

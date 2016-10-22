@@ -1,10 +1,13 @@
-package org.netcrusher.datagram;
+package org.netcrusher;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.core.NioReactor;
+import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.datagram.DatagramCrusher;
+import org.netcrusher.datagram.DatagramCrusherBuilder;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -51,15 +54,20 @@ public class DatagramCrusherRFC868Test {
     public void testRFC868() throws Exception {
         check();
 
-        Assert.assertEquals(1, crusher.getOuters().size());
-        DatagramOuter outer = crusher.getOuters().iterator().next();
-        Assert.assertNotNull(outer);
-        Assert.assertEquals(1, outer.getTotalSentDatagrams());
-        Assert.assertEquals(1, outer.getTotalReadDatagrams());
-        Assert.assertEquals(1, outer.getTotalSentBytes());
-        Assert.assertEquals(4, outer.getTotalReadBytes());
+        Assert.assertEquals(1, crusher.getClientAddresses().size());
 
-        crusher.crush();
+        InetSocketAddress clientAddress = crusher.getClientAddresses().iterator().next();
+        Assert.assertNotNull(clientAddress);
+
+        RateMeters packetMeters = crusher.getClientPacketMeters(clientAddress);
+        Assert.assertEquals(1, packetMeters.getSentMeter().getTotalCount());
+        Assert.assertEquals(1, packetMeters.getReadMeter().getTotalCount());
+
+        RateMeters byteMeters = crusher.getClientByteMeters(clientAddress);
+        Assert.assertEquals(1, byteMeters.getSentMeter().getTotalCount());
+        Assert.assertEquals(4, byteMeters.getReadMeter().getTotalCount());
+
+        crusher.reopen();
 
         check();
 
