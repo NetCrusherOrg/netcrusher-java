@@ -1,7 +1,5 @@
 package org.netcrusher.core.reactor;
 
-import java.util.concurrent.TimeUnit;
-
 public class NioSelectorScheduledOp implements Runnable, Comparable<NioSelectorScheduledOp> {
 
     private final long scheduledNs;
@@ -24,9 +22,9 @@ public class NioSelectorScheduledOp implements Runnable, Comparable<NioSelectorS
         return Long.compare(this.scheduledNs - nowNs, that.scheduledNs - nowNs);
     }
 
-    boolean isReady(long tickMs) {
+    boolean isReady() {
         long nowNs = System.nanoTime();
-        return (scheduledNs - nowNs) < TimeUnit.MILLISECONDS.toNanos(tickMs / 2);
+        return (scheduledNs - nowNs) < 0;
     }
 
 }

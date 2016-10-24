@@ -7,16 +7,15 @@ import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.concurrent.TimeUnit;
+import java.util.Queue;
 
 class TcpQueue implements Serializable {
 
-    private final Deque<Entry> reading;
+    private final Queue<BufferEntry> readable;
 
-    private final Deque<Entry> writing;
+    private final Queue<BufferEntry> writable;
 
-    private final Entry[] entryArray;
+    private final BufferEntry[] entryArray;
 
     private final ByteBuffer[] bufferArray;
 
@@ -28,124 +27,141 @@ class TcpQueue implements Serializable {
 
     public TcpQueue(InetSocketAddress clientAddress, TransformFilter filter, Throttler throttler,
                     int bufferCount, int bufferSize) {
-        this.reading = new ArrayDeque<>(bufferCount);
-        this.writing = new ArrayDeque<>(bufferCount);
+        this.readable = new ArrayDeque<>(bufferCount);
+        this.writable = new ArrayDeque<>(bufferCount);
         this.bufferArray = new ByteBuffer[bufferCount];
-        this.entryArray = new Entry[bufferCount];
+        this.entryArray = new BufferEntry[bufferCount];
         this.filter = filter;
         this.throttler = throttler;
         this.clientAddress = clientAddress;
 
         for (int i = 0; i < bufferCount; i++) {
-            this.writing.add(new Entry(bufferSize));
+            this.writable.add(new BufferEntry(bufferSize));
         }
     }
 
-    public void clear() {
-        writing.addAll(reading);
-        reading.clear();
-        writing.forEach((e) -> e.getBuffer().clear());
+    public void reset() {
+        writable.addAll(readable);
+        readable.clear();
+        writable.forEach((e) -> e.getBuffer().clear());
     }
 
-    public int calculateReadingBytes() {
+    public boolean hasReadable() {
+        BufferEntry readableEntry = readable.peek();
+        if (readableEntry != null) {
+            if (readableEntry.getBuffer().hasRemaining()) {
+                return true;
+            } else {
+                throw new IllegalStateException("Illegal queue state. Possibly no release() call");
+            }
+        }
+
+        BufferEntry writableEntry = writable.peek();
+        if (writableEntry != null) {
+            if (writableEntry.getBuffer().position() > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /*
+    public int calculateReadableBytes() {
         int size = 0;
 
-        for (Entry entry : reading) {
+        for (BufferEntry entry : readable) {
             size += entry.getBuffer().remaining();
         }
 
-        Entry entryToSteal = writing.peekFirst();
+        BufferEntry entryToSteal = writable.peek();
         if (entryToSteal != null) {
             size += entryToSteal.getBuffer().position();
         }
 
         return size;
     }
+    */
 
-    public int calculateWritingBytes() {
-        int size = 0;
-
-        for (Entry entry : writing) {
-            size += entry.getBuffer().remaining();
-        }
-
-        return size;
-    }
-
-    public int countReady() {
-        return reading.size();
-    }
-
-    public int countStage() {
-        return writing.size();
-    }
-
-    public TcpQueueArray requestReading() {
-        Entry entryToSteal = writing.peekFirst();
+    public TcpQueueBuffers requestReadableBuffers() {
+        BufferEntry entryToSteal = writable.peek();
         if (entryToSteal != null && entryToSteal.getBuffer().position() > 0) {
-            freeWriting();
+            freeWritableBuffer();
         }
 
-        final int size = reading.size();
+        final int size = readable.size();
         if (size == 0) {
-            return TcpQueueArray.EMPTY;
+            return TcpQueueBuffers.EMPTY;
         }
 
-        reading.toArray(entryArray);
+        readable.toArray(entryArray);
         for (int i = 0; i < size; i++) {
             bufferArray[i] = entryArray[i].getBuffer();
         }
 
-        return new TcpQueueArray(bufferArray, 0, size);
+        return new TcpQueueBuffers(bufferArray, 0, size);
     }
 
-    public void cleanReading() {
-        while (!reading.isEmpty()) {
-            Entry entry = reading.getFirst();
+    public void releaseReadableBuffers() {
+        while (!readable.isEmpty()) {
+            BufferEntry entry = readable.element();
             if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {
-                freeReading();
+                freeReadableBuffer();
             }
         }
     }
 
-    private void freeReading() {
-        Entry entry = reading.removeFirst();
+    private void freeReadableBuffer() {
+        BufferEntry entry = readable.remove();
 
         entry.getBuffer().clear();
 
-        writing.addLast(entry);
+        writable.add(entry);
     }
 
-    public TcpQueueArray requestWriting() {
-        final int size = writing.size();
-        if (size == 0) {
-            return TcpQueueArray.EMPTY;
+    public boolean hasWritable() {
+        BufferEntry entry = writable.peek();
+        if (entry != null) {
+            if (entry.getBuffer().hasRemaining()) {
+                return true;
+            } else {
+                throw new IllegalStateException("Illegal queue state. Possibly no release() call");
+            }
         }
 
-        writing.toArray(entryArray);
+        return false;
+    }
+
+    public TcpQueueBuffers requestWritableBuffers() {
+        final int size = writable.size();
+        if (size == 0) {
+            return TcpQueueBuffers.EMPTY;
+        }
+
+        writable.toArray(entryArray);
         for (int i = 0; i < size; i++) {
             bufferArray[i] = entryArray[i].getBuffer();
         }
 
-        return new TcpQueueArray(bufferArray, 0, size);
+        return new TcpQueueBuffers(bufferArray, 0, size);
     }
 
-    public void cleanWriting() {
-        while (!writing.isEmpty()) {
-            Entry entry = writing.getFirst();
+    public void releaseWritableBuffers() {
+        while (!writable.isEmpty()) {
+            BufferEntry entry = writable.element();
 
             if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {
-                freeWriting();
+                freeWritableBuffer();
             }
         }
     }
 
-    private void freeWriting() {
-        Entry entry = writing.removeFirst();
+    private void freeWritableBuffer() {
+        BufferEntry entry = writable.remove();
 
         ByteBuffer bb = entry.getBuffer();
         bb.flip();
@@ -164,20 +180,20 @@ class TcpQueue implements Serializable {
 
             entry.schedule(delayNs);
 
-            reading.addLast(entry);
+            readable.add(entry);
         } else {
             bb.clear();
-            writing.add(entry);
+            writable.add(entry);
         }
     }
 
-    private static final class Entry implements Serializable {
+    private static final class BufferEntry implements Serializable {
 
         private final ByteBuffer buffer;
 
         private long scheduledNs;
 
-        private Entry(int bufferSize) {
+        private BufferEntry(int bufferSize) {
             this.buffer = ByteBuffer.allocate(bufferSize);
             this.scheduledNs = System.nanoTime();
         }
@@ -188,14 +204,6 @@ class TcpQueue implements Serializable {
 
         public ByteBuffer getBuffer() {
             return buffer;
-        }
-
-        public long elapsedNs() {
-            return Math.max(0, System.nanoTime() - scheduledNs);
-        }
-
-        public long elapsedMs() {
-            return TimeUnit.NANOSECONDS.toMillis(elapsedNs());
         }
 
     }

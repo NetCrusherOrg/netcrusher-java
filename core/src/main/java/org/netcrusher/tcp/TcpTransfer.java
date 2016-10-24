@@ -63,7 +63,7 @@ class TcpTransfer {
     }
 
     private void closeEOF() throws IOException {
-        if (outgoing.calculateReadingBytes() > 0) {
+        if (outgoing.hasReadable()) {
             NioUtils.closeChannel(channel);
 
             reactor.getScheduler().schedule(() -> {
@@ -87,36 +87,36 @@ class TcpTransfer {
         }
 
         // if other side is closed and there is no incoming data - close the pair
-        if (this.isOpen() && !other.isOpen() && incoming.calculateReadingBytes() == 0) {
+        if (this.isOpen() && !other.isOpen() && !incoming.hasReadable()) {
             closeInternal();
         }
     }
 
     private void handleEvent(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isWritable()) {
-            handleWritable(selectionKey, incoming);
+            handleWritable();
         }
 
         if (selectionKey.isReadable()) {
-            handleReadable(selectionKey, outgoing);
+            handleReadable();
         }
     }
 
-    private void handleWritable(SelectionKey selectionKey, TcpQueue queue) throws IOException {
-        final SocketChannel channel = (SocketChannel) selectionKey.channel();
+    private void handleWritable() throws IOException {
+        final TcpQueue queue = incoming;
 
         while (true) {
-            final TcpQueueArray queueArray = queue.requestReading();
-            if (queueArray.isEmpty()) {
+            final TcpQueueBuffers queueBuffers = queue.requestReadableBuffers();
+            if (queueBuffers.isEmpty()) {
                 NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
                 break;
             }
 
             final long sent;
             try {
-                sent = channel.write(queueArray.getArray(), queueArray.getOffset(), queueArray.getCount());
+                sent = channel.write(queueBuffers.getArray(), queueBuffers.getOffset(), queueBuffers.getCount());
             } finally {
-                queue.cleanReading();
+                queue.releaseReadableBuffers();
             }
 
             sentMeter.update(sent);
@@ -125,8 +125,8 @@ class TcpTransfer {
                 LOGGER.trace("Written {} bytes to {}", sent, name);
             }
 
-            if (queue.countStage()  > 0) {
-                other.addOperations(SelectionKey.OP_READ);
+            if (queue.hasWritable()) {
+                other.enableOperations(SelectionKey.OP_READ);
             }
 
             if (sent == 0) {
@@ -135,21 +135,21 @@ class TcpTransfer {
         }
     }
 
-    private void handleReadable(SelectionKey selectionKey, TcpQueue queue) throws IOException {
-        final SocketChannel channel = (SocketChannel) selectionKey.channel();
+    private void handleReadable() throws IOException {
+        final TcpQueue queue = outgoing;
 
         while (true) {
-            final TcpQueueArray queueArray = queue.requestWriting();
-            if (queueArray.isEmpty()) {
+            final TcpQueueBuffers queueBuffers = queue.requestWritableBuffers();
+            if (queueBuffers.isEmpty()) {
                 NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_READ);
                 break;
             }
 
             final long read;
             try {
-                read = channel.read(queueArray.getArray(), queueArray.getOffset(), queueArray.getCount());
+                read = channel.read(queueBuffers.getArray(), queueBuffers.getOffset(), queueBuffers.getCount());
             } finally {
-                queue.cleanWriting();
+                queue.releaseWritableBuffers();
             }
 
             if (read < 0) {
@@ -162,8 +162,12 @@ class TcpTransfer {
                 LOGGER.trace("Read {} bytes from {}", read, name);
             }
 
-            if (read > 0) {
-                other.addOperations(SelectionKey.OP_WRITE);
+            if (outgoing.hasReadable()) {
+                other.handleWritable();
+            }
+
+            if (outgoing.hasReadable()) {
+                other.enableOperations(SelectionKey.OP_WRITE);
             } else {
                 break;
             }
@@ -190,8 +194,8 @@ class TcpTransfer {
 
     void unfreeze() {
         if (isOpen()) {
-            int ops = incoming.calculateReadingBytes() == 0 ?
-                SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
+            int ops = incoming.hasReadable() ?
+                SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
             selectionKey.interestOps(ops);
         } else {
             throw new IllegalStateException("Channel is closed");
@@ -202,7 +206,7 @@ class TcpTransfer {
         this.other = other;
     }
 
-    private void addOperations(int operations) {
+    private void enableOperations(int operations) {
         if (selectionKey.isValid()) {
             NioUtils.setupInterestOps(selectionKey, operations);
         }

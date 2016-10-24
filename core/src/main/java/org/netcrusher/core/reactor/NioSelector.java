@@ -201,7 +201,7 @@ public class NioSelector {
             // execute all ready scheduled operations
             NioSelectorScheduledOp scheduledOperation;
             while ((scheduledOperation = scheduledOperationQueue.peek()) != null) {
-                if (scheduledOperation.isReady(tickMs)) {
+                if (scheduledOperation.isReady()) {
                     scheduledOperation = scheduledOperationQueue.poll();
                     if (scheduledOperation != null) {
                         scheduledOperation.run();

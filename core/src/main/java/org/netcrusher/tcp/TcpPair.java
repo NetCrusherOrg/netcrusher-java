@@ -90,14 +90,14 @@ class TcpPair implements NetFreezer {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Pair for '{}' is closed", clientAddress);
 
-                int incomingBytes = innerTransfer.getIncoming().calculateReadingBytes();
-                if (incomingBytes > 0) {
-                    LOGGER.debug("The pair for {} has {} incoming bytes when closing", incomingBytes);
+                boolean hasIncomingBytes = innerTransfer.getIncoming().hasReadable();
+                if (hasIncomingBytes) {
+                    LOGGER.debug("The pair for {} has some incoming bytes when closing");
                 }
 
-                int outgoingBytes = innerTransfer.getOutgoing().calculateReadingBytes();
-                if (outgoingBytes > 0) {
-                    LOGGER.debug("The pair for {} has {} outgoing bytes when closing", outgoingBytes);
+                boolean hasOutgoingBytes = innerTransfer.getOutgoing().hasReadable();
+                if (hasOutgoingBytes) {
+                    LOGGER.debug("The pair for {} has some outgoing bytes when closing");
                 }
             }
         }
@@ -137,7 +137,11 @@ class TcpPair implements NetFreezer {
 
     @Override
     public boolean isFrozen() {
-        return frozen;
+        if (open) {
+            return frozen;
+        } else {
+            throw new IllegalStateException("Pair is closed");
+        }
     }
 
     InetSocketAddress getClientAddress() {

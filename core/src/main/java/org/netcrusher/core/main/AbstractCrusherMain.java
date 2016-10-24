@@ -33,7 +33,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             return 1;
         }
 
-        InetSocketAddress bindAddress;
+        final InetSocketAddress bindAddress;
         try {
             bindAddress = NioUtils.parseInetSocketAddress(arguments[0]);
         } catch (IllegalArgumentException e) {
@@ -41,7 +41,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             return 2;
         }
 
-        InetSocketAddress connectAddress;
+        final InetSocketAddress connectAddress;
         try {
             connectAddress = NioUtils.parseInetSocketAddress(arguments[1]);
         } catch (IllegalArgumentException e) {
@@ -49,15 +49,17 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             return 2;
         }
 
-        NioReactor reactor;
+        final long tickMs = Integer.getInteger("crusher.tick", 10);
+
+        final NioReactor reactor;
         try {
-            reactor = new NioReactor();
+            reactor = new NioReactor(tickMs);
         } catch (Exception e) {
             LOGGER.error("Fail to create reactor", e);
             return 3;
         }
 
-        T crusher;
+        final T crusher;
         try {
             crusher = create(reactor, bindAddress, connectAddress);
         } catch (Exception e) {
@@ -66,7 +68,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             return 3;
         }
 
-        String version = getClass().getPackage().getImplementationVersion();
+        final String version = getClass().getPackage().getImplementationVersion();
         if (version != null && !version.isEmpty()) {
             System.out.printf("# Version: %s\n", version);
         }

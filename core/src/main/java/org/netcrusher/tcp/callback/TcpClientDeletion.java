@@ -7,6 +7,6 @@ import java.net.InetSocketAddress;
 @FunctionalInterface
 public interface TcpClientDeletion {
 
-    void deleted(InetSocketAddress clientAdress, RateMeters byteMeters);
+    void deleted(InetSocketAddress clientAddress, RateMeters byteMeters);
 
 }

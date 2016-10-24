@@ -2,9 +2,9 @@ package org.netcrusher.tcp;
 
 import java.nio.ByteBuffer;
 
-class TcpQueueArray {
+class TcpQueueBuffers {
 
-    public static final TcpQueueArray EMPTY = new TcpQueueArray(null, -1, 0);
+    public static final TcpQueueBuffers EMPTY = new TcpQueueBuffers(null, -1, 0);
 
     private final ByteBuffer[] array;
 
@@ -12,7 +12,7 @@ class TcpQueueArray {
 
     private final int count;
 
-    public TcpQueueArray(ByteBuffer[] array, int offset, int count) {
+    public TcpQueueBuffers(ByteBuffer[] array, int offset, int count) {
         this.array = array;
         this.offset = offset;
         this.count = count;

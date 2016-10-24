@@ -34,6 +34,12 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
                 LOGGER.info("Client for <{}> is deleted", addr);
                 statusClientMeters(byteMeters);
             })
+            .withBufferCount(Integer.getInteger("crusher.buffer.count", 64))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size", 4096))
+            .withBacklog(Integer.getInteger("crusher.socket.backlog", 10))
+            .withKeepAlive(Boolean.getBoolean("crusher.socker.keepalive"))
+            .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
+            .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))
             .buildAndOpen();
     }
 

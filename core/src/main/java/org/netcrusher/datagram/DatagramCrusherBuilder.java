@@ -134,6 +134,28 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
+     * Set socket buffer size for receiving, If not set the default size will be used.
+     * @param bufferSize Size in bytes
+     * @see StandardSocketOptions#SO_RCVBUF
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withRcvBufferSize(int bufferSize) {
+        this.socketOptions.setRcvBufferSize(bufferSize);
+        return this;
+    }
+
+    /**
+     * Set socket buffer size for sending, If not set the default size will be used.
+     * @param bufferSize Size in bytes
+     * @see StandardSocketOptions#SO_SNDBUF
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withSndBufferSize(int bufferSize) {
+        this.socketOptions.setSndBufferSize(bufferSize);
+        return this;
+    }
+
+    /**
      * Set the maximum count of datagrams in transfer queue
      * @param queueLimit Queue limit
      * @return This builder instance to chain with other methods

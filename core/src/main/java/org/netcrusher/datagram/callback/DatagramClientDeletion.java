@@ -7,6 +7,6 @@ import java.net.InetSocketAddress;
 @FunctionalInterface
 public interface DatagramClientDeletion {
 
-    void deleted(InetSocketAddress clientAdress, RateMeters byteMeters, RateMeters packetMeters);
+    void deleted(InetSocketAddress clientAddress, RateMeters byteMeters, RateMeters packetMeters);
 
 }
