@@ -37,7 +37,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         try {
             bindAddress = NioUtils.parseInetSocketAddress(arguments[0]);
         } catch (IllegalArgumentException e) {
-            LOGGER.error("Fail to parse address: {}", arguments[0]);
+            LOGGER.error("Fail to parse listen address: {}", arguments[0], e);
             return 2;
         }
 
@@ -45,7 +45,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         try {
             connectAddress = NioUtils.parseInetSocketAddress(arguments[1]);
         } catch (IllegalArgumentException e) {
-            LOGGER.error("Fail to parse address: {}", arguments[1]);
+            LOGGER.error("Fail to parse connect address: {}", arguments[1], e);
             return 2;
         }
 
@@ -152,7 +152,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected void open(T crusher) throws IOException {
         if (crusher.isOpen()) {
-            LOGGER.info("Crusher is already open");
+            LOGGER.warn("Crusher is already open");
         } else {
             crusher.open();
             LOGGER.info("Crusher is open");
@@ -164,7 +164,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             crusher.close();
             LOGGER.info("Crusher is closed");
         } else {
-            LOGGER.info("Crusher is already closed");
+            LOGGER.warn("Crusher is not open");
         }
     }
 
@@ -173,7 +173,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             crusher.reopen();
             LOGGER.info("Crusher is reopen");
         } else {
-            LOGGER.info("Crusher is closed");
+            LOGGER.warn("Crusher is not open");
         }
     }
 
@@ -182,7 +182,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             crusher.freeze();
             LOGGER.info("Crusher is frozen");
         } else {
-            LOGGER.info("Crusher is closed");
+            LOGGER.warn("Crusher is not open");
         }
     }
 
@@ -191,7 +191,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             crusher.unfreeze();
             LOGGER.info("Crusher is unfrozen");
         } else {
-            LOGGER.info("Crusher is closed");
+            LOGGER.warn("Crusher is not open");
         }
     }
 
@@ -214,7 +214,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
                 statusClient(crusher, clientAddress);
             }
         } else {
-            LOGGER.info("Crusher is closed");
+            LOGGER.warn("Crusher is not open");
         }
     }
 
@@ -224,7 +224,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         if (closed) {
             LOGGER.info("Client for <{}> is closed", address);
         } else {
-            LOGGER.info("Client for <{}> is not found", address);
+            LOGGER.warn("Client for <{}> is not found", address);
         }
     }
 
@@ -238,7 +238,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected void printUsage() {
-        LOGGER.info("Execution: {} <bind-socket-address:port> <connect-socket-address:port>",
+        LOGGER.warn("Execution: {} <bind-socket-address:port> <connect-socket-address:port>",
             this.getClass().getSimpleName());
     }
 
@@ -259,7 +259,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected static InetSocketAddress parseAddress(String command) {
-        String[] items = command.split(" ", 2);
+        final String[] items = command.split(" ", 2);
         if (items.length == 2) {
             return NioUtils.parseInetSocketAddress(items[1]);
         } else {

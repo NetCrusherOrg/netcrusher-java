@@ -52,25 +52,25 @@ public final class NioUtils {
             throw new IllegalArgumentException("Address is empty");
         }
 
-        int index = text.lastIndexOf(':');
+        final int index = text.lastIndexOf(':');
         if (index == -1 || index == text.length() - 1) {
-            throw new IllegalArgumentException("Port is found in: " + text);
+            throw new IllegalArgumentException("Port is not found in: " + text);
         }
         if (index == 0) {
-            throw new IllegalArgumentException("Host is found in: " + text);
+            throw new IllegalArgumentException("Host is not found in: " + text);
         }
 
-        String host = text.substring(0, index);
+        final String host = text.substring(0, index);
 
-        String portStr = text.substring(index + 1, text.length());
-        int port;
+        final String portStr = text.substring(index + 1, text.length());
+        final int port;
         try {
             port = Integer.parseInt(portStr);
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Port is not integer in address: " + text);
         }
 
-        InetSocketAddress address;
+        final InetSocketAddress address;
         try {
             address = new InetSocketAddress(host, port);
         } catch (IllegalArgumentException e) {

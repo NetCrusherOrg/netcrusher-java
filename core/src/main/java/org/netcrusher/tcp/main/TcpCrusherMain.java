@@ -94,7 +94,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             pair.freeze();
             LOGGER.info("Pair for <{}> is frozen", address);
         } else {
-            LOGGER.info("Pair for <{}> is not found", address);
+            LOGGER.warn("Pair for <{}> is not found", address);
         }
     }
 
@@ -105,7 +105,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             pair.unfreeze();
             LOGGER.info("Pair for <{}> is unfrozen", address);
         } else {
-            LOGGER.info("Pair for <{}> is not found", address);
+            LOGGER.warn("Pair for <{}> is not found", address);
         }
     }
 
@@ -114,7 +114,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             crusher.getAcceptorFreezer().freeze();
             LOGGER.info("Acceptor is frozen");
         } else {
-            LOGGER.info("Crusher is already closed");
+            LOGGER.warn("Crusher is not open");
         }
     }
 
@@ -123,7 +123,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             crusher.getAcceptorFreezer().unfreeze();
             LOGGER.info("Acceptor is unfrozen");
         } else {
-            LOGGER.info("Crusher is already closed");
+            LOGGER.warn("Crusher is not open");
         }
     }
 

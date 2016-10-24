@@ -58,7 +58,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
             int closed = crusher.closeIdleClients(60, TimeUnit.SECONDS);
             LOGGER.info("Idle clients are closed: {}", closed);
         } else {
-            LOGGER.info("Crusher is no open");
+            LOGGER.warn("Crusher is not open");
         }
     }
 
@@ -87,7 +87,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
             LOGGER.info("Client statistics for <{}>", address);
             statusClientMeters(byteMeters, packetMeters);
         } else {
-            LOGGER.info("Client for <{}> is not found", address);
+            LOGGER.warn("Client for <{}> is not found", address);
         }
     }
 
