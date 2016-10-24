@@ -188,11 +188,13 @@ public class TcpCrusher implements NetCrusher {
      * @throws IOException On IO error
      */
     @Override
-    public void freeze() throws IOException {
+    public synchronized void freeze() throws IOException {
         if (open) {
-            acceptor.freeze();
-            freezeAllPairs();
-            frozen = true;
+            if (!frozen) {
+                acceptor.freeze();
+                freezeAllPairs();
+                frozen = true;
+            }
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
@@ -202,7 +204,7 @@ public class TcpCrusher implements NetCrusher {
      * Freezes all TCP pairs
      * @throws IOException Throwed on IO error
      */
-    public void freezeAllPairs() throws IOException {
+    public synchronized void freezeAllPairs() throws IOException {
         if (open) {
             for (TcpPair pair : pairs.values()) {
                 pair.freeze();
@@ -219,11 +221,13 @@ public class TcpCrusher implements NetCrusher {
      * @throws IOException On IO error
      */
     @Override
-    public void unfreeze() throws IOException {
+    public synchronized void unfreeze() throws IOException {
         if (open) {
-            unfreezeAllPairs();
-            acceptor.unfreeze();
-            frozen = false;
+            if (frozen) {
+                unfreezeAllPairs();
+                acceptor.unfreeze();
+                frozen = false;
+            }
         } else {
             throw new IllegalStateException("Crusher is not open");
         }
@@ -233,7 +237,7 @@ public class TcpCrusher implements NetCrusher {
      * Unfreezes all TCP pairs
      * @throws IOException Throwed on IO error
      */
-    public void unfreezeAllPairs() throws IOException {
+    public synchronized void unfreezeAllPairs() throws IOException {
         if (open) {
             for (TcpPair pair : pairs.values()) {
                 pair.unfreeze();

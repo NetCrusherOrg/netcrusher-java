@@ -71,20 +71,26 @@ class TcpAcceptor implements NetFreezer {
             this.serverSocketChannel.bind(bindAddress);
         }
 
-        serverSelectionKey = reactor.getSelector().register(serverSocketChannel, 0, (selectionKey) -> this.accept());
+        this.serverSelectionKey = reactor.getSelector()
+            .register(serverSocketChannel, 0, (selectionKey) -> this.accept());
 
         this.open = true;
         this.frozen = true;
     }
 
-    void closeExternal() throws IOException {
-        serverSelectionKey.cancel();
-        serverSelectionKey = null;
+    synchronized void closeExternal() throws IOException {
+        if (open) {
+            serverSelectionKey.cancel();
+            serverSelectionKey = null;
 
-        NioUtils.closeChannel(serverSocketChannel);
-        serverSocketChannel = null;
+            NioUtils.closeChannel(serverSocketChannel);
+            serverSocketChannel = null;
 
-        reactor.getSelector().wakeup();
+            reactor.getSelector().wakeup();
+
+            open = false;
+            frozen = true;
+        }
     }
 
     private void accept() throws IOException {

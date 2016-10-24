@@ -85,6 +85,7 @@ class TcpPair implements NetFreezer {
             NioUtils.closeChannel(outer);
 
             open = false;
+            frozen = true;
 
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Pair for '{}' is closed", clientAddress);
@@ -135,12 +136,8 @@ class TcpPair implements NetFreezer {
     }
 
     @Override
-    public synchronized boolean isFrozen() {
-        if (open) {
-            return frozen;
-        } else {
-            throw new IllegalStateException("Pair is closed");
-        }
+    public boolean isFrozen() {
+        return frozen;
     }
 
     InetSocketAddress getClientAddress() {

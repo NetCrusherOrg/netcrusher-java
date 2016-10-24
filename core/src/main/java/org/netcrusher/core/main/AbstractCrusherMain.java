@@ -107,7 +107,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
                     if (line.isEmpty()) {
                         LOGGER.warn("Command is empty");
-                    } else if ("QUIT".equals(line)) {
+                    } else if (CMD_QUIT.equals(line)) {
                         break;
                     } else {
                         try {
