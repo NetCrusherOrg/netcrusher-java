@@ -50,7 +50,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             LOGGER.info("Client statistics for <{}>", address);
             statusClientMeters(byteMeters);
         } else {
-            LOGGER.info("Client for <{}> is not found", address);
+            LOGGER.warn("Client for <{}> is not found", address);
         }
     }
 
