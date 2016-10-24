@@ -27,11 +27,11 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             .withReactor(reactor)
             .withBindAddress(bindAddress)
             .withConnectAddress(connectAddress)
-            .withCreationListener((addr) -> {
-                LOGGER.info("Client for <{}> is created", addr);
+            .withCreationListener((address) -> {
+                LOGGER.info("Client for <{}> is created", address);
             })
-            .withDeletionListener((addr, byteMeters) -> {
-                LOGGER.info("Client for <{}> is deleted", addr);
+            .withDeletionListener((address, byteMeters) -> {
+                LOGGER.info("Client for <{}> is deleted", address);
                 statusClientMeters(byteMeters);
             })
             .withBufferCount(Integer.getInteger("crusher.buffer.count", 64))
@@ -44,13 +44,13 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
     }
 
     @Override
-    protected void statusClient(TcpCrusher crusher, InetSocketAddress addr) throws IOException {
-        RateMeters byteMeters = crusher.getClientByteMeters(addr);
+    protected void statusClient(TcpCrusher crusher, InetSocketAddress address) throws IOException {
+        RateMeters byteMeters = crusher.getClientByteMeters(address);
         if (byteMeters != null) {
-            LOGGER.info("Client statistics for <{}>", addr);
+            LOGGER.info("Client statistics for <{}>", address);
             statusClientMeters(byteMeters);
         } else {
-            LOGGER.info("Client for <{}> is not found", addr);
+            LOGGER.info("Client for <{}> is not found", address);
         }
     }
 
@@ -88,24 +88,24 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
     }
 
     protected void freezeClient(TcpCrusher crusher, String command) throws IOException {
-        InetSocketAddress addr = parseAddress(command);
-        NetFreezer pair = crusher.getClientFreezer(addr);
+        InetSocketAddress address = parseAddress(command);
+        NetFreezer pair = crusher.getClientFreezer(address);
         if (pair != null) {
             pair.freeze();
-            LOGGER.info("Pair for <{}> is frozen", addr);
+            LOGGER.info("Pair for <{}> is frozen", address);
         } else {
-            LOGGER.info("Pair for <{}> is not found", addr);
+            LOGGER.info("Pair for <{}> is not found", address);
         }
     }
 
     protected void unfreezeClient(TcpCrusher crusher, String command) throws IOException {
-        InetSocketAddress addr = parseAddress(command);
-        NetFreezer pair = crusher.getClientFreezer(addr);
+        InetSocketAddress address = parseAddress(command);
+        NetFreezer pair = crusher.getClientFreezer(address);
         if (pair != null) {
             pair.unfreeze();
-            LOGGER.info("Pair for <{}> is unfrozen", addr);
+            LOGGER.info("Pair for <{}> is unfrozen", address);
         } else {
-            LOGGER.info("Pair for <{}> is not found", addr);
+            LOGGER.info("Pair for <{}> is not found", address);
         }
     }
 

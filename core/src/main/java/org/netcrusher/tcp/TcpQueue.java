@@ -29,8 +29,10 @@ class TcpQueue implements Serializable {
                     int bufferCount, int bufferSize) {
         this.readable = new ArrayDeque<>(bufferCount);
         this.writable = new ArrayDeque<>(bufferCount);
+
         this.bufferArray = new ByteBuffer[bufferCount];
         this.entryArray = new BufferEntry[bufferCount];
+
         this.filter = filter;
         this.throttler = throttler;
         this.clientAddress = clientAddress;
@@ -52,7 +54,7 @@ class TcpQueue implements Serializable {
             if (readableEntry.getBuffer().hasRemaining()) {
                 return true;
             } else {
-                throw new IllegalStateException("Illegal queue state. Possibly no release() call");
+                throw new IllegalStateException("Illegal queue state. Possibly no release() call after request()");
             }
         }
 
@@ -66,22 +68,20 @@ class TcpQueue implements Serializable {
         return false;
     }
 
-    /*
-    public int calculateReadableBytes() {
-        int size = 0;
+    public long calculateReadableBytes() {
+        long size = 0;
 
-        for (BufferEntry entry : readable) {
-            size += entry.getBuffer().remaining();
+        for (BufferEntry readableEntry : readable) {
+            size += readableEntry.getBuffer().remaining();
         }
 
-        BufferEntry entryToSteal = writable.peek();
-        if (entryToSteal != null) {
-            size += entryToSteal.getBuffer().position();
+        BufferEntry writableEntry = writable.peek();
+        if (writableEntry != null) {
+            size += writableEntry.getBuffer().position();
         }
 
         return size;
     }
-    */
 
     public TcpQueueBuffers requestReadableBuffers() {
         BufferEntry entryToSteal = writable.peek();
@@ -127,11 +127,21 @@ class TcpQueue implements Serializable {
             if (entry.getBuffer().hasRemaining()) {
                 return true;
             } else {
-                throw new IllegalStateException("Illegal queue state. Possibly no release() call");
+                throw new IllegalStateException("Illegal queue state. Possibly no release() call after request()");
             }
         }
 
         return false;
+    }
+
+    public long calculateWritableBytes() {
+        long size = 0;
+
+        for (BufferEntry entry : writable) {
+            size += entry.getBuffer().remaining();
+        }
+
+        return size;
     }
 
     public TcpQueueBuffers requestWritableBuffers() {

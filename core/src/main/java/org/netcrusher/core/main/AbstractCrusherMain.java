@@ -50,6 +50,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
 
         final long tickMs = Integer.getInteger("crusher.tick", 10);
+        LOGGER.debug("Reactor tick = {} ms", tickMs);
 
         final NioReactor reactor;
         try {
@@ -218,22 +219,22 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected void closeClient(T crusher, String command) throws IOException {
-        InetSocketAddress addr = parseAddress(command);
-        boolean closed = crusher.closeClient(addr);
+        InetSocketAddress address = parseAddress(command);
+        boolean closed = crusher.closeClient(address);
         if (closed) {
-            LOGGER.info("Client for <{}> is closed", addr);
+            LOGGER.info("Client for <{}> is closed", address);
         } else {
-            LOGGER.info("Client for <{}> is not found", addr);
+            LOGGER.info("Client for <{}> is not found", address);
         }
     }
 
     protected void statusClient(T crusher, String command) throws IOException {
-        InetSocketAddress addr = parseAddress(command);
-        statusClient(crusher, addr);
+        InetSocketAddress address = parseAddress(command);
+        statusClient(crusher, address);
     }
 
-    protected void statusClient(T crusher, InetSocketAddress addr) throws IOException {
-        LOGGER.info("Client address <{}>", addr);
+    protected void statusClient(T crusher, InetSocketAddress address) throws IOException {
+        LOGGER.info("Client address <{}>", address);
     }
 
     protected void printUsage() {

@@ -23,11 +23,11 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
             .withReactor(reactor)
             .withBindAddress(bindAddress)
             .withConnectAddress(connectAddress)
-            .withCreationListener((addr) -> {
-                LOGGER.info("Client for <{}> is created", addr);
+            .withCreationListener((address) -> {
+                LOGGER.info("Client for <{}> is created", address);
             })
-            .withDeletionListener((addr, byteMeters, packetMeters) -> {
-                LOGGER.info("Client for <{}> is deleted", addr);
+            .withDeletionListener((address, byteMeters, packetMeters) -> {
+                LOGGER.info("Client for <{}> is deleted", address);
                 statusClientMeters(byteMeters, packetMeters);
             })
             .withQueueLimit(Integer.getInteger("crusher.queue.limit", 16384))
@@ -80,14 +80,14 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
     }
 
     @Override
-    protected void statusClient(DatagramCrusher crusher, InetSocketAddress addr) throws IOException {
-        RateMeters byteMeters = crusher.getClientByteMeters(addr);
-        RateMeters packetMeters = crusher.getClientPacketMeters(addr);
+    protected void statusClient(DatagramCrusher crusher, InetSocketAddress address) throws IOException {
+        RateMeters byteMeters = crusher.getClientByteMeters(address);
+        RateMeters packetMeters = crusher.getClientPacketMeters(address);
         if (byteMeters != null && packetMeters != null) {
-            LOGGER.info("Client statistics for <{}>", addr);
+            LOGGER.info("Client statistics for <{}>", address);
             statusClientMeters(byteMeters, packetMeters);
         } else {
-            LOGGER.info("Client for <{}> is not found", addr);
+            LOGGER.info("Client for <{}> is not found", address);
         }
     }
 

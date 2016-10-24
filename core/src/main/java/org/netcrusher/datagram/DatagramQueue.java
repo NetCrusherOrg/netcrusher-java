@@ -14,7 +14,7 @@ class DatagramQueue implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramQueue.class);
 
-    private final Deque<Entry> entries;
+    private final Deque<BuffferEntry> entries;
 
     private final int limit;
 
@@ -34,29 +34,32 @@ class DatagramQueue implements Serializable {
     public boolean add(InetSocketAddress address, ByteBuffer bbToCopy, long delayNs) {
         if (entries.size() < limit) {
             ByteBuffer bb = NioUtils.copy(bbToCopy);
-            Entry entry = new Entry(address, bb, delayNs);
+
+            BuffferEntry entry = new BuffferEntry(address, bb, delayNs);
             entries.addLast(entry);
+
             return true;
         } else {
             LOGGER.warn("Pending limit is exceeded ({}). Datagram packet with {} bytes is dropped",
                 limit, bbToCopy.remaining());
+
             return false;
         }
     }
 
-    public void retry(Entry entry) {
+    public void retry(BuffferEntry entry) {
         entries.addFirst(entry);
     }
 
-    public Entry request() {
+    public BuffferEntry request() {
         return entries.pollFirst();
     }
 
-    public void release(Entry entry) {
+    public void release(BuffferEntry entry) {
         // nothing to do yet
     }
 
-    public static final class Entry implements Serializable {
+    public static final class BuffferEntry implements Serializable {
 
         private final InetSocketAddress address;
 
@@ -64,7 +67,7 @@ class DatagramQueue implements Serializable {
 
         private final long scheduledNs;
 
-        private Entry(InetSocketAddress address, ByteBuffer buffer, long delayNs) {
+        private BuffferEntry(InetSocketAddress address, ByteBuffer buffer, long delayNs) {
             this.address = address;
             this.buffer = buffer;
             this.scheduledNs = System.nanoTime() + delayNs;

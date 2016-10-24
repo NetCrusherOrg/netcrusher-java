@@ -167,6 +167,7 @@ class DatagramInner {
             reactor.getSelector().wakeup();
 
             open = false;
+            frozen = true;
 
             LOGGER.debug("Inner on <{}> is closed", bindAddress);
         }
@@ -182,7 +183,7 @@ class DatagramInner {
     private void callback(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isWritable()) {
             try {
-                handleWritable(selectionKey);
+                handleWritable();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on write");
                 closeInternal();
@@ -194,7 +195,7 @@ class DatagramInner {
 
         if (selectionKey.isReadable()) {
             try {
-                handleReadable(selectionKey);
+                handleReadable();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on read");
                 closeInternal();
@@ -205,10 +206,8 @@ class DatagramInner {
         }
     }
 
-    private void handleWritable(SelectionKey selectionKey) throws IOException {
-        DatagramChannel channel = (DatagramChannel) selectionKey.channel();
-
-        DatagramQueue.Entry entry;
+    void handleWritable() throws IOException {
+        DatagramQueue.BuffferEntry entry;
         int count = 0;
         while ((entry = incoming.request()) != null) {
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
@@ -256,9 +255,7 @@ class DatagramInner {
         }
     }
 
-    private void handleReadable(SelectionKey selectionKey) throws IOException {
-        DatagramChannel channel = (DatagramChannel) selectionKey.channel();
-
+    private void handleReadable() throws IOException {
         while (true) {
             final InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
             if (address == null) {
@@ -278,6 +275,14 @@ class DatagramInner {
             DatagramOuter outer = requestOuter(address);
 
             outer.enqueue(bb);
+
+            if (outer.hasIncoming()) {
+                outer.handleWritable();
+            }
+
+            if (outer.hasIncoming()) {
+                outer.enableOperations(SelectionKey.OP_WRITE);
+            }
 
             bb.clear();
         }
@@ -300,10 +305,7 @@ class DatagramInner {
     }
 
     void enqueue(InetSocketAddress address, ByteBuffer bbToCopy, long delayNs) {
-        boolean added = incoming.add(address, bbToCopy, delayNs);
-        if (added) {
-            NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
-        }
+        incoming.add(address, bbToCopy, delayNs);
     }
 
     boolean closeOuter(InetSocketAddress clientAddress) {
@@ -342,6 +344,15 @@ class DatagramInner {
         }
     }
 
+    boolean hasIncoming() {
+        return !incoming.isEmpty();
+    }
+
+    void enableOperations(int operations) {
+        if (selectionKey.isValid()) {
+            NioUtils.setupInterestOps(selectionKey, operations);
+        }
+    }
 
     DatagramOuter getOuter(InetSocketAddress clientAddress) {
         return outers.get(clientAddress);

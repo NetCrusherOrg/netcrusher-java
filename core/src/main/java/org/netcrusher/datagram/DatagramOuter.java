@@ -123,7 +123,7 @@ class DatagramOuter {
                 frozen = true;
             }
         } else {
-            throw new IllegalStateException("Outer is closed");
+            LOGGER.debug("Component is closed on freeze");
         }
     }
 
@@ -138,6 +138,7 @@ class DatagramOuter {
             NioUtils.closeChannel(channel);
 
             open = false;
+            frozen = true;
 
             LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, connectAddress);
         }
@@ -153,7 +154,7 @@ class DatagramOuter {
     private void callback(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isWritable()) {
             try {
-                handleWritable(selectionKey);
+                handleWritable();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on write");
                 closeInternal();
@@ -171,7 +172,7 @@ class DatagramOuter {
 
         if (selectionKey.isReadable()) {
             try {
-                handleReadable(selectionKey);
+                handleReadable();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on read");
                 closeInternal();
@@ -188,10 +189,8 @@ class DatagramOuter {
         }
     }
 
-    private void handleWritable(SelectionKey selectionKey) throws IOException {
-        DatagramChannel channel = (DatagramChannel) selectionKey.channel();
-
-        DatagramQueue.Entry entry;
+    void handleWritable() throws IOException {
+        DatagramQueue.BuffferEntry entry;
         int count = 0;
         while ((entry = incoming.request()) != null) {
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
@@ -240,9 +239,7 @@ class DatagramOuter {
         }
     }
 
-    private void handleReadable(SelectionKey selectionKey) throws IOException {
-        DatagramChannel channel = (DatagramChannel) selectionKey.channel();
-
+    private void handleReadable() throws IOException {
         while (true) {
             final SocketAddress address = channel.receive(bb);
             if (address == null) {
@@ -250,7 +247,7 @@ class DatagramOuter {
             }
 
             if (!connectAddress.equals(address)) {
-                LOGGER.trace("Datagram from <{}> will be thrown away", address);
+                LOGGER.trace("Datagram from non-connect address <{}> will be dropped", address);
                 continue;
             }
 
@@ -282,6 +279,14 @@ class DatagramOuter {
 
             lastOperationTimestamp = System.currentTimeMillis();
         }
+
+        if (inner.hasIncoming()) {
+            inner.handleWritable();
+        }
+
+        if (inner.hasIncoming()) {
+            inner.enableOperations(SelectionKey.OP_WRITE);
+        }
     }
 
     void enqueue(ByteBuffer bb) {
@@ -296,10 +301,17 @@ class DatagramOuter {
                 delayNs = Throttler.NO_DELAY_NS;
             }
 
-            final boolean added = incoming.add(connectAddress, bb, delayNs);
-            if (added) {
-                NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
-            }
+            incoming.add(connectAddress, bb, delayNs);
+        }
+    }
+
+    boolean hasIncoming() {
+        return !incoming.isEmpty();
+    }
+
+    void enableOperations(int operations) {
+        if (selectionKey.isValid()) {
+            NioUtils.setupInterestOps(selectionKey, operations);
         }
     }
 

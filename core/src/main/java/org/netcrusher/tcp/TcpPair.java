@@ -44,13 +44,14 @@ class TcpPair implements NetFreezer {
     {
         this.crusher = crusher;
         this.reactor = reactor;
-        this.frozen = true;
-        this.open = true;
 
         this.inner = inner;
         this.outer = outer;
 
         this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
+
+        this.frozen = true;
+        this.open = true;
 
         TcpQueue innerToOuter = new TcpQueue(clientAddress,
             filters.getOutgoingTransformFilter(), filters.getOutgoingThrottler(),
@@ -90,14 +91,14 @@ class TcpPair implements NetFreezer {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Pair for '{}' is closed", clientAddress);
 
-                boolean hasIncomingBytes = innerTransfer.getIncoming().hasReadable();
-                if (hasIncomingBytes) {
-                    LOGGER.debug("The pair for {} has some incoming bytes when closing");
+                long incomingBytes = innerTransfer.getIncoming().calculateReadableBytes();
+                if (incomingBytes > 0) {
+                    LOGGER.debug("The pair for {} has {} incoming bytes when closing", incomingBytes);
                 }
 
-                boolean hasOutgoingBytes = innerTransfer.getOutgoing().hasReadable();
-                if (hasOutgoingBytes) {
-                    LOGGER.debug("The pair for {} has some outgoing bytes when closing");
+                long outgoingBytes = innerTransfer.getOutgoing().calculateWritableBytes();
+                if (outgoingBytes > 0) {
+                    LOGGER.debug("The pair for {} has {} outgoing bytes when closing", outgoingBytes);
                 }
             }
         }
@@ -112,6 +113,7 @@ class TcpPair implements NetFreezer {
                     outerTransfer.freeze();
                     return true;
                 });
+
                 frozen = true;
             }
         } else {
@@ -128,6 +130,7 @@ class TcpPair implements NetFreezer {
                     outerTransfer.unfreeze();
                     return true;
                 });
+
                 frozen = false;
             }
         } else {
