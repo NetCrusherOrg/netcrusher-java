@@ -94,15 +94,15 @@ class TcpTransfer {
 
     private void handleEvent(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isWritable()) {
-            handleWritable();
+            handleWritableEvent();
         }
 
         if (selectionKey.isReadable()) {
-            handleReadable();
+            handleReadableEvent();
         }
     }
 
-    private void handleWritable() throws IOException {
+    private void handleWritableEvent() throws IOException {
         final TcpQueue queue = incoming;
 
         while (true) {
@@ -119,23 +119,23 @@ class TcpTransfer {
                 queue.releaseReadableBuffers();
             }
 
-            sentMeter.update(sent);
-
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Written {} bytes to {}", sent, name);
-            }
-
-            if (queue.hasWritable()) {
-                other.enableOperations(SelectionKey.OP_READ);
             }
 
             if (sent == 0) {
                 break;
             }
+
+            sentMeter.update(sent);
+
+            if (queue.hasWritable()) {
+                other.enableOperations(SelectionKey.OP_READ);
+            }
         }
     }
 
-    private void handleReadable() throws IOException {
+    private void handleReadableEvent() throws IOException {
         final TcpQueue queue = outgoing;
 
         while (true) {
@@ -156,20 +156,22 @@ class TcpTransfer {
                 throw new EOFException();
             }
 
-            readMeter.update(read);
-
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Read {} bytes from {}", read, name);
             }
 
+            if (read == 0) {
+                break;
+            }
+
+            readMeter.update(read);
+
             if (outgoing.hasReadable()) {
-                other.handleWritable();
+                other.handleWritableEvent();
             }
 
             if (outgoing.hasReadable()) {
                 other.enableOperations(SelectionKey.OP_WRITE);
-            } else {
-                break;
             }
         }
     }

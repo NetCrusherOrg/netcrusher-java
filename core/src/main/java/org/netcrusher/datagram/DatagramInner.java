@@ -183,7 +183,7 @@ class DatagramInner {
     private void callback(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isWritable()) {
             try {
-                handleWritable();
+                handleWritableEvent();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on write");
                 closeInternal();
@@ -195,7 +195,7 @@ class DatagramInner {
 
         if (selectionKey.isReadable()) {
             try {
-                handleReadable();
+                handleReadableEvent();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on read");
                 closeInternal();
@@ -206,7 +206,7 @@ class DatagramInner {
         }
     }
 
-    void handleWritable() throws IOException {
+    void handleWritableEvent() throws IOException {
         DatagramQueue.BuffferEntry entry;
         int count = 0;
         while ((entry = incoming.request()) != null) {
@@ -255,7 +255,7 @@ class DatagramInner {
         }
     }
 
-    private void handleReadable() throws IOException {
+    private void handleReadableEvent() throws IOException {
         while (true) {
             final InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
             if (address == null) {
@@ -277,7 +277,7 @@ class DatagramInner {
             outer.enqueue(bb);
 
             if (outer.hasIncoming()) {
-                outer.handleWritable();
+                outer.handleWritableEvent();
             }
 
             if (outer.hasIncoming()) {
