@@ -81,7 +81,6 @@ CLOSE
 OPEN
 [20:19:21.655] INFO  TcpCrusher </127.0.0.1:12345>-<google.com/64.233.161.101:80> is open
 [20:19:21.655] INFO  Crusher is open
-# enter the command in the next line
 ```
 
 # Maven
@@ -102,4 +101,4 @@ Apache License Version 2.0, http://www.apache.org/licenses/LICENSE-2.0.html
 
 * [Jepsen](http://jepsen.io) - Distributed Systems Safety Analysis
 * [Java-NIO-TCP-Proxy](https://github.com/terma/java-nio-tcp-proxy/wiki) - Simple TCP proxy
-* [netem](https://wiki.linuxfoundation.org/networking/netem) - Linux kernel module for testing protocols
+* [netem](https://wiki.linuxfoundation.org/networking/netem) - Linux kernel module allows to distort network facilities

@@ -18,7 +18,7 @@
     <script src="systemjs.config.js"></script>
 </head>
 <body>
-<a href="https://github.com/NetCrusherOrg/netcrusher-java"><img class="forkme" src="https://camo.githubusercontent.com/652c5b9acfaddf3a9c326fa6bde407b87f7be0f4/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6f72616e67655f6666373630302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
+<a href="https://github.com/NetCrusherOrg/netcrusher-java"><img class="forkme" alt="Fork me on GitHub" src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
 <nav class="navbar navbar-inverse navbar-fixed-top">
     <div class="container">
         <div class="navbar-header">
@@ -42,10 +42,31 @@
 
 <div class="container">
 <div class="row">
-<div class="col-lg-1"></div>
-<div class="col-lg-10">
+<div class="col-lg-2 col-sm-1"></div>
+<div class="col-lg-8 col-sm-10">
+
+<h1>NetCrusher</h1>
+
+<p>Client-server without a crusher</p>
+
+<div>
+    <img src="i/ill/nocrusher.png" class="img-responsive center-block"/>
+</div>
+
+<p>Client-server with the crusher in the middle</p>
+
+<div>
+    <img src="i/ill/systems.png" class="img-responsive center-block" alt="the place of crusher"/>
+</div>
+
 <h1>TcpCrusher</h1>
-<p>hewthet</p>
+
+<p>TcpCrusher works as a managed TCP proxy</p>
+
+<div>
+    <img src="i/ill/tcpcrusher.png" class="img-responsive center-block" alt="TCP crusher schematic"/>
+</div>
+
 <pre>
 <code class="lang-java">
     NioReactor reactor = new NioReactor();
@@ -55,8 +76,10 @@
         .withConnectAddress("google.com", 80)
         .buildAndOpen();
 
-    // emulate reconnect
-    crusher.crush();
+    // ... do something
+
+    // close all connections and open listening socket
+    crusher.reopen();
 
     // freeze
     crusher.freeze();
@@ -70,27 +93,96 @@
 </code>
 </pre>
 
-<h1>NetCrusher</h1>
-
-<div>
-    <img src="i/ill/systems.png" />
-</div>
-
-<h1>TcpCrusher</h1>
-
-<div>
-    <img src="i/ill/tcpcrusher.png" />
-</div>
 
 <h1>DatagramCrusher</h1>
 
+<p>DatagramCrusher works as a managed datagram (UDP) proxy</p>
+
 <div>
-    <img src="i/ill/datagramcrusher.png" />
+    <img src="i/ill/datagramcrusher.png" class="img-responsive center-block" alt="Datagram crusher schematic"/>
 </div>
 
+<pre>
+<code class="lang-java">
+    NioReactor reactor = new NioReactor();
+    DatagramCrusher crusher = DatagramCrusherBuilder.builder()
+        .withReactor(reactor)
+        .withBindAddress("localhost", 10080)
+        .withConnectAddress("google.com", 80)
+        .buildAndOpen();
+
+    // ... do something
+
+    // close all connections and open listening socket
+    crusher.reopen();
+
+    // freeze
+    crusher.freeze();
+
+    // unfreeze
+    crusher.unfreeze();
+
+    // close
+    crusher.close();
+    reactor.close();
+</code>
+</pre>
+
+<h1>Command line wrapper</h1>
+
+<p>Library wrapper allows to use crusher for manual QA</p>
+
+<h2>run-tcp-crusher</h2>
+
+<pre>
+<code>
+    $ <b>./run-tcp-crusher.sh 127.0.0.1:12345 google.com:80</b>
+    [21:22:42.135] INFO  TcpCrusher &lt;/127.0.0.1:12345>-&lt;google.com/64.233.162.100:80> is open
+    # Version: 0.8
+    # Print `HELP` for the list of the commands
+    # enter the command in the next line
+    <b>REOPEN</b>
+    [21:22:47.239] INFO  TcpCrusher &lt;/127.0.0.1:12345>-&lt;google.com/64.233.162.100:80> is closed
+    [21:22:47.240] INFO  TcpCrusher &lt;/127.0.0.1:12345>-&lt;google.com/64.233.162.100:80> is open
+    [21:22:47.241] INFO  Crusher is reopen
+</code>
+</pre>
+
+<h2>run-datagram-crusher</h2>
+
+<pre>
+<code>
+    $ <b>./run-datagram-crusher.sh 127.0.0.1:1245 time-nw.nist.gov:37</b>
+    [21:25:13.258] INFO  DatagramCrusher &lt;/127.0.0.1:1245>-&lt;time-nw.nist.gov/131.107.13.100:37> is started
+    # Version: 0.8
+    # Print `HELP` for the list of the commands
+    # enter the command in the next line
+    <b>REOPEN</b>
+    [21:25:15.290] INFO  DatagramCrusher &lt;/127.0.0.1:1245>-&lt;time-nw.nist.gov/131.107.13.100:37> is closed
+    [21:25:15.290] INFO  DatagramCrusher &lt;/127.0.0.1:1245>-&lt;time-nw.nist.gov/131.107.13.100:37> is started
+    [21:25:15.291] INFO  Crusher is reopen
+    # enter the command in the next line
+    [21:28:44.518] INFO  Client for &lt;/127.0.0.1:36166> is created
+    <b>STATUS</b>
+    [21:28:50.447] INFO  DatagramCrusher crusher for &lt;/127.0.0.1:1245>-&lt;time-nw.nist.gov/131.107.13.100:37>
+    [21:28:50.448] INFO  Crusher is open
+    [21:28:50.448] INFO  Total number of registered clients: 1
+    [21:28:50.461] INFO  Total number of active clients: 1
+    [21:28:50.461] INFO  Client statistics for &lt;/127.0.0.1:36166>
+    [21:28:50.461] INFO  	total read bytes: count=4, elapsed=5949 ms, rate=0.672382 evt/sec
+    [21:28:50.462] INFO  	total sent bytes: count=2, elapsed=5949 ms, rate=0.336191 evt/sec
+    [21:28:50.462] INFO  	total read packets: count=1, elapsed=5949 ms, rate=0.168095 evt/sec
+    [21:28:50.462] INFO  	total sent packets: count=1, elapsed=5949 ms, rate=0.168095 evt/sec
+    [21:28:50.463] INFO  Inner statistics
+    [21:28:50.463] INFO  	total read bytes: count=2, elapsed=215173 ms, rate=0.009295 evt/sec
+    [21:28:50.463] INFO  	total sent bytes: count=4, elapsed=215173 ms, rate=0.018590 evt/sec
+    [21:28:50.463] INFO  	total read packets: count=1, elapsed=215173 ms, rate=0.004647 evt/sec
+    [21:28:50.463] INFO  	total sent packets: count=1, elapsed=215173 ms, rate=0.004647 evt/sec
+</code>
+</pre>
 
 </div>
-<div class="col-lg-1"></div>
+<div class="col-lg-2 col-sm-1"></div>
 </div>
 </div>
 
