@@ -65,13 +65,32 @@ Checks additional samples in the project root folder:
 * [sample-zookeper](samples/sample-zookeeper/src/test/java/org/netcrusher)
 * [sample-apache-http](samples/sample-apache-http/src/test/java/org/netcrusher)
 
+# Command line 
+
+For manual QA the command-line wrapper is available both for TCP and Datagram mode
+
+```
+$ ./run-tcp-crusher.sh 127.0.0.1:12345 google.com:80
+# Version: 0.8
+# Print `HELP` for the list of the commands
+# enter the command in the next line
+CLOSE
+[20:19:20.586] INFO  TcpCrusher </127.0.0.1:12345>-<google.com/64.233.161.101:80> is closed
+[20:19:20.586] INFO  Crusher is closed
+# enter the command in the next line
+OPEN
+[20:19:21.655] INFO  TcpCrusher </127.0.0.1:12345>-<google.com/64.233.161.101:80> is open
+[20:19:21.655] INFO  Crusher is open
+# enter the command in the next line
+```
+
 # Maven
 
 ```xml
 <dependency>
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.7</version>
+    <version>0.8</version>
 </dependency>
 ```
 

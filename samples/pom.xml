@@ -97,7 +97,7 @@
         <dependency>
             <groupId>com.github.netcrusherorg</groupId>
             <artifactId>netcrusher-core</artifactId>
-            <version>0.8-SNAPSHOT</version>
+            <version>0.8</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
