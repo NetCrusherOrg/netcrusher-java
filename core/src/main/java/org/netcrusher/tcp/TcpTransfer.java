@@ -119,19 +119,19 @@ class TcpTransfer {
                 queue.releaseReadableBuffers();
             }
 
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Written {} bytes to {}", sent, name);
-            }
-
             if (sent == 0) {
                 break;
             }
 
-            sentMeter.update(sent);
-
-            if (queue.hasWritable()) {
-                other.enableOperations(SelectionKey.OP_READ);
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Written {} bytes to {}", sent, name);
             }
+
+            sentMeter.update(sent);
+        }
+
+        if (queue.hasWritable()) {
+            other.enableOperations(SelectionKey.OP_READ);
         }
     }
 
@@ -156,23 +156,25 @@ class TcpTransfer {
                 throw new EOFException();
             }
 
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Read {} bytes from {}", read, name);
-            }
-
             if (read == 0) {
                 break;
             }
 
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Read {} bytes from {}", read, name);
+            }
+
             readMeter.update(read);
 
+            // try to immediately sent all the pending data to the paired socket
             if (outgoing.hasReadable()) {
                 other.handleWritableEvent();
             }
+        }
 
-            if (outgoing.hasReadable()) {
-                other.enableOperations(SelectionKey.OP_WRITE);
-            }
+        // if data still remains we raise the OP_WRITE flag
+        if (outgoing.hasReadable()) {
+            other.enableOperations(SelectionKey.OP_WRITE);
         }
     }
 

@@ -154,7 +154,7 @@ class DatagramOuter {
     private void callback(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isWritable()) {
             try {
-                handleWritableEvent();
+                handleWritableEvent(false);
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on write");
                 closeInternal();
@@ -189,12 +189,12 @@ class DatagramOuter {
         }
     }
 
-    void handleWritableEvent() throws IOException {
+    void handleWritableEvent(boolean forced) throws IOException {
         DatagramQueue.BuffferEntry entry;
         int count = 0;
         while ((entry = incoming.request()) != null) {
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
-            if (emptyDatagram && count > 0) {
+            if (emptyDatagram && (count > 0 || forced)) {
                 // due to NIO API problem we can't differ between two cases:
                 // - empty datagram is sent (send() returns 0)
                 // - no free space in socket buffer (send() returns 0)
@@ -273,6 +273,11 @@ class DatagramOuter {
                 }
 
                 inner.enqueue(clientAddress, bb, delayNs);
+
+                // try to immediately sent the datagram
+                if (inner.hasIncoming()) {
+                    inner.handleWritableEvent(true);
+                }
             }
 
             bb.clear();
@@ -280,10 +285,7 @@ class DatagramOuter {
             lastOperationTimestamp = System.currentTimeMillis();
         }
 
-        if (inner.hasIncoming()) {
-            inner.handleWritableEvent();
-        }
-
+        // if data still remains we raise the OP_WRITE flag
         if (inner.hasIncoming()) {
             inner.enableOperations(SelectionKey.OP_WRITE);
         }

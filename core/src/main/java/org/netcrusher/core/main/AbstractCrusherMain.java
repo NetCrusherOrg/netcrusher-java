@@ -37,7 +37,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         try {
             bindAddress = NioUtils.parseInetSocketAddress(arguments[0]);
         } catch (IllegalArgumentException e) {
-            LOGGER.error("Fail to parse listen address: {}", arguments[0], e);
+            LOGGER.error("Fail to parse listening address: {}", arguments[0], e);
             return 2;
         }
 
