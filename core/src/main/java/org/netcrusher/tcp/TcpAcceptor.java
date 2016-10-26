@@ -2,6 +2,7 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,9 +39,7 @@ class TcpAcceptor implements NetFreezer {
 
     private SelectionKey serverSelectionKey;
 
-    private final int bufferCount;
-
-    private final int bufferSize;
+    private final BufferOptions bufferOptions;
 
     private final TcpFilters filters;
 
@@ -48,17 +47,17 @@ class TcpAcceptor implements NetFreezer {
 
     private volatile boolean frozen;
 
-    TcpAcceptor(TcpCrusher crusher, NioReactor reactor,
-                       InetSocketAddress bindAddress, InetSocketAddress connectAddress,
-                       TcpCrusherSocketOptions socketOptions, TcpFilters filters,
-                       int bufferCount, int bufferSize) throws IOException {
+    TcpAcceptor(
+            TcpCrusher crusher, NioReactor reactor,
+            InetSocketAddress bindAddress, InetSocketAddress connectAddress,
+            TcpCrusherSocketOptions socketOptions, TcpFilters filters,
+            BufferOptions bufferOptions) throws IOException {
         this.crusher = crusher;
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
         this.socketOptions = socketOptions;
         this.reactor = reactor;
-        this.bufferCount = bufferCount;
-        this.bufferSize = bufferSize;
+        this.bufferOptions = bufferOptions;
         this.filters = filters;
 
         this.serverSocketChannel = ServerSocketChannel.open();
@@ -97,12 +96,14 @@ class TcpAcceptor implements NetFreezer {
         final SocketChannel socketChannel1 = serverSocketChannel.accept();
         socketChannel1.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel1);
+        bufferOptions.checkTcpSocket(socketChannel1.socket());
 
         LOGGER.debug("Incoming connection is accepted on <{}>", bindAddress);
 
         final SocketChannel socketChannel2 = SocketChannel.open();
         socketChannel2.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel2);
+        bufferOptions.checkTcpSocket(socketChannel2.socket());
 
         final boolean connectedNow;
         try {
@@ -169,7 +170,7 @@ class TcpAcceptor implements NetFreezer {
     private void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
         try {
             TcpPair pair = new TcpPair(crusher, reactor, filters,
-                socketChannel1, socketChannel2, bufferCount, bufferSize);
+                socketChannel1, socketChannel2, bufferOptions);
             pair.unfreeze();
 
             crusher.notifyPairCreated(pair);

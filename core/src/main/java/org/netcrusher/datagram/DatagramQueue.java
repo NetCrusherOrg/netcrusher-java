@@ -1,6 +1,6 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.buffer.BufferOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,18 +9,23 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Queue;
 
 class DatagramQueue implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramQueue.class);
 
-    private final Deque<BuffferEntry> entries;
+    private final Deque<BufferEntry> entries;
 
-    private final int limit;
+    private final Queue<BufferEntry> pending;
 
-    public DatagramQueue(int limit) {
-        this.entries = new ArrayDeque<>(limit);
-        this.limit = limit;
+    public DatagramQueue(BufferOptions bufferOptions) {
+        this.entries = new ArrayDeque<>(bufferOptions.getCount());
+        this.pending = new ArrayDeque<>(bufferOptions.getCount());
+
+        for (int i = 0, limit = bufferOptions.getCount(); i < limit; i++) {
+            this.pending.add(new BufferEntry(bufferOptions.getSize(), bufferOptions.isDirect()));
+        }
     }
 
     public int size() {
@@ -32,44 +37,61 @@ class DatagramQueue implements Serializable {
     }
 
     public boolean add(InetSocketAddress address, ByteBuffer bbToCopy, long delayNs) {
-        if (entries.size() < limit) {
-            ByteBuffer bb = NioUtils.copy(bbToCopy);
+        BufferEntry entry = pending.poll();
 
-            BuffferEntry entry = new BuffferEntry(address, bb, delayNs);
+        if (entry != null) {
+            ByteBuffer entryBuffer = entry.getBuffer();
+
+            if (entryBuffer.remaining() < bbToCopy.remaining()) {
+                throw new IllegalStateException("Buffer capacity " + entry.getBuffer().remaining()
+                    + "  is less than datagram size " + bbToCopy.remaining()
+                    + ". Increase buffer size in builder.");
+            }
+
+            entryBuffer.put(bbToCopy);
+            entryBuffer.flip();
+
+            entry.schedule(address, delayNs);
             entries.addLast(entry);
 
             return true;
         } else {
-            LOGGER.warn("Pending limit is exceeded ({}). Datagram packet with {} bytes is dropped",
-                limit, bbToCopy.remaining());
+            LOGGER.warn("Datagram with {} bytes is dropped because buffer queue has no any free buffers.",
+                bbToCopy.remaining());
 
             return false;
         }
     }
 
-    public void retry(BuffferEntry entry) {
+    public void retry(BufferEntry entry) {
         entries.addFirst(entry);
     }
 
-    public BuffferEntry request() {
+    public BufferEntry request() {
         return entries.pollFirst();
     }
 
-    public void release(BuffferEntry entry) {
-        // nothing to do yet
+    public void release(BufferEntry entry) {
+        entry.getBuffer().clear();
+        pending.add(entry);
     }
 
-    public static final class BuffferEntry implements Serializable {
-
-        private final InetSocketAddress address;
+    public static final class BufferEntry implements Serializable {
 
         private final ByteBuffer buffer;
 
-        private final long scheduledNs;
+        private InetSocketAddress address;
 
-        private BuffferEntry(InetSocketAddress address, ByteBuffer buffer, long delayNs) {
+        private long scheduledNs;
+
+        private BufferEntry(int capacity, boolean direct) {
+            this.buffer = direct ? ByteBuffer.allocateDirect(capacity) : ByteBuffer.allocate(capacity);
+            this.address = null;
+            this.scheduledNs = System.nanoTime();
+        }
+
+        public void schedule(InetSocketAddress address, long delayNs) {
             this.address = address;
-            this.buffer = buffer;
             this.scheduledNs = System.nanoTime() + delayNs;
         }
 

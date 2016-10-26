@@ -1,6 +1,7 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.meter.RateMeterImpl;
@@ -63,7 +64,7 @@ class DatagramOuter {
             NioReactor reactor,
             DatagramCrusherSocketOptions socketOptions,
             DatagramFilters filters,
-            int queueLimit,
+            BufferOptions bufferOptions,
             InetSocketAddress clientAddress,
             InetSocketAddress connectAddress) throws IOException
     {
@@ -71,7 +72,7 @@ class DatagramOuter {
         this.reactor = reactor;
         this.clientAddress = clientAddress;
         this.connectAddress = connectAddress;
-        this.incoming = new DatagramQueue(queueLimit);
+        this.incoming = new DatagramQueue(bufferOptions);
         this.lastOperationTimestamp = System.currentTimeMillis();
         this.frozen = true;
         this.open = true;
@@ -89,6 +90,7 @@ class DatagramOuter {
         // https://bugs.openjdk.java.net/browse/JDK-8013175
         // this.channel.connect(connectAddress);
         this.channel.configureBlocking(false);
+        bufferOptions.checkDatagramSocket(channel.socket());
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
@@ -190,7 +192,7 @@ class DatagramOuter {
     }
 
     void handleWritableEvent(boolean forced) throws IOException {
-        DatagramQueue.BuffferEntry entry;
+        DatagramQueue.BufferEntry entry;
         int count = 0;
         while ((entry = incoming.request()) != null) {
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();

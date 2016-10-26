@@ -2,6 +2,7 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
@@ -34,13 +35,12 @@ class TcpPair implements NetFreezer {
     private volatile boolean frozen;
 
     TcpPair(
-            TcpCrusher crusher,
-            NioReactor reactor,
-            TcpFilters filters,
-            SocketChannel inner,
-            SocketChannel outer,
-            int bufferCount,
-            int bufferSize) throws IOException
+        TcpCrusher crusher,
+        NioReactor reactor,
+        TcpFilters filters,
+        SocketChannel inner,
+        SocketChannel outer,
+        BufferOptions bufferOptions) throws IOException
     {
         this.crusher = crusher;
         this.reactor = reactor;
@@ -55,10 +55,10 @@ class TcpPair implements NetFreezer {
 
         TcpQueue innerToOuter = new TcpQueue(clientAddress,
             filters.getOutgoingTransformFilter(), filters.getOutgoingThrottler(),
-            bufferCount, bufferSize);
+            bufferOptions);
         TcpQueue outerToInner = new TcpQueue(clientAddress,
             filters.getIncomingTransformFilter(), filters.getIncomingThrottler(),
-            bufferCount, bufferSize);
+            bufferOptions);
 
         this.innerTransfer = new TcpTransfer("INNER", reactor, this::closeInternal, inner,
             outerToInner, innerToOuter);

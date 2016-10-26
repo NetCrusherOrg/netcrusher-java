@@ -1,5 +1,6 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.Throttler;
@@ -35,14 +36,15 @@ public final class TcpCrusherBuilder {
 
     private Throttler outgoingThrottler;
 
-    private int bufferCount;
-
-    private int bufferSize;
+    private BufferOptions bufferOptions;
 
     private TcpCrusherBuilder() {
         this.socketOptions = new TcpCrusherSocketOptions();
-        this.bufferCount = 32;
-        this.bufferSize = 32 * 1024;
+
+        this.bufferOptions = new BufferOptions();
+        this.bufferOptions.setCount(64);
+        this.bufferOptions.setSize(32 * 1024);
+        this.bufferOptions.setDirect(true);
     }
 
     /**
@@ -206,7 +208,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBufferCount(int bufferCount) {
-        this.bufferCount = bufferCount;
+        this.bufferOptions.setCount(bufferCount);
         return this;
     }
 
@@ -216,7 +218,17 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBufferSize(int bufferSize) {
-        this.bufferSize = bufferSize;
+        this.bufferOptions.setSize(bufferSize);
+        return this;
+    }
+
+    /**
+     * Set buffer allocation method
+     * @param direct Set true if ByteBuffer should be allocated as direct
+     * @return This builder instance to chain with other methods
+     */
+    public TcpCrusherBuilder withBufferDirect(boolean direct) {
+        this.bufferOptions.setDirect(direct);
         return this;
     }
 
@@ -290,11 +302,11 @@ public final class TcpCrusherBuilder {
             bindAddress,
             connectAddress,
             socketOptions.copy(),
+            filters,
             creationListener,
             deletionListener,
-            filters,
-            bufferCount,
-            bufferSize);
+            bufferOptions.copy()
+        );
     }
 
     /**

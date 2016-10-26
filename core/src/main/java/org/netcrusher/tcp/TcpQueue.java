@@ -1,5 +1,6 @@
 package org.netcrusher.tcp;
 
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.throttle.Throttler;
 
@@ -25,20 +26,23 @@ class TcpQueue implements Serializable {
 
     private final InetSocketAddress clientAddress;
 
-    public TcpQueue(InetSocketAddress clientAddress, TransformFilter filter, Throttler throttler,
-                    int bufferCount, int bufferSize) {
-        this.readable = new ArrayDeque<>(bufferCount);
-        this.writable = new ArrayDeque<>(bufferCount);
+    public TcpQueue(
+            InetSocketAddress clientAddress,
+            TransformFilter filter,
+            Throttler throttler,
+            BufferOptions bufferOptions) {
+        this.readable = new ArrayDeque<>(bufferOptions.getCount());
+        this.writable = new ArrayDeque<>(bufferOptions.getCount());
 
-        this.bufferArray = new ByteBuffer[bufferCount];
-        this.entryArray = new BufferEntry[bufferCount];
+        this.bufferArray = new ByteBuffer[bufferOptions.getCount()];
+        this.entryArray = new BufferEntry[bufferOptions.getCount()];
 
         this.filter = filter;
         this.throttler = throttler;
         this.clientAddress = clientAddress;
 
-        for (int i = 0; i < bufferCount; i++) {
-            this.writable.add(new BufferEntry(bufferSize));
+        for (int i = 0; i < bufferOptions.getCount(); i++) {
+            this.writable.add(new BufferEntry(bufferOptions.getSize(), bufferOptions.isDirect()));
         }
     }
 
@@ -203,8 +207,8 @@ class TcpQueue implements Serializable {
 
         private long scheduledNs;
 
-        private BufferEntry(int bufferSize) {
-            this.buffer = ByteBuffer.allocate(bufferSize);
+        private BufferEntry(int capacity, boolean direct) {
+            this.buffer = direct ? ByteBuffer.allocateDirect(capacity) : ByteBuffer.allocate(capacity);
             this.scheduledNs = System.nanoTime();
         }
 

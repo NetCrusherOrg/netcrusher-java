@@ -2,6 +2,7 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.NetCrusher;
 import org.netcrusher.NetFreezer;
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.tcp.callback.TcpClientCreation;
@@ -56,9 +57,7 @@ public class TcpCrusher implements NetCrusher {
 
     private final TcpClientDeletion deletionListener;
 
-    private final int bufferCount;
-
-    private final int bufferSize;
+    private final BufferOptions bufferOptions;
 
     private final TcpFilters filters;
 
@@ -71,15 +70,14 @@ public class TcpCrusher implements NetCrusher {
     private volatile boolean frozen;
 
     public TcpCrusher(
-            NioReactor reactor,
-            InetSocketAddress bindAddress,
-            InetSocketAddress connectAddress,
-            TcpCrusherSocketOptions socketOptions,
-            TcpClientCreation creationListener,
-            TcpClientDeletion deletionListener,
-            TcpFilters filters,
-            int bufferCount,
-            int bufferSize)
+        NioReactor reactor,
+        InetSocketAddress bindAddress,
+        InetSocketAddress connectAddress,
+        TcpCrusherSocketOptions socketOptions,
+        TcpFilters filters,
+        TcpClientCreation creationListener,
+        TcpClientDeletion deletionListener,
+        BufferOptions bufferOptions)
     {
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
@@ -87,8 +85,7 @@ public class TcpCrusher implements NetCrusher {
         this.socketOptions = socketOptions;
         this.pairs = new ConcurrentHashMap<>(32);
         this.filters = filters;
-        this.bufferCount = bufferCount;
-        this.bufferSize = bufferSize;
+        this.bufferOptions = bufferOptions;
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
         this.clientTotalCount = new AtomicInteger(0);
@@ -123,7 +120,7 @@ public class TcpCrusher implements NetCrusher {
         }
 
         this.acceptor = new TcpAcceptor(this, reactor, bindAddress, connectAddress, socketOptions,
-            filters, bufferCount, bufferSize);
+            filters, bufferOptions);
 
         clientTotalCount.set(0);
 

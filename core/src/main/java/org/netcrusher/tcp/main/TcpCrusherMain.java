@@ -35,7 +35,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
                 statusClientMeters(byteMeters);
             })
             .withBufferCount(Integer.getInteger("crusher.buffer.count", 64))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size", 4096))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size", 32 * 1024))
             .withBacklog(Integer.getInteger("crusher.socket.backlog", 10))
             .withKeepAlive(Boolean.getBoolean("crusher.socker.keepalive"))
             .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))

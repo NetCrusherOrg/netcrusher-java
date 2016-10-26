@@ -1,6 +1,7 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.NetCrusher;
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.callback.DatagramClientCreation;
@@ -49,7 +50,7 @@ public class DatagramCrusher implements NetCrusher {
 
     private final InetSocketAddress connectAddress;
 
-    private final int queueLimit;
+    private final BufferOptions bufferOptions;
 
     private final DatagramFilters filters;
 
@@ -71,7 +72,7 @@ public class DatagramCrusher implements NetCrusher {
             DatagramFilters filters,
             DatagramClientCreation creationListener,
             DatagramClientDeletion deletionListener,
-            int queueLimit)
+            BufferOptions bufferOptions)
     {
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
@@ -79,7 +80,7 @@ public class DatagramCrusher implements NetCrusher {
         this.reactor = reactor;
         this.open = false;
         this.filters = filters;
-        this.queueLimit = queueLimit;
+        this.bufferOptions = bufferOptions;
         this.clientTotalCount = new AtomicInteger(0);
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
@@ -107,8 +108,8 @@ public class DatagramCrusher implements NetCrusher {
             throw new IllegalStateException("DatagramCrusher is already active");
         }
 
-        this.inner = new DatagramInner(this, reactor, socketOptions, filters,
-            bindAddress, connectAddress, queueLimit);
+        this.inner = new DatagramInner(this,
+            reactor, socketOptions, filters, bindAddress, connectAddress, bufferOptions);
         this.inner.unfreeze();
 
         clientTotalCount.set(0);

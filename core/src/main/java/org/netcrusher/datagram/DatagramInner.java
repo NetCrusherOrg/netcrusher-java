@@ -1,6 +1,7 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
@@ -53,7 +54,7 @@ class DatagramInner {
 
     private final RateMeterImpl readPacketMeter;
 
-    private final int queueLimit;
+    private final BufferOptions bufferOptions;
 
     private boolean open;
 
@@ -66,7 +67,7 @@ class DatagramInner {
             DatagramFilters filters,
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
-            int queueLimit) throws IOException
+            BufferOptions bufferOptions) throws IOException
     {
         this.crusher = crusher;
         this.reactor = reactor;
@@ -75,8 +76,8 @@ class DatagramInner {
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
         this.outers = new ConcurrentHashMap<>(32);
-        this.incoming = new DatagramQueue(queueLimit);
-        this.queueLimit = queueLimit;
+        this.incoming = new DatagramQueue(bufferOptions);
+        this.bufferOptions = bufferOptions;
         this.frozen = true;
         this.open = true;
 
@@ -89,6 +90,7 @@ class DatagramInner {
         socketOptions.setupSocketChannel(this.channel);
         this.channel.bind(bindAddress);
         this.channel.configureBlocking(false);
+        bufferOptions.checkDatagramSocket(channel.socket());
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
@@ -207,7 +209,7 @@ class DatagramInner {
     }
 
     void handleWritableEvent(boolean forced) throws IOException {
-        DatagramQueue.BuffferEntry entry;
+        DatagramQueue.BufferEntry entry;
         int count = 0;
         while ((entry = incoming.request()) != null) {
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
@@ -294,8 +296,9 @@ class DatagramInner {
         DatagramOuter outer = outers.get(address);
 
         if (outer == null) {
-            outer = new DatagramOuter(this, reactor, socketOptions, filters, queueLimit,
-                address, connectAddress);
+            outer = new DatagramOuter(this,
+                reactor, socketOptions, filters, bufferOptions, address, connectAddress
+            );
             outer.unfreeze();
 
             outers.put(address, outer);

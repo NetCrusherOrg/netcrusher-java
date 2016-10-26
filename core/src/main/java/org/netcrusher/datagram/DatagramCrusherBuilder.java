@@ -1,5 +1,6 @@
 package org.netcrusher.datagram;
 
+import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.reactor.NioReactor;
@@ -42,11 +43,15 @@ public final class DatagramCrusherBuilder {
 
     private Throttler outgoingThrottler;
 
-    private int queueLimit;
+    private BufferOptions bufferOptions;
 
     private DatagramCrusherBuilder() {
         this.socketOptions = new DatagramCrusherSocketOptions();
-        this.queueLimit = 16 * 1024;
+
+        this.bufferOptions = new BufferOptions();
+        this.bufferOptions.setCount(128);
+        this.bufferOptions.setSize(4096);
+        this.bufferOptions.setDirect(true);
     }
 
     /**
@@ -156,12 +161,32 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
-     * Set the maximum count of datagrams in transfer queue
-     * @param queueLimit Queue limit
+     * Set how many buffer instances will be in queue between two sockets in a proxy pair
+     * @param bufferCount Count of buffer
      * @return This builder instance to chain with other methods
      */
-    public DatagramCrusherBuilder withQueueLimit(int queueLimit) {
-        this.queueLimit = queueLimit;
+    public DatagramCrusherBuilder withBufferCount(int bufferCount) {
+        this.bufferOptions.setCount(bufferCount);
+        return this;
+    }
+
+    /**
+     * Set the size of each buffer in queue between two sockets in a proxy pair
+     * @param bufferSize Size of buffer in bytes. Should not be less than the maximum size of datagram
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withBufferSize(int bufferSize) {
+        this.bufferOptions.setSize(bufferSize);
+        return this;
+    }
+
+    /**
+     * Set buffer allocation method
+     * @param direct Set true if ByteBuffer should be allocated as direct
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withBufferDirect(boolean direct) {
+        this.bufferOptions.setDirect(direct);
         return this;
     }
 
@@ -274,8 +299,16 @@ public final class DatagramCrusherBuilder {
             incomingThrottler, outgoingThrottler
         );
 
-        return new DatagramCrusher(reactor, bindAddress, connectAddress, socketOptions.copy(),
-            filters, creationListener, deletionListener, queueLimit);
+        return new DatagramCrusher(
+            reactor,
+            bindAddress,
+            connectAddress,
+            socketOptions.copy(),
+            filters,
+            creationListener,
+            deletionListener,
+            bufferOptions.copy()
+        );
     }
 
     /**
