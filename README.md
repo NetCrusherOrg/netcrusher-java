@@ -10,7 +10,7 @@ NetCrusher is TCP/UDP proxy for Java that is placed in the middle between client
 
 NetCrusher is build on top of Java 8 NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
 
-Documentation is available on https://netcrusherorg.github.io/netcrusher-java/
+Documentation is available on [wiki](https://github.com/NetCrusherOrg/netcrusher-java/wiki)
 
 # TCP
 
