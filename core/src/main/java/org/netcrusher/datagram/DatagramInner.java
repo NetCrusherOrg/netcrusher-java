@@ -176,6 +176,8 @@ class DatagramInner {
     }
 
     private void closeInternal() {
+        NioUtils.closeChannel(channel);
+
         reactor.getScheduler().execute(() -> {
             crusher.close();
             return true;

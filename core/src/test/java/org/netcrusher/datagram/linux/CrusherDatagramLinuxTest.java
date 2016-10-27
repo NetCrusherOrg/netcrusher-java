@@ -7,13 +7,12 @@ import org.junit.Test;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.DatagramCrusher;
 import org.netcrusher.datagram.DatagramCrusherBuilder;
-import org.netcrusher.tcp.linux.CrusherTcpLinuxTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class CrusherDatagramLinuxTest extends AbstractDatagramLinuxTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherTcpLinuxTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherDatagramLinuxTest.class);
 
     private NioReactor reactor;
 
@@ -47,7 +46,7 @@ public class CrusherDatagramLinuxTest extends AbstractDatagramLinuxTest {
 
     @Test
     public void test() throws Exception {
-        loop(DEFAULT_BYTES, 50100, 50101);
+        session(DEFAULT_BYTES, 50100, 50101);
     }
 
 }

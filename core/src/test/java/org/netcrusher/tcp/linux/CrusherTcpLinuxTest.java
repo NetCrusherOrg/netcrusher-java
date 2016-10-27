@@ -46,6 +46,6 @@ public class CrusherTcpLinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void test() throws Exception {
-        loop(DEFAULT_BYTES, 50100, 50101);
+        session(DEFAULT_BYTES, 50100, 50101);
     }
 }

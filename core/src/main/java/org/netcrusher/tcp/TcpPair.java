@@ -72,6 +72,9 @@ class TcpPair implements NetFreezer {
     private void closeInternal() throws IOException {
         LOGGER.debug("Pair for <{}> is closing itself", clientAddress);
 
+        NioUtils.closeChannel(inner);
+        NioUtils.closeChannel(outer);
+
         reactor.getScheduler().execute(() -> {
             crusher.closeClient(this.getClientAddress());
             return true;
@@ -93,12 +96,14 @@ class TcpPair implements NetFreezer {
 
                 long incomingBytes = innerTransfer.getIncoming().calculateReadableBytes();
                 if (incomingBytes > 0) {
-                    LOGGER.debug("The pair for {} has {} incoming bytes when closing", incomingBytes);
+                    LOGGER.debug("The pair for <{}> has {} incoming bytes when closing",
+                        clientAddress, incomingBytes);
                 }
 
                 long outgoingBytes = innerTransfer.getOutgoing().calculateWritableBytes();
                 if (outgoingBytes > 0) {
-                    LOGGER.debug("The pair for {} has {} outgoing bytes when closing", outgoingBytes);
+                    LOGGER.debug("The pair for <{}> has {} outgoing bytes when closing",
+                        clientAddress, outgoingBytes);
                 }
             }
         }

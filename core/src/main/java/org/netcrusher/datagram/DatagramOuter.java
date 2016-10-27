@@ -147,6 +147,8 @@ class DatagramOuter {
     }
 
     private void closeInternal() {
+        NioUtils.closeChannel(channel);
+
         reactor.getScheduler().execute(() -> {
             inner.closeOuter(clientAddress);
             return true;

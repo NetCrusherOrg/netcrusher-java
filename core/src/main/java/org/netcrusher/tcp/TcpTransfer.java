@@ -1,9 +1,9 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.meter.RateMeter;
 import org.netcrusher.core.meter.RateMeterImpl;
+import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +59,8 @@ class TcpTransfer {
     }
 
     private void closeInternal() throws IOException {
+        NioUtils.closeChannel(channel);
+
         closeable.close();
     }
 
@@ -78,11 +80,14 @@ class TcpTransfer {
     private void callback(SelectionKey selectionKey) throws IOException {
         try {
             handleEvent(selectionKey);
-        } catch (EOFException | ClosedChannelException e) {
-            LOGGER.debug("EOF on transfer or channel is closed on {}", name);
+        } catch (EOFException e) {
+            LOGGER.debug("EOF on transfer on {}", name);
+            closeEOF();
+        } catch (ClosedChannelException e) {
+            LOGGER.debug("Channel closed on {}", name);
             closeEOF();
         } catch (Exception e) {
-            LOGGER.debug("IO exception on {}", name, e);
+            LOGGER.debug("Exception on {}", name, e);
             closeInternal();
         }
 
