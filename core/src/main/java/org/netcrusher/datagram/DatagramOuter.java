@@ -166,7 +166,7 @@ class DatagramOuter {
             } catch (UnresolvedAddressException e) {
                 LOGGER.error("Connect address <{}> is unresolved", connectAddress);
                 closeInternal();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 LOGGER.error("Exception in outer on write", e);
                 closeInternal();
             }
@@ -184,7 +184,7 @@ class DatagramOuter {
             } catch (PortUnreachableException e) {
                 LOGGER.debug("Port <{}> is unreachable on read", connectAddress);
                 closeInternal();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 LOGGER.error("Exception in outer on read", e);
                 closeInternal();
             }

@@ -8,6 +8,7 @@ NetCrusher is TCP/UDP proxy for Java that is placed in the middle between client
 * allows to check the state of connections
 * allows to filter/dump data
 * supports throttling (delay and/or throughput control)
+* garbage-less buffering
 
 NetCrusher is build on top of Java 8 NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
 
@@ -103,3 +104,5 @@ Apache License Version 2.0, http://www.apache.org/licenses/LICENSE-2.0.html
 * [Jepsen](http://jepsen.io) - Distributed Systems Safety Analysis
 * [Java-NIO-TCP-Proxy](https://github.com/terma/java-nio-tcp-proxy/wiki) - Simple TCP proxy
 * [netem](https://wiki.linuxfoundation.org/networking/netem) - Linux kernel module allows to distort network facilities
+* [socat](https://linux.die.net/man/1/socat) - bridges everything with everything
+

@@ -189,7 +189,7 @@ class DatagramInner {
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on write");
                 closeInternal();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 LOGGER.error("Exception in inner on write", e);
                 closeInternal();
             }
@@ -201,7 +201,7 @@ class DatagramInner {
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on read");
                 closeInternal();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 LOGGER.error("Exception in inner on read", e);
                 closeInternal();
             }

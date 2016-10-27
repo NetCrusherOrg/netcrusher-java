@@ -21,12 +21,15 @@ public class NcTcpBaseTest extends AbstractLinuxTest {
         ProcessWrapper producer = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
-            "-c", "openssl rand " + BYTES + " | dd bs=1M | ncat -4 --nodns --send-only 127.0.0.1 50101"));
+            "-c", "openssl rand " + BYTES
+                    + " | dd bs=1M"
+                    + " | ncat -4 --nodns --send-only 127.0.0.1 50101"));
 
         ProcessWrapper consumer = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
-            "-c", "ncat -4 --nodns --recv-only --listen 127.0.0.1 50101 | dd bs=1M of=/dev/null"));
+            "-c", "ncat -4 --nodns --recv-only --listen 127.0.0.1 50101"
+                    + " | dd bs=1M of=/dev/null"));
 
         Future<ProcessResult> consumerFuture = consumer.run();
         Future<ProcessResult> producerFuture = producer.run();

@@ -30,8 +30,8 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
                 LOGGER.info("Client for <{}> is deleted", address);
                 statusClientMeters(byteMeters, packetMeters);
             })
-            .withBufferCount(Integer.getInteger("crusher.buffer.count", 128))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size", 4096))
+            .withBufferCount(Integer.getInteger("crusher.buffer.count", 1024))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size", 8192))
             .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
             .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))
             .buildAndOpen();

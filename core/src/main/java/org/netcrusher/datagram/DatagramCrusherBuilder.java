@@ -49,8 +49,8 @@ public final class DatagramCrusherBuilder {
         this.socketOptions = new DatagramCrusherSocketOptions();
 
         this.bufferOptions = new BufferOptions();
-        this.bufferOptions.setCount(128);
-        this.bufferOptions.setSize(4096);
+        this.bufferOptions.setCount(1024);
+        this.bufferOptions.setSize(8192);
         this.bufferOptions.setDirect(true);
     }
 

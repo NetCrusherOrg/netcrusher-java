@@ -81,7 +81,7 @@ class TcpTransfer {
         } catch (EOFException | ClosedChannelException e) {
             LOGGER.debug("EOF on transfer or channel is closed on {}", name);
             closeEOF();
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOGGER.debug("IO exception on {}", name, e);
             closeInternal();
         }
