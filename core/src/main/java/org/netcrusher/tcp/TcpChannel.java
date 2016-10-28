@@ -5,6 +5,7 @@ import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.nio.SelectionKeyControl;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.state.BitState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,65 +21,105 @@ class TcpChannel {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpChannel.class);
 
-    private static final long LINGER_PERIOD_MS = 5000;
+    private static final long LINGER_PERIOD_MS = 10_000;
 
     private final String name;
 
     private final NioReactor reactor;
 
-    private final Closeable closeable;
+    private final Closeable ownerClose;
 
     private final SocketChannel channel;
 
     private final SelectionKeyControl selectionKeyControl;
 
-    private final TcpQueue incoming;
+    private final TcpQueue incomingQueue;
 
-    private final TcpQueue outgoing;
+    private final TcpQueue outgoingQueue;
 
     private final RateMeterImpl readMeter;
 
     private final RateMeterImpl sentMeter;
 
+    private final State state;
+
     private TcpChannel other;
 
-    TcpChannel(String name, NioReactor reactor, Closeable closeable,
-               SocketChannel channel, TcpQueue incoming, TcpQueue outgoing) throws IOException {
+    TcpChannel(String name, NioReactor reactor, Closeable ownerClose, SocketChannel channel,
+               TcpQueue incomingQueue, TcpQueue outgoingQueue) throws IOException {
         this.name = name;
         this.reactor = reactor;
-        this.closeable = closeable;
+        this.ownerClose = ownerClose;
         this.channel = channel;
 
-        this.incoming = incoming;
-        this.outgoing = outgoing;
+        this.incomingQueue = incomingQueue;
+        this.outgoingQueue = outgoingQueue;
 
         this.readMeter = new RateMeterImpl();
         this.sentMeter = new RateMeterImpl();
 
         SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
         this.selectionKeyControl = new SelectionKeyControl(selectionKey);
+
+        this.state = new State(State.FROZEN);
     }
 
-    private boolean isOpen() {
-        return channel.isOpen();
+    void close() throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                if (state.is(State.OPEN)) {
+                    freeze();
+                }
+
+                NioUtils.closeChannel(channel);
+
+                state.set(State.CLOSED);
+            } finally {
+                state.unlock();
+            }
+
+            if (LOGGER.isDebugEnabled()) {
+                long incomingBytes = incomingQueue.calculateReadableBytes();
+                if (incomingBytes > 0) {
+                    LOGGER.debug("Channel {} has {} incoming bytes when closing", name, incomingBytes);
+                }
+            }
+        }
     }
 
-    private void closeInternal() throws IOException {
-        NioUtils.closeChannel(channel);
+    private void closeAll() throws IOException {
+        this.close();
 
-        closeable.close();
+        reactor.getScheduler().execute(() -> {
+            ownerClose.close();
+            return true;
+        });
     }
 
     private void closeEOF() throws IOException {
-        if (outgoing.hasReadable()) {
-            NioUtils.closeChannel(channel);
+        this.state.setReadEof();
+
+        if (other.state.isReadEof() && !incomingQueue.hasReadable()) {
+            LOGGER.debug("Local closing for {} on EOF signal", name);
+            this.close();
+        }
+
+        if (this.state.is(State.CLOSED) && !outgoingQueue.hasReadable()) {
+            closeAll();
+        }
+    }
+
+    private void closeLocal() throws IOException {
+        if (other.state.is(State.OPEN) && outgoingQueue.hasReadable()) {
+            LOGGER.debug("Local closing for {} on close signal", name);
+            this.close();
 
             reactor.getScheduler().schedule(() -> {
-                closeInternal();
+                closeAll();
                 return true;
             }, LINGER_PERIOD_MS, TimeUnit.MILLISECONDS);
         } else {
-            closeInternal();
+            closeAll();
         }
     }
 
@@ -90,15 +131,15 @@ class TcpChannel {
             closeEOF();
         } catch (ClosedChannelException e) {
             LOGGER.debug("Channel closed on {}", name);
-            closeEOF();
+            closeLocal();
         } catch (Exception e) {
             LOGGER.debug("Exception on {}", name, e);
-            closeInternal();
+            closeAll();
         }
 
         // if other side is closed and there is no incoming data - close the pair
-        if (this.isOpen() && !other.isOpen() && !incoming.hasReadable()) {
-            closeInternal();
+        if (this.state.is(State.OPEN) && other.state.not(State.OPEN) && !incomingQueue.hasReadable()) {
+            closeAll();
         }
     }
 
@@ -113,9 +154,9 @@ class TcpChannel {
     }
 
     private void handleWritableEvent() throws IOException {
-        final TcpQueue queue = incoming;
+        final TcpQueue queue = incomingQueue;
 
-        while (true) {
+        while (state.isWritable()) {
             final TcpQueueBuffers queueBuffers = queue.requestReadableBuffers();
             if (queueBuffers.isEmpty()) {
                 selectionKeyControl.disableWrites();
@@ -140,15 +181,15 @@ class TcpChannel {
             sentMeter.update(sent);
         }
 
-        if (queue.hasWritable()) {
+        if (queue.hasWritable() && other.state.isReadable()) {
             other.selectionKeyControl.enableReads();
         }
     }
 
     private void handleReadableEvent() throws IOException {
-        final TcpQueue queue = outgoing;
+        final TcpQueue queue = outgoingQueue;
 
-        while (true) {
+        while (state.isReadable()) {
             final TcpQueueBuffers queueBuffers = queue.requestWritableBuffers();
             if (queueBuffers.isEmpty()) {
                 selectionKeyControl.disableReads();
@@ -163,6 +204,7 @@ class TcpChannel {
             }
 
             if (read < 0) {
+                selectionKeyControl.disableReads();
                 throw new EOFException();
             }
 
@@ -177,45 +219,53 @@ class TcpChannel {
             readMeter.update(read);
 
             // try to immediately sent all the pending data to the paired socket
-            if (outgoing.hasReadable()) {
+            if (outgoingQueue.hasReadable() && other.state.isWritable()) {
                 other.handleWritableEvent();
             }
         }
 
         // if data still remains we raise the OP_WRITE flag
-        if (outgoing.hasReadable()) {
+        if (outgoingQueue.hasReadable() && other.state.isWritable()) {
             other.selectionKeyControl.enableWrites();
         }
     }
 
-    TcpQueue getIncoming() {
-        return incoming;
-    }
-
-    TcpQueue getOutgoing() {
-        return outgoing;
-    }
-
     void freeze() {
-        if (isOpen()) {
-            if (selectionKeyControl.isValid()) {
-                selectionKeyControl.setNone();
+        if (state.lockIf(State.OPEN)) {
+            try {
+                if (selectionKeyControl.isValid()) {
+                    selectionKeyControl.setNone();
+                }
+
+                state.set(State.FROZEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            LOGGER.debug("Channel is closed on freeze");
+            throw new IllegalStateException("Channel is not in open state on freeze");
         }
     }
 
     void unfreeze() {
-        if (isOpen()) {
-            if (incoming.hasReadable()) {
-                selectionKeyControl.setAll();
-            } else {
-                selectionKeyControl.setReadsOnly();
+        if (state.lockIf(State.FROZEN)) {
+            try {
+                if (incomingQueue.hasReadable()) {
+                    selectionKeyControl.setAll();
+                } else {
+                    selectionKeyControl.setReadsOnly();
+                }
+
+                state.set(State.OPEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            throw new IllegalStateException("Channel is closed");
+            throw new IllegalStateException("Channel is not in frozen state on unfreeze");
         }
+    }
+
+    boolean isFrozen() {
+        return state.isAnyOf(State.FROZEN | State.CLOSED);
     }
 
     void setOther(TcpChannel other) {
@@ -228,6 +278,38 @@ class TcpChannel {
 
     RateMeter getSentMeter() {
         return sentMeter;
+    }
+
+    private static class State extends BitState {
+
+        private static final int OPEN = bit(0);
+
+        private static final int FROZEN = bit(1);
+
+        private static final int CLOSED = bit(2);
+
+        private volatile boolean readEof;
+
+        private State(int state) {
+            super(state);
+            this.readEof = false;
+        }
+
+        private void setReadEof() {
+            this.readEof = true;
+        }
+
+        private boolean isReadEof() {
+            return is(CLOSED) || this.readEof;
+        }
+
+        private boolean isWritable() {
+            return is(OPEN);
+        }
+
+        private boolean isReadable() {
+            return is(OPEN) && !readEof;
+        }
     }
 
 }

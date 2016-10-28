@@ -14,4 +14,68 @@ public class BitState implements Serializable {
         this.state = state;
         this.lock = new ReentrantLock(true);
     }
+
+    protected static int bit(int num) {
+        return 1 << num;
+    }
+
+    public int get() {
+        return state;
+    }
+
+    public void set(int state) {
+        this.state = state;
+    }
+
+    public boolean is(int state) {
+        return this.state == state;
+    }
+
+    public boolean not(int state) {
+        return this.state != state;
+    }
+
+    public boolean isAnyOf(int state) {
+        return (this.state & state) != 0;
+    }
+
+    public boolean isNotOf(int state) {
+        return (this.state & state) == 0;
+    }
+
+    public void unlock() {
+        this.lock.unlock();
+    }
+
+    public void lock() {
+        this.lock.lock();
+    }
+
+    public boolean lockIf(int state) {
+        if (is(state)) {
+            lock.lock();
+            if (is(state)) {
+                return true;
+            } else {
+                lock.unlock();
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    public boolean lockIfNot(int state) {
+        if (not(state)) {
+            lock.lock();
+            if (not(state)) {
+                return true;
+            } else {
+                lock.unlock();
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
 }

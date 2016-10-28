@@ -1,12 +1,14 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
-import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.buffer.BufferOptions;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.state.BitState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -35,17 +37,15 @@ class TcpAcceptor implements NetFreezer {
 
     private final TcpCrusher crusher;
 
-    private ServerSocketChannel serverSocketChannel;
+    private final ServerSocketChannel serverSocketChannel;
 
-    private SelectionKey serverSelectionKey;
+    private final SelectionKey serverSelectionKey;
 
     private final BufferOptions bufferOptions;
 
     private final TcpFilters filters;
 
-    private volatile boolean open;
-
-    private volatile boolean frozen;
+    private final State state;
 
     TcpAcceptor(
             TcpCrusher crusher, NioReactor reactor,
@@ -73,22 +73,26 @@ class TcpAcceptor implements NetFreezer {
         this.serverSelectionKey = reactor.getSelector()
             .register(serverSocketChannel, 0, (selectionKey) -> this.accept());
 
-        this.open = true;
-        this.frozen = true;
+        this.state = new State(State.FROZEN);
     }
 
-    synchronized void closeExternal() throws IOException {
-        if (open) {
-            serverSelectionKey.cancel();
-            serverSelectionKey = null;
+    void close() throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                if (state.is(State.OPEN)) {
+                    freeze();
+                }
 
-            NioUtils.closeChannel(serverSocketChannel);
-            serverSocketChannel = null;
+                serverSelectionKey.cancel();
 
-            reactor.getSelector().wakeup();
+                NioUtils.closeChannel(serverSocketChannel);
 
-            open = false;
-            frozen = true;
+                reactor.getSelector().wakeup();
+
+                state.set(State.CLOSED);
+            } finally {
+                state.unlock();
+            }
         }
     }
 
@@ -169,8 +173,12 @@ class TcpAcceptor implements NetFreezer {
 
     private void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
         try {
-            TcpPair pair = new TcpPair(crusher, reactor, filters,
-                socketChannel1, socketChannel2, bufferOptions);
+            InetSocketAddress clientAddress = (InetSocketAddress) socketChannel1.getRemoteAddress();
+
+            Closeable closeable = () -> crusher.closeClient(clientAddress);
+
+            TcpPair pair = new TcpPair(reactor, filters,
+                socketChannel1, socketChannel2, bufferOptions, closeable);
             pair.unfreeze();
 
             crusher.notifyPairCreated(pair);
@@ -186,44 +194,53 @@ class TcpAcceptor implements NetFreezer {
     }
 
     @Override
-    public synchronized void freeze() throws IOException {
-        if (open) {
-            if (!frozen) {
-                reactor.getSelector().execute(() -> {
-                    if (serverSelectionKey.isValid()) {
-                        serverSelectionKey.interestOps(0);
-                    }
+    public void freeze() throws IOException {
+        if (state.lockIf(State.OPEN)) {
+            reactor.getSelector().execute(() -> {
+                if (serverSelectionKey.isValid()) {
+                    serverSelectionKey.interestOps(0);
+                }
 
-                    return true;
-                });
+                return true;
+            });
 
-                frozen = true;
+            state.set(State.FROZEN);
 
-                LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is frozen", bindAddress, connectAddress);
-            }
+            LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is frozen", bindAddress, connectAddress);
         } else {
-            LOGGER.debug("Component is closed on freeze");
+            LOGGER.debug("Acceptor is not open on freeze");
         }
     }
 
     @Override
-    public synchronized void unfreeze() throws IOException {
-        if (open) {
-            if (frozen) {
-                reactor.getSelector().execute(() ->
-                    serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
+    public void unfreeze() throws IOException {
+        if (state.lockIf(State.FROZEN)) {
+            reactor.getSelector().execute(() ->
+                serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
 
-                frozen = false;
+            state.set(State.OPEN);
 
-                LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is unfrozen", bindAddress, connectAddress);
-            }
+            LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is unfrozen", bindAddress, connectAddress);
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            LOGGER.debug("Acceptor is not frozen on unfreeze");
         }
     }
 
     @Override
     public boolean isFrozen() {
-        return frozen;
+        return state.isAnyOf(State.FROZEN | State.CLOSED);
+    }
+
+    private static class State extends BitState {
+
+        private static final int OPEN = bit(0);
+
+        private static final int FROZEN = bit(1);
+
+        private static final int CLOSED = bit(2);
+
+        private State(int state) {
+            super(state);
+        }
     }
 }

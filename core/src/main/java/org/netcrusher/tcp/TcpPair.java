@@ -1,13 +1,14 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
-import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.state.BitState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
@@ -16,42 +17,30 @@ class TcpPair implements NetFreezer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpPair.class);
 
-    private final SocketChannel inner;
+    private final TcpChannel innerChannel;
 
-    private final SocketChannel outer;
+    private final TcpChannel outerChannel;
 
-    private final TcpChannel innerTransfer;
-
-    private final TcpChannel outerTransfer;
-
-    private final TcpCrusher crusher;
+    private final Closeable ownerClose;
 
     private final NioReactor reactor;
 
     private final InetSocketAddress clientAddress;
 
-    private boolean open;
-
-    private volatile boolean frozen;
+    private final State state;
 
     TcpPair(
-        TcpCrusher crusher,
         NioReactor reactor,
         TcpFilters filters,
         SocketChannel inner,
         SocketChannel outer,
-        BufferOptions bufferOptions) throws IOException
+        BufferOptions bufferOptions,
+        Closeable ownerClose) throws IOException
     {
-        this.crusher = crusher;
+        this.ownerClose = ownerClose;
         this.reactor = reactor;
 
-        this.inner = inner;
-        this.outer = outer;
-
         this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
-
-        this.frozen = true;
-        this.open = true;
 
         TcpQueue innerToOuter = new TcpQueue(clientAddress,
             filters.getOutgoingTransformFilter(), filters.getOutgoingThrottler(),
@@ -60,96 +49,98 @@ class TcpPair implements NetFreezer {
             filters.getIncomingTransformFilter(), filters.getIncomingThrottler(),
             bufferOptions);
 
-        this.innerTransfer = new TcpChannel("INNER", reactor, this::closeInternal, inner,
+        this.innerChannel = new TcpChannel("INNER", reactor, this::closeAll, inner,
             outerToInner, innerToOuter);
-        this.outerTransfer = new TcpChannel("OUTER", reactor, this::closeInternal, outer,
+        this.outerChannel = new TcpChannel("OUTER", reactor, this::closeAll, outer,
             innerToOuter, outerToInner);
 
-        this.innerTransfer.setOther(outerTransfer);
-        this.outerTransfer.setOther(innerTransfer);
+        this.innerChannel.setOther(outerChannel);
+        this.outerChannel.setOther(innerChannel);
+
+        this.state = new State(State.FROZEN);
     }
 
-    private void closeInternal() throws IOException {
-        LOGGER.debug("Pair for <{}> is closing itself", clientAddress);
-
-        NioUtils.closeChannel(inner);
-        NioUtils.closeChannel(outer);
+    private void closeAll() throws IOException {
+        this.close();
 
         reactor.getScheduler().execute(() -> {
-            crusher.closeClient(this.getClientAddress());
+            ownerClose.close();
             return true;
         });
     }
 
-    synchronized void closeExternal() throws IOException {
-        if (open) {
-            freeze();
+    void close() throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                if (state.is(State.OPEN)) {
+                    freeze();
+                }
 
-            NioUtils.closeChannel(inner);
-            NioUtils.closeChannel(outer);
+                innerChannel.close();
+                outerChannel.close();
 
-            open = false;
-            frozen = true;
+                state.set(State.CLOSED);
 
-            if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("Pair for '{}' is closed", clientAddress);
-
-                long incomingBytes = innerTransfer.getIncoming().calculateReadableBytes();
-                if (incomingBytes > 0) {
-                    LOGGER.debug("The pair for <{}> has {} incoming bytes when closing",
-                        clientAddress, incomingBytes);
-                }
-
-                long outgoingBytes = innerTransfer.getOutgoing().calculateWritableBytes();
-                if (outgoingBytes > 0) {
-                    LOGGER.debug("The pair for <{}> has {} outgoing bytes when closing",
-                        clientAddress, outgoingBytes);
-                }
+            } finally {
+                state.unlock();
             }
         }
     }
 
     @Override
-    public synchronized void freeze() throws IOException {
-        if (open) {
-            if (!frozen) {
+    public void freeze() throws IOException {
+        if (state.lockIf(State.OPEN)) {
+            try {
                 reactor.getSelector().execute(() -> {
-                    innerTransfer.freeze();
-                    outerTransfer.freeze();
+                    if (!innerChannel.isFrozen()) {
+                        innerChannel.freeze();
+                    }
+
+                    if (!outerChannel.isFrozen()) {
+                        outerChannel.freeze();
+                    }
+
                     return true;
                 });
 
-                frozen = true;
+                state.set(State.FROZEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            LOGGER.debug("Component is closed on freeze");
+            throw new IllegalStateException("Pair is not in open state on freeze");
         }
     }
 
     @Override
-    public synchronized void unfreeze() throws IOException {
-        if (open) {
-            if (frozen) {
+    public void unfreeze() throws IOException {
+        if (state.lockIf(State.FROZEN)) {
+            try {
                 reactor.getSelector().execute(() -> {
-                    innerTransfer.unfreeze();
-                    outerTransfer.unfreeze();
+                    if (innerChannel.isFrozen()) {
+                        innerChannel.unfreeze();
+                    }
+
+                    if (outerChannel.isFrozen()) {
+                        outerChannel.unfreeze();
+                    }
+
                     return true;
                 });
 
-                frozen = false;
+                state.set(State.OPEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            throw new IllegalStateException("Pair is closed");
+            throw new IllegalStateException("Pair is not in frozen state on unfreeze");
         }
     }
 
     @Override
     public boolean isFrozen() {
-        if (open) {
-            return frozen;
-        } else {
-            throw new IllegalStateException("Pair is closed");
-        }
+        return state.isAnyOf(State.FROZEN | State.CLOSED);
     }
 
     InetSocketAddress getClientAddress() {
@@ -157,7 +148,20 @@ class TcpPair implements NetFreezer {
     }
 
     RateMeters getByteMeters() {
-        return new RateMeters(innerTransfer.getSentMeter(), outerTransfer.getSentMeter());
+        return new RateMeters(innerChannel.getSentMeter(), outerChannel.getSentMeter());
+    }
+
+    private static class State extends BitState {
+
+        private static final int OPEN = bit(0);
+
+        private static final int FROZEN = bit(1);
+
+        private static final int CLOSED = bit(2);
+
+        private State(int state) {
+            super(state);
+        }
     }
 
 }
