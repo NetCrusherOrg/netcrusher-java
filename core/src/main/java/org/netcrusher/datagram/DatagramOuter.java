@@ -210,9 +210,13 @@ class DatagramOuter {
     }
 
     void handleWritableEvent(boolean forced) throws IOException {
-        DatagramQueue.BufferEntry entry;
         int count = 0;
-        while ((entry = incoming.request()) != null) {
+        while (true) {
+            final DatagramQueue.BufferEntry entry = incoming.request();
+            if (entry == null) {
+                break;
+            }
+
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
             if (emptyDatagram && (count > 0 || forced)) {
                 // due to NIO API problem we can't differ between two cases:
