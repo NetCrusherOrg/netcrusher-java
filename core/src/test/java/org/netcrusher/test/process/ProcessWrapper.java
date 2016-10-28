@@ -49,6 +49,8 @@ public class ProcessWrapper {
         private Watcher(ProcessBuilder builder) throws IOException {
             this.process = builder.start();
 
+            LOGGER.info("Process started: {}", builder.command());
+
             this.future = new CompletableFuture<ProcessResult>() {
                 @Override
                 public boolean cancel(boolean mayInterruptIfRunning) {

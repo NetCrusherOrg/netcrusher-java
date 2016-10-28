@@ -18,13 +18,15 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_BYTES = 8 * 1024 * 1024;
 
-    protected void session(int bytes, int sndPort, int rcvPort) throws Exception {
+    protected static final int DEFAULT_THROUGHPUT = 1000;
+
+    protected void session(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
         ProcessWrapper processor = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
             "-c", "openssl rand " + bytes
                 + " | tee >(openssl md5 >&2)"
-                + " | pv -q -L 1M"
+                + " | pv -q -L " + throughputKbSec + "K"
                 + " | dd bs=1024"
                 + " | socat -T3 -4 - udp4-sendto:127.0.0.1:" + sndPort + ",ignoreeof"
                 + " | dd bs=1024"

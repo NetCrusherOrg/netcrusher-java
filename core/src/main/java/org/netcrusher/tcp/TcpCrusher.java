@@ -188,7 +188,7 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("TcpCrusher is already closed");
         }
     }
 
@@ -213,7 +213,7 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Crusher is not in open state");
+            throw new IllegalStateException("TcpCrusher is not in open state");
         }
     }
 
@@ -233,7 +233,7 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("TcpCrusher is closed");
         }
     }
 
@@ -258,7 +258,7 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("TcpCrusher is not frozen");
         }
     }
 
@@ -278,7 +278,7 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("TcpCrusher is closed");
         }
     }
 
@@ -367,7 +367,7 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("TcpCrusher is closed");
         }
     }
 

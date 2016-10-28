@@ -4,6 +4,7 @@ import org.netcrusher.NetCrusher;
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.state.BitState;
 import org.netcrusher.datagram.callback.DatagramClientCreation;
 import org.netcrusher.datagram.callback.DatagramClientDeletion;
 import org.netcrusher.tcp.TcpCrusherBuilder;
@@ -60,9 +61,9 @@ public class DatagramCrusher implements NetCrusher {
 
     private final DatagramClientDeletion deletionListener;
 
-    private DatagramInner inner;
+    private final State state;
 
-    private volatile boolean open;
+    private DatagramInner inner;
 
     public DatagramCrusher(
             NioReactor reactor,
@@ -78,7 +79,7 @@ public class DatagramCrusher implements NetCrusher {
         this.connectAddress = connectAddress;
         this.socketOptions = socketOptions;
         this.reactor = reactor;
-        this.open = false;
+        this.state = new State(State.CLOSED);
         this.filters = filters;
         this.bufferOptions = bufferOptions;
         this.clientTotalCount = new AtomicInteger(0);
@@ -103,74 +104,102 @@ public class DatagramCrusher implements NetCrusher {
     }
 
     @Override
-    public synchronized void open() throws IOException {
-        if (open) {
-            throw new IllegalStateException("DatagramCrusher is already active");
-        }
+    public void open() throws IOException {
+        if (state.lockIf(State.CLOSED)) {
+            try {
+                this.inner = new DatagramInner(this,
+                    reactor, socketOptions, filters, bindAddress, connectAddress, bufferOptions);
+                this.inner.unfreeze();
 
-        this.inner = new DatagramInner(this,
-            reactor, socketOptions, filters, bindAddress, connectAddress, bufferOptions);
-        this.inner.unfreeze();
+                clientTotalCount.set(0);
 
-        clientTotalCount.set(0);
+                LOGGER.info("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);
 
-        LOGGER.info("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);
-
-        this.open = true;
-    }
-
-    @Override
-    public synchronized void close() throws IOException {
-        if (open) {
-            this.inner.closeExternal();
-            this.inner = null;
-
-            this.open = false;
-
-            LOGGER.info("DatagramCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
-        }
-    }
-
-    @Override
-    public synchronized void reopen() throws IOException {
-        if (open) {
-            close();
-            open();
+                state.set(State.OPEN);
+            } finally {
+                state.unlock();
+            }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("DatagramCrusher is already open");
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                if (state.is(State.OPEN)) {
+                    freeze();
+                }
+
+                this.inner.close();
+                this.inner = null;
+
+                state.set(State.CLOSED);
+
+                LOGGER.info("DatagramCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
+            } finally {
+                state.unlock();
+            }
+        }
+    }
+
+    @Override
+    public void reopen() throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                close();
+                open();
+            } finally {
+                state.unlock();
+            }
+        } else {
+            throw new IllegalStateException("DatagramCrusher is not open");
         }
     }
 
     @Override
     public boolean isOpen() {
-        return open;
+        return state.is(State.OPEN | State.FROZEN);
     }
 
     @Override
-    public synchronized void freeze() throws IOException {
-        if (open) {
-            inner.freeze();
+    public void freeze() throws IOException {
+        if (state.lockIf(State.OPEN)) {
+            try {
+                if (!inner.isFrozen()) {
+                    inner.freeze();
+                }
+
+                state.set(State.FROZEN);
+            } finally {
+                state.unlock();
+            }
         } else {
-            LOGGER.debug("Component is closed on freeze");
+            throw new IllegalStateException("DatagramСrusher is not open");
         }
     }
 
     @Override
-    public synchronized void unfreeze() throws IOException {
-        if (open) {
-            inner.unfreeze();
+    public void unfreeze() throws IOException {
+        if (state.lockIf(State.FROZEN)) {
+            try {
+                if (inner.isFrozen()) {
+                    inner.unfreeze();
+                }
+
+                state.set(State.OPEN);
+            } finally {
+                state.unlock();
+            }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("DatagramCrusher is not frozen");
         }
     }
 
     @Override
-    public synchronized boolean isFrozen() {
-        if (open) {
-            return inner.isFrozen();
-        } else {
-            throw new IllegalStateException("Crusher is not open");
-        }
+    public boolean isFrozen() {
+        return state.isAnyOf(State.FROZEN | State.CLOSED);
     }
 
     @Override
@@ -184,22 +213,30 @@ public class DatagramCrusher implements NetCrusher {
     }
 
     @Override
-    public synchronized Collection<InetSocketAddress> getClientAddresses() {
-        if (open) {
-            return inner.getOuters().stream()
-                .map(DatagramOuter::getClientAddress)
-                .collect(Collectors.toList());
+    public Collection<InetSocketAddress> getClientAddresses() {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                return inner.getOuters().stream()
+                    .map(DatagramOuter::getClientAddress)
+                    .collect(Collectors.toList());
+            } finally {
+                state.unlock();
+            }
         } else {
             return Collections.emptyList();
         }
     }
 
     @Override
-    public synchronized RateMeters getClientByteMeters(InetSocketAddress clientAddress) {
-        if (open) {
-            DatagramOuter outer = this.inner.getOuter(clientAddress);
-            if (outer != null) {
-                return outer.getByteMeters();
+    public RateMeters getClientByteMeters(InetSocketAddress clientAddress) {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                DatagramOuter outer = inner.getOuter(clientAddress);
+                if (outer != null) {
+                    return outer.getByteMeters();
+                }
+            } finally {
+                state.unlock();
             }
         }
 
@@ -210,11 +247,15 @@ public class DatagramCrusher implements NetCrusher {
      * Get client packet meters
      * @return Rate meters
      */
-    public synchronized RateMeters getClientPacketMeters(InetSocketAddress clientAddress) {
-        if (open) {
-            DatagramOuter outer = this.inner.getOuter(clientAddress);
-            if (outer != null) {
-                return outer.getPacketMeters();
+    public RateMeters getClientPacketMeters(InetSocketAddress clientAddress) {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                DatagramOuter outer = inner.getOuter(clientAddress);
+                if (outer != null) {
+                    return outer.getPacketMeters();
+                }
+            } finally {
+                state.unlock();
             }
         }
 
@@ -225,11 +266,15 @@ public class DatagramCrusher implements NetCrusher {
      * Get inner socket byte meters
      * @return Rate meters
      */
-    public synchronized RateMeters getInnerByteMeters() {
-        if (open) {
-            return inner.getByteMeters();
+    public RateMeters getInnerByteMeters() {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                return inner.getByteMeters();
+            } finally {
+                state.unlock();
+            }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("DatagramCrusher is closed");
         }
     }
 
@@ -237,18 +282,26 @@ public class DatagramCrusher implements NetCrusher {
      * Get inner socket packet meters
      * @return Rate meters
      */
-    public synchronized RateMeters getInnerPacketMeters() {
-        if (open) {
-            return inner.getPacketMeters();
+    public RateMeters getInnerPacketMeters() {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                return inner.getPacketMeters();
+            } finally {
+                state.unlock();
+            }
         } else {
-            throw new IllegalStateException("Crusher is not open");
+            throw new IllegalStateException("DatagramCrusher is closed");
         }
     }
 
     @Override
-    public synchronized boolean closeClient(InetSocketAddress clientAddress) throws IOException {
-        if (open) {
-            return this.inner.closeOuter(clientAddress);
+    public boolean closeClient(InetSocketAddress clientAddress) throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                return inner.closeOuter(clientAddress);
+            } finally {
+                state.unlock();
+            }
         }
 
         return false;
@@ -260,17 +313,34 @@ public class DatagramCrusher implements NetCrusher {
      * @param timeUnit Time unit of idle time
      * @throws IOException Exception on error
      */
-    public synchronized int closeIdleClients(long maxIdleDuration, TimeUnit timeUnit) throws IOException {
-        if (open) {
-            return this.inner.closeIdleOuters(timeUnit.toMillis(maxIdleDuration));
-        } else {
-            return 0;
+    public int closeIdleClients(long maxIdleDuration, TimeUnit timeUnit) throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                return inner.closeIdleOuters(timeUnit.toMillis(maxIdleDuration));
+            } finally {
+                state.unlock();
+            }
         }
+
+        return 0;
     }
 
     @Override
     public int getClientTotalCount() {
         return clientTotalCount.get();
+    }
+
+    private static class State extends BitState {
+
+        private static final int OPEN = bit(0);
+
+        private static final int FROZEN = bit(1);
+
+        private static final int CLOSED = bit(2);
+
+        private State(int state) {
+            super(state);
+        }
     }
 
 }

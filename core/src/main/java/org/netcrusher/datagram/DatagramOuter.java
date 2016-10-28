@@ -1,13 +1,14 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.nio.SelectionKeyControl;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.state.BitState;
 import org.netcrusher.core.throttle.Throttler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,11 +55,9 @@ class DatagramOuter {
 
     private final RateMeterImpl readPacketMeter;
 
-    private boolean open;
+    private final State state;
 
-    private volatile boolean frozen;
-
-    private long lastOperationTimestamp;
+    private volatile long lastOperationTimestamp;
 
     DatagramOuter(
             DatagramInner inner,
@@ -75,8 +74,6 @@ class DatagramOuter {
         this.connectAddress = connectAddress;
         this.incoming = new DatagramQueue(bufferOptions);
         this.lastOperationTimestamp = System.currentTimeMillis();
-        this.frozen = true;
-        this.open = true;
 
         this.readByteMeter = new RateMeterImpl();
         this.sentByteMeter = new RateMeterImpl();
@@ -98,65 +95,80 @@ class DatagramOuter {
         SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
         this.selectionKeyControl = new SelectionKeyControl(selectionKey);
 
+        this.state = new State(State.FROZEN);
+
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, connectAddress);
         }
     }
 
-    synchronized void unfreeze() {
-        if (open) {
-            if (frozen) {
+    void close() {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                if (state.is(State.OPEN)) {
+                    freeze();
+                }
+
+                if (!incoming.isEmpty()) {
+                    LOGGER.warn("On closing outer has {} incoming datagrams", incoming.size());
+                }
+
+                NioUtils.closeChannel(channel);
+
+                state.set(State.CLOSED);
+
+                LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, connectAddress);
+            } finally {
+                state.unlock();
+            }
+        }
+    }
+
+    private void closeAll() {
+        this.close();
+
+        reactor.getScheduler().execute(() -> {
+            inner.closeOuter(clientAddress);
+            return true;
+        });
+    }
+
+    void unfreeze() {
+        if (state.lockIf(State.FROZEN)) {
+            try {
                 if (incoming.isEmpty()) {
                     selectionKeyControl.setReadsOnly();
                 } else {
                     selectionKeyControl.setAll();
                 }
 
-                frozen = false;
+                state.set(State.OPEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            throw new IllegalStateException("Outer is closed");
+            throw new IllegalStateException("Outer is not frozen");
         }
     }
 
-    synchronized void freeze() {
-        if (open) {
-            if (!frozen) {
+    void freeze() {
+        if (state.lockIf(State.OPEN)) {
+            try {
                 if (selectionKeyControl.isValid()) {
                     selectionKeyControl.setNone();
                 }
 
-                frozen = true;
+                state.set(State.FROZEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            LOGGER.debug("Component is closed on freeze");
+            throw new IllegalStateException("Outer is not open on freeze");
         }
     }
 
-    synchronized void closeExternal() {
-        if (open) {
-            freeze();
-
-            if (!incoming.isEmpty()) {
-                LOGGER.warn("On closing outer has {} incoming datagrams", incoming.size());
-            }
-
-            NioUtils.closeChannel(channel);
-
-            open = false;
-            frozen = true;
-
-            LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, connectAddress);
-        }
-    }
-
-    private void closeInternal() {
-        NioUtils.closeChannel(channel);
-
-        reactor.getScheduler().execute(() -> {
-            inner.closeOuter(clientAddress);
-            return true;
-        });
+    boolean isFrozen() {
+        return state.isAnyOf(State.FROZEN | State.CLOSED);
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
@@ -165,16 +177,16 @@ class DatagramOuter {
                 handleWritableEvent(false);
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on write");
-                closeInternal();
+                closeAll();
             } catch (PortUnreachableException e) {
                 LOGGER.debug("Port <{}> is unreachable on write", connectAddress);
-                closeInternal();
+                closeAll();
             } catch (UnresolvedAddressException e) {
                 LOGGER.error("Connect address <{}> is unresolved", connectAddress);
-                closeInternal();
+                closeAll();
             } catch (Exception e) {
                 LOGGER.error("Exception in outer on write", e);
-                closeInternal();
+                closeAll();
             }
         }
 
@@ -183,16 +195,16 @@ class DatagramOuter {
                 handleReadableEvent();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on read");
-                closeInternal();
+                closeAll();
             } catch (EOFException e) {
                 LOGGER.debug("EOF on read");
-                closeInternal();
+                closeAll();
             } catch (PortUnreachableException e) {
                 LOGGER.debug("Port <{}> is unreachable on read", connectAddress);
-                closeInternal();
+                closeAll();
             } catch (Exception e) {
                 LOGGER.error("Exception in outer on read", e);
-                closeInternal();
+                closeAll();
             }
         }
     }
@@ -283,7 +295,7 @@ class DatagramOuter {
                 inner.enqueue(clientAddress, bb, delayNs);
 
                 // try to immediately sent the datagram
-                if (inner.hasIncoming()) {
+                if (inner.hasIncoming() && inner.isWritable()) {
                     inner.handleWritableEvent(true);
                 }
             }
@@ -294,7 +306,7 @@ class DatagramOuter {
         }
 
         // if data still remains we raise the OP_WRITE flag
-        if (inner.hasIncoming()) {
+        if (inner.hasIncoming() && inner.isWritable()) {
             inner.enableWrites();
         }
     }
@@ -320,9 +332,11 @@ class DatagramOuter {
     }
 
     void enableWrites() {
-        if (selectionKeyControl.isValid()) {
-            selectionKeyControl.enableWrites();
-        }
+        selectionKeyControl.enableWrites();
+    }
+
+    boolean isWritable() {
+        return state.isWritable();
     }
 
     private boolean filter(ByteBuffer bb, TransformFilter transformFilter, PassFilter passFilter) {
@@ -354,6 +368,23 @@ class DatagramOuter {
 
     RateMeters getPacketMeters() {
         return new RateMeters(readPacketMeter, sentPacketMeter);
+    }
+
+    private static class State extends BitState {
+
+        private static final int OPEN = bit(0);
+
+        private static final int FROZEN = bit(1);
+
+        private static final int CLOSED = bit(2);
+
+        private State(int state) {
+            super(state);
+        }
+
+        private boolean isWritable() {
+            return is(OPEN);
+        }
     }
 }
 

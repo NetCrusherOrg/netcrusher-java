@@ -1,11 +1,12 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.nio.SelectionKeyControl;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.state.BitState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,9 +58,7 @@ class DatagramInner {
 
     private final BufferOptions bufferOptions;
 
-    private boolean open;
-
-    private volatile boolean frozen;
+    private final State state;
 
     DatagramInner(
             DatagramCrusher crusher,
@@ -79,8 +78,6 @@ class DatagramInner {
         this.outers = new ConcurrentHashMap<>(32);
         this.incoming = new DatagramQueue(bufferOptions);
         this.bufferOptions = bufferOptions;
-        this.frozen = true;
-        this.open = true;
 
         this.sentByteMeter = new RateMeterImpl();
         this.readByteMeter = new RateMeterImpl();
@@ -98,12 +95,56 @@ class DatagramInner {
         SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
         this.selectionKeyControl = new SelectionKeyControl(selectionKey);
 
+        this.state = new State(State.FROZEN);
+
         LOGGER.debug("Inner on <{}> is started", bindAddress);
     }
 
-    synchronized void unfreeze() throws IOException {
-        if (open) {
-            if (frozen) {
+    void close() throws IOException {
+        if (state.lockIfNot(State.CLOSED)) {
+            try {
+                if (state.is(State.OPEN)) {
+                    freeze();
+                }
+
+                if (!incoming.isEmpty()) {
+                    LOGGER.warn("On closing inner has {} incoming datagrams", incoming.size());
+                }
+
+                NioUtils.closeChannel(channel);
+
+                Iterator<DatagramOuter> outerIterator = outers.values().iterator();
+                while (outerIterator.hasNext()) {
+                    DatagramOuter outer = outerIterator.next();
+                    outerIterator.remove();
+
+                    outer.close();
+                    crusher.notifyOuterDeleted(outer);
+                }
+
+                reactor.getSelector().wakeup();
+
+                state.set(State.CLOSED);
+
+                LOGGER.debug("Inner on <{}> is closed", bindAddress);
+            } finally {
+                state.unlock();
+            }
+        }
+    }
+
+    private void closeAll() throws IOException {
+        this.close();
+
+        reactor.getScheduler().execute(() -> {
+            crusher.close();
+            return true;
+        });
+    }
+
+    void unfreeze() throws IOException {
+        if (state.lockIf(State.FROZEN)) {
+            try {
                 reactor.getSelector().execute(() -> {
                     if (incoming.isEmpty()) {
                         selectionKeyControl.setReadsOnly();
@@ -111,81 +152,52 @@ class DatagramInner {
                         selectionKeyControl.setAll();
                     }
 
-                    outers.values().forEach(DatagramOuter::unfreeze);
+                    for (DatagramOuter outer : outers.values()) {
+                        if (outer.isFrozen()) {
+                            outer.unfreeze();
+                        }
+                    }
 
                     return true;
                 });
 
-                frozen = false;
+                state.set(State.OPEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            throw new IllegalStateException("Inner is closed");
+            throw new IllegalStateException("Inner is not frozen");
         }
     }
 
-    synchronized void freeze() throws IOException {
-        if (open) {
-            if (!frozen) {
+    void freeze() throws IOException {
+        if (state.lockIf(State.OPEN)) {
+            try {
                 reactor.getSelector().execute(() -> {
                     if (selectionKeyControl.isValid()) {
                         selectionKeyControl.setNone();
                     }
 
-                    outers.values().forEach(DatagramOuter::freeze);
+                    for (DatagramOuter outer : outers.values()) {
+                        if (!outer.isFrozen()) {
+                            outer.freeze();
+                        }
+                    }
 
                     return true;
                 });
 
-                frozen = true;
+                state.set(State.FROZEN);
+            } finally {
+                state.unlock();
             }
         } else {
-            LOGGER.debug("Component is closed on freeze");
+            throw new IllegalStateException("Inner is not open on freeze");
         }
     }
 
-    synchronized boolean isFrozen() {
-        if (open) {
-            return frozen;
-        } else {
-            throw new IllegalStateException("Inner is closed");
-        }
-    }
-
-    synchronized void closeExternal() throws IOException {
-        if (open) {
-            freeze();
-
-            if (!incoming.isEmpty()) {
-                LOGGER.warn("On closing inner has {} incoming datagrams", incoming.size());
-            }
-
-            Iterator<DatagramOuter> outerIterator = outers.values().iterator();
-            while (outerIterator.hasNext()) {
-                DatagramOuter outer = outerIterator.next();
-                outerIterator.remove();
-
-                outer.closeExternal();
-                crusher.notifyOuterDeleted(outer);
-            }
-
-            NioUtils.closeChannel(channel);
-
-            reactor.getSelector().wakeup();
-
-            open = false;
-            frozen = true;
-
-            LOGGER.debug("Inner on <{}> is closed", bindAddress);
-        }
-    }
-
-    private void closeInternal() {
-        NioUtils.closeChannel(channel);
-
-        reactor.getScheduler().execute(() -> {
-            crusher.close();
-            return true;
-        });
+    boolean isFrozen() {
+        return state.isAnyOf(State.FROZEN | State.CLOSED);
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
@@ -194,10 +206,10 @@ class DatagramInner {
                 handleWritableEvent(false);
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on write");
-                closeInternal();
+                closeAll();
             } catch (Exception e) {
                 LOGGER.error("Exception in inner on write", e);
-                closeInternal();
+                closeAll();
             }
         }
 
@@ -206,10 +218,10 @@ class DatagramInner {
                 handleReadableEvent();
             } catch (ClosedChannelException e) {
                 LOGGER.debug("Channel is closed on read");
-                closeInternal();
+                closeAll();
             } catch (Exception e) {
                 LOGGER.error("Exception in inner on read", e);
-                closeInternal();
+                closeAll();
             }
         }
     }
@@ -285,12 +297,12 @@ class DatagramInner {
             outer.enqueue(bb);
 
             // try to immediately sent the datagram
-            if (outer.hasIncoming()) {
+            if (outer.hasIncoming() && outer.isWritable()) {
                 outer.handleWritableEvent(true);
             }
 
             // if data still remains we raise the OP_WRITE flag
-            if (outer.hasIncoming()) {
+            if (outer.hasIncoming() && outer.isWritable()) {
                 outer.enableWrites();
             }
 
@@ -322,7 +334,8 @@ class DatagramInner {
     boolean closeOuter(InetSocketAddress clientAddress) {
         DatagramOuter outer = outers.remove(clientAddress);
         if (outer != null) {
-            outer.closeExternal();
+            outer.close();
+
             crusher.notifyOuterDeleted(outer);
 
             return true;
@@ -342,7 +355,7 @@ class DatagramInner {
                 if (outer.getIdleDurationMs() > maxIdleDurationMs) {
                     outerIterator.remove();
 
-                    outer.closeExternal();
+                    outer.close();
                     crusher.notifyOuterDeleted(outer);
                 }
             }
@@ -360,9 +373,11 @@ class DatagramInner {
     }
 
     void enableWrites() {
-        if (selectionKeyControl.isValid()) {
-            selectionKeyControl.enableWrites();
-        }
+        selectionKeyControl.enableWrites();
+    }
+
+    boolean isWritable() {
+        return state.isWritable();
     }
 
     DatagramOuter getOuter(InetSocketAddress clientAddress) {
@@ -380,4 +395,22 @@ class DatagramInner {
     RateMeters getPacketMeters() {
         return new RateMeters(readPacketMeter, sentPacketMeter);
     }
+
+    private static class State extends BitState {
+
+        private static final int OPEN = bit(0);
+
+        private static final int FROZEN = bit(1);
+
+        private static final int CLOSED = bit(2);
+
+        private State(int state) {
+            super(state);
+        }
+
+        private boolean isWritable() {
+            return is(OPEN);
+        }
+    }
+
 }

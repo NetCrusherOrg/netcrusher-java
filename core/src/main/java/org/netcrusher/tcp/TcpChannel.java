@@ -145,7 +145,7 @@ class TcpChannel {
 
     private void handleEvent(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isWritable()) {
-            handleWritableEvent();
+            handleWritableEvent(false);
         }
 
         if (selectionKey.isReadable()) {
@@ -153,7 +153,7 @@ class TcpChannel {
         }
     }
 
-    private void handleWritableEvent() throws IOException {
+    private void handleWritableEvent(boolean forced) throws IOException {
         final TcpQueue queue = incomingQueue;
 
         while (state.isWritable()) {
@@ -220,7 +220,7 @@ class TcpChannel {
 
             // try to immediately sent all the pending data to the paired socket
             if (outgoingQueue.hasReadable() && other.state.isWritable()) {
-                other.handleWritableEvent();
+                other.handleWritableEvent(true);
             }
         }
 
