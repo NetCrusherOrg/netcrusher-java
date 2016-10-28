@@ -6,6 +6,7 @@ import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.nio.SelectionKeyControl;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.Throttler;
 import org.slf4j.Logger;
@@ -41,7 +42,7 @@ class DatagramOuter {
 
     private final DatagramChannel channel;
 
-    private final SelectionKey selectionKey;
+    private final SelectionKeyControl selectionKeyControl;
 
     private final ByteBuffer bb;
 
@@ -94,7 +95,8 @@ class DatagramOuter {
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = reactor.getSelector().register(channel, 0, this::callback);
+        SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
+        this.selectionKeyControl = new SelectionKeyControl(selectionKey);
 
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Outer for <{}> to <{}> is started", clientAddress, connectAddress);
@@ -104,9 +106,11 @@ class DatagramOuter {
     synchronized void unfreeze() {
         if (open) {
             if (frozen) {
-                int ops = incoming.isEmpty() ?
-                    SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
-                selectionKey.interestOps(ops);
+                if (incoming.isEmpty()) {
+                    selectionKeyControl.setReadsOnly();
+                } else {
+                    selectionKeyControl.setAll();
+                }
 
                 frozen = false;
             }
@@ -118,8 +122,8 @@ class DatagramOuter {
     synchronized void freeze() {
         if (open) {
             if (!frozen) {
-                if (selectionKey.isValid()) {
-                    selectionKey.interestOps(0);
+                if (selectionKeyControl.isValid()) {
+                    selectionKeyControl.setNone();
                 }
 
                 frozen = true;
@@ -239,7 +243,7 @@ class DatagramOuter {
         }
 
         if (incoming.isEmpty()) {
-            NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
+            selectionKeyControl.disableWrites();
         }
     }
 
@@ -291,7 +295,7 @@ class DatagramOuter {
 
         // if data still remains we raise the OP_WRITE flag
         if (inner.hasIncoming()) {
-            inner.enableOperations(SelectionKey.OP_WRITE);
+            inner.enableWrites();
         }
     }
 
@@ -315,9 +319,9 @@ class DatagramOuter {
         return !incoming.isEmpty();
     }
 
-    void enableOperations(int operations) {
-        if (selectionKey.isValid()) {
-            NioUtils.setupInterestOps(selectionKey, operations);
+    void enableWrites() {
+        if (selectionKeyControl.isValid()) {
+            selectionKeyControl.enableWrites();
         }
     }
 

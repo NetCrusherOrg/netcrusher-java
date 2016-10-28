@@ -14,35 +14,47 @@ public class SelectionKeyControl {
          return selectionKey.isValid();
     }
 
+    public void enable(int operations) {
+        NioUtils.setupInterestOps(selectionKey, operations);
+    }
+
     public void enableReads() {
-        NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_READ);
+        enable(SelectionKey.OP_READ);
     }
 
     public void enableWrites() {
-        NioUtils.setupInterestOps(selectionKey, SelectionKey.OP_WRITE);
+        enable(SelectionKey.OP_WRITE);
+    }
+
+    public void disable(int operations) {
+        NioUtils.clearInterestOps(selectionKey, operations);
     }
 
     public void disableReads() {
-        NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_READ);
+        disable(SelectionKey.OP_READ);
     }
 
     public void disableWrites() {
-        NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
+        disable(SelectionKey.OP_WRITE);
+    }
+
+    public void set(int operations) {
+        selectionKey.interestOps(operations);
     }
 
     public void setNone() {
-        selectionKey.interestOps(0);
+        set(0);
     }
 
     public void setAll() {
-        selectionKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+        set(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
     }
 
     public void setReadsOnly() {
-        selectionKey.interestOps(SelectionKey.OP_READ);
+        set(SelectionKey.OP_READ);
     }
 
     public void setWritesOnly() {
-        selectionKey.interestOps(SelectionKey.OP_WRITE);
+        set(SelectionKey.OP_WRITE);
     }
 }

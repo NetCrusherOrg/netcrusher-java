@@ -4,6 +4,7 @@ import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.nio.SelectionKeyControl;
 import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +39,7 @@ class DatagramInner {
 
     private final DatagramChannel channel;
 
-    private final SelectionKey selectionKey;
+    private final SelectionKeyControl selectionKeyControl;
 
     private final ByteBuffer bb;
 
@@ -94,7 +95,8 @@ class DatagramInner {
 
         this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
 
-        this.selectionKey = reactor.getSelector().register(channel, 0, this::callback);
+        SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
+        this.selectionKeyControl = new SelectionKeyControl(selectionKey);
 
         LOGGER.debug("Inner on <{}> is started", bindAddress);
     }
@@ -103,9 +105,11 @@ class DatagramInner {
         if (open) {
             if (frozen) {
                 reactor.getSelector().execute(() -> {
-                    int ops = incoming.isEmpty() ?
-                        SelectionKey.OP_READ : SelectionKey.OP_READ | SelectionKey.OP_WRITE;
-                    selectionKey.interestOps(ops);
+                    if (incoming.isEmpty()) {
+                        selectionKeyControl.setReadsOnly();
+                    } else {
+                        selectionKeyControl.setAll();
+                    }
 
                     outers.values().forEach(DatagramOuter::unfreeze);
 
@@ -123,8 +127,8 @@ class DatagramInner {
         if (open) {
             if (!frozen) {
                 reactor.getSelector().execute(() -> {
-                    if (selectionKey.isValid()) {
-                        selectionKey.interestOps(0);
+                    if (selectionKeyControl.isValid()) {
+                        selectionKeyControl.setNone();
                     }
 
                     outers.values().forEach(DatagramOuter::freeze);
@@ -255,7 +259,7 @@ class DatagramInner {
         }
 
         if (incoming.isEmpty()) {
-            NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
+            selectionKeyControl.disableWrites();
         }
     }
 
@@ -287,7 +291,7 @@ class DatagramInner {
 
             // if data still remains we raise the OP_WRITE flag
             if (outer.hasIncoming()) {
-                outer.enableOperations(SelectionKey.OP_WRITE);
+                outer.enableWrites();
             }
 
             bb.clear();
@@ -355,9 +359,9 @@ class DatagramInner {
         return !incoming.isEmpty();
     }
 
-    void enableOperations(int operations) {
-        if (selectionKey.isValid()) {
-            NioUtils.setupInterestOps(selectionKey, operations);
+    void enableWrites() {
+        if (selectionKeyControl.isValid()) {
+            selectionKeyControl.enableWrites();
         }
     }
 
