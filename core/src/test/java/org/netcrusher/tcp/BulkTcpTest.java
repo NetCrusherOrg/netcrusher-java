@@ -72,7 +72,12 @@ public class BulkTcpTest {
     @Test
     public void testCrusher() throws Exception {
         crusher.freeze();
+        Assert.assertTrue(crusher.isFrozen());
+        Assert.assertTrue(crusher.isOpen());
+
         crusher.unfreeze();
+        Assert.assertFalse(crusher.isFrozen());
+        Assert.assertTrue(crusher.isOpen());
 
         TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_CRUSHER), COUNT);
         client1.await(20000);

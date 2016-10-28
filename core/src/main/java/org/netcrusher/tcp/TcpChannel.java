@@ -21,7 +21,7 @@ class TcpChannel {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpChannel.class);
 
-    private static final long LINGER_PERIOD_MS = 10_000;
+    private static final long LINGER_PERIOD_MS = 1_000;
 
     private final String name;
 
@@ -96,28 +96,36 @@ class TcpChannel {
         });
     }
 
+    private void closeAllDeferred() throws IOException {
+        reactor.getScheduler().schedule(() -> {
+            closeAll();
+            return true;
+        }, LINGER_PERIOD_MS, TimeUnit.MILLISECONDS);
+    }
+
     private void closeEOF() throws IOException {
         this.state.setReadEof();
 
         if (other.state.isReadEof() && !incomingQueue.hasReadable()) {
-            LOGGER.debug("Local closing for {} on EOF signal", name);
             this.close();
         }
 
-        if (this.state.is(State.CLOSED) && !outgoingQueue.hasReadable()) {
-            closeAll();
+        if (this.state.is(State.CLOSED)) {
+            if (other.state.is(State.CLOSED) || !outgoingQueue.hasReadable()) {
+                closeAll();
+            } else {
+                closeAllDeferred();
+            }
+        } else {
+            closeAllDeferred();
         }
     }
 
     private void closeLocal() throws IOException {
-        if (other.state.is(State.OPEN) && outgoingQueue.hasReadable()) {
-            LOGGER.debug("Local closing for {} on close signal", name);
-            this.close();
+        this.close();
 
-            reactor.getScheduler().schedule(() -> {
-                closeAll();
-                return true;
-            }, LINGER_PERIOD_MS, TimeUnit.MILLISECONDS);
+        if (other.state.is(State.OPEN) && outgoingQueue.hasReadable()) {
+            closeAllDeferred();
         } else {
             closeAll();
         }

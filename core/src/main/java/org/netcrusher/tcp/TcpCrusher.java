@@ -157,7 +157,7 @@ public class TcpCrusher implements NetCrusher {
 
     @Override
     public boolean isOpen() {
-        return state.is(State.OPEN | State.FROZEN);
+        return state.isAnyOf(State.OPEN | State.FROZEN);
     }
 
     /**

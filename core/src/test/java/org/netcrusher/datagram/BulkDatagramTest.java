@@ -71,7 +71,12 @@ public class BulkDatagramTest {
     @Test
     public void test() throws Exception {
         crusher.freeze();
+        Assert.assertTrue(crusher.isFrozen());
+        Assert.assertTrue(crusher.isOpen());
+
         crusher.unfreeze();
+        Assert.assertFalse(crusher.isFrozen());
+        Assert.assertTrue(crusher.isOpen());
 
         DatagramBulkClient client = new DatagramBulkClient("CLIENT",
             new InetSocketAddress(HOSTNAME, CLIENT_PORT),
