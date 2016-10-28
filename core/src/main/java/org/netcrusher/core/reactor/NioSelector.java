@@ -1,5 +1,6 @@
 package org.netcrusher.core.reactor;
 
+import org.netcrusher.core.nio.SelectionKeyCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

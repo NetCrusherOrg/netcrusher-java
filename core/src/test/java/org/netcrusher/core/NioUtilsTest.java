@@ -2,6 +2,7 @@ package org.netcrusher.core;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.netcrusher.core.nio.NioUtils;
 
 import java.net.InetSocketAddress;
 

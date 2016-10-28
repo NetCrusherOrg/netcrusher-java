@@ -1,6 +1,6 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;

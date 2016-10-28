@@ -1,4 +1,4 @@
-package org.netcrusher.core;
+package org.netcrusher.core.nio;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

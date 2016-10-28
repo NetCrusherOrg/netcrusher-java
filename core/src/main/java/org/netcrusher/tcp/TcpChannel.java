@@ -1,8 +1,9 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.NioUtils;
 import org.netcrusher.core.meter.RateMeter;
 import org.netcrusher.core.meter.RateMeterImpl;
+import org.netcrusher.core.nio.NioUtils;
+import org.netcrusher.core.nio.SelectionKeyControl;
 import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,9 +16,9 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.TimeUnit;
 
-class TcpTransfer {
+class TcpChannel {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TcpTransfer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TcpChannel.class);
 
     private static final long LINGER_PERIOD_MS = 5000;
 
@@ -29,7 +30,7 @@ class TcpTransfer {
 
     private final SocketChannel channel;
 
-    private final SelectionKey selectionKey;
+    private final SelectionKeyControl selectionKeyControl;
 
     private final TcpQueue incoming;
 
@@ -39,19 +40,23 @@ class TcpTransfer {
 
     private final RateMeterImpl sentMeter;
 
-    private TcpTransfer other;
+    private TcpChannel other;
 
-    TcpTransfer(String name, NioReactor reactor, Closeable closeable,
-                SocketChannel channel, TcpQueue incoming, TcpQueue outgoing) throws IOException {
+    TcpChannel(String name, NioReactor reactor, Closeable closeable,
+               SocketChannel channel, TcpQueue incoming, TcpQueue outgoing) throws IOException {
         this.name = name;
         this.reactor = reactor;
         this.closeable = closeable;
         this.channel = channel;
-        this.selectionKey = reactor.getSelector().register(channel, 0, this::callback);
+
         this.incoming = incoming;
         this.outgoing = outgoing;
+
         this.readMeter = new RateMeterImpl();
         this.sentMeter = new RateMeterImpl();
+
+        SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
+        this.selectionKeyControl = new SelectionKeyControl(selectionKey);
     }
 
     private boolean isOpen() {
@@ -113,7 +118,7 @@ class TcpTransfer {
         while (true) {
             final TcpQueueBuffers queueBuffers = queue.requestReadableBuffers();
             if (queueBuffers.isEmpty()) {
-                NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_WRITE);
+                selectionKeyControl.disableWrites();
                 break;
             }
 
@@ -136,7 +141,7 @@ class TcpTransfer {
         }
 
         if (queue.hasWritable()) {
-            other.enableOperations(SelectionKey.OP_READ);
+            other.selectionKeyControl.enableReads();
         }
     }
 
@@ -146,7 +151,7 @@ class TcpTransfer {
         while (true) {
             final TcpQueueBuffers queueBuffers = queue.requestWritableBuffers();
             if (queueBuffers.isEmpty()) {
-                NioUtils.clearInterestOps(selectionKey, SelectionKey.OP_READ);
+                selectionKeyControl.disableReads();
                 break;
             }
 
@@ -179,7 +184,7 @@ class TcpTransfer {
 
         // if data still remains we raise the OP_WRITE flag
         if (outgoing.hasReadable()) {
-            other.enableOperations(SelectionKey.OP_WRITE);
+            other.selectionKeyControl.enableWrites();
         }
     }
 
@@ -193,8 +198,8 @@ class TcpTransfer {
 
     void freeze() {
         if (isOpen()) {
-            if (selectionKey.isValid()) {
-                selectionKey.interestOps(0);
+            if (selectionKeyControl.isValid()) {
+                selectionKeyControl.setNone();
             }
         } else {
             LOGGER.debug("Channel is closed on freeze");
@@ -203,36 +208,24 @@ class TcpTransfer {
 
     void unfreeze() {
         if (isOpen()) {
-            int ops = incoming.hasReadable() ?
-                SelectionKey.OP_READ | SelectionKey.OP_WRITE : SelectionKey.OP_READ;
-            selectionKey.interestOps(ops);
+            if (incoming.hasReadable()) {
+                selectionKeyControl.setAll();
+            } else {
+                selectionKeyControl.setReadsOnly();
+            }
         } else {
             throw new IllegalStateException("Channel is closed");
         }
     }
 
-    void setOther(TcpTransfer other) {
+    void setOther(TcpChannel other) {
         this.other = other;
     }
 
-    private void enableOperations(int operations) {
-        if (selectionKey.isValid()) {
-            NioUtils.setupInterestOps(selectionKey, operations);
-        }
-    }
-
-    /**
-     * Request total read counter for this transfer
-     * @return Read bytes count
-     */
     RateMeter getReadMeter() {
         return readMeter;
     }
 
-    /**
-     * Request total sent counter for this transfer
-     * @return Sent bytes count
-     */
     RateMeter getSentMeter() {
         return sentMeter;
     }

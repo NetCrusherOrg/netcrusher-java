@@ -1,7 +1,7 @@
 package org.netcrusher.tcp;
 
 import org.netcrusher.NetFreezer;
-import org.netcrusher.core.NioUtils;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
@@ -20,9 +20,9 @@ class TcpPair implements NetFreezer {
 
     private final SocketChannel outer;
 
-    private final TcpTransfer innerTransfer;
+    private final TcpChannel innerTransfer;
 
-    private final TcpTransfer outerTransfer;
+    private final TcpChannel outerTransfer;
 
     private final TcpCrusher crusher;
 
@@ -60,9 +60,9 @@ class TcpPair implements NetFreezer {
             filters.getIncomingTransformFilter(), filters.getIncomingThrottler(),
             bufferOptions);
 
-        this.innerTransfer = new TcpTransfer("INNER", reactor, this::closeInternal, inner,
+        this.innerTransfer = new TcpChannel("INNER", reactor, this::closeInternal, inner,
             outerToInner, innerToOuter);
-        this.outerTransfer = new TcpTransfer("OUTER", reactor, this::closeInternal, outer,
+        this.outerTransfer = new TcpChannel("OUTER", reactor, this::closeInternal, outer,
             innerToOuter, outerToInner);
 
         this.innerTransfer.setOther(outerTransfer);
