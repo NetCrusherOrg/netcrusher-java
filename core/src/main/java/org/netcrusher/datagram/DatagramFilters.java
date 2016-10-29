@@ -21,7 +21,8 @@ public final class DatagramFilters {
     public DatagramFilters(
             TransformFilter incomingTransformFilter, TransformFilter outgoingTransformFilter,
             PassFilter incomingPassFilter, PassFilter outgoingPassFilter,
-            Throttler incomingThrottler, Throttler outgoingThrottler) {
+            Throttler incomingThrottler, Throttler outgoingThrottler)
+    {
         this.incomingTransformFilter = incomingTransformFilter;
         this.outgoingTransformFilter = outgoingTransformFilter;
         this.incomingPassFilter = incomingPassFilter;

@@ -73,5 +73,3 @@ public class RateMeterImpl implements RateMeter, Serializable {
         return System.currentTimeMillis();
     }
 }
-
-

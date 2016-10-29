@@ -46,7 +46,8 @@ class TcpChannel {
     private TcpChannel other;
 
     TcpChannel(String name, NioReactor reactor, Closeable ownerClose, SocketChannel channel,
-               TcpQueue incomingQueue, TcpQueue outgoingQueue) throws IOException {
+               TcpQueue incomingQueue, TcpQueue outgoingQueue) throws IOException
+    {
         this.name = name;
         this.reactor = reactor;
         this.ownerClose = ownerClose;
@@ -288,7 +289,7 @@ class TcpChannel {
         return sentMeter;
     }
 
-    private static class State extends BitState {
+    private static final class State extends BitState {
 
         private static final int OPEN = bit(0);
 

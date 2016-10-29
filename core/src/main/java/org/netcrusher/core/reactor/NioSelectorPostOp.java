@@ -20,7 +20,7 @@ public class NioSelectorPostOp<T> implements Runnable {
         try {
             T result = delegate.call();
             future.complete(result);
-        } catch (Throwable e) {
+        } catch (Exception e) {
             future.completeExceptionally(e);
         }
     }

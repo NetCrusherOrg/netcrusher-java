@@ -12,6 +12,8 @@ import java.util.concurrent.TimeUnit;
 
 public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
 
+    private static final int DEFAULT_IDLE_PERIOD_SEC = 60;
+
     private static final String CMD_CLOSE_IDLE = "CLOSE-IDLE";
 
     @Override
@@ -30,8 +32,8 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
                 LOGGER.info("Client for <{}> is deleted", address);
                 statusClientMeters(byteMeters, packetMeters);
             })
-            .withBufferCount(Integer.getInteger("crusher.buffer.count", 1024))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size", 8192))
+            .withBufferCount(Integer.getInteger("crusher.buffer.count", DatagramCrusherBuilder.DEFAULT_BUFFER_COUNT))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size", DatagramCrusherBuilder.DEFAULT_BUFFER_SIZE))
             .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
             .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))
             .buildAndOpen();
@@ -56,7 +58,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
 
     protected void closeIdle(DatagramCrusher crusher, String command) throws IOException {
         if (crusher.isOpen()) {
-            int closed = crusher.closeIdleClients(60, TimeUnit.SECONDS);
+            int closed = crusher.closeIdleClients(DEFAULT_IDLE_PERIOD_SEC, TimeUnit.SECONDS);
             LOGGER.info("Idle clients are closed: {}", closed);
         } else {
             LOGGER.warn("Crusher is not open");

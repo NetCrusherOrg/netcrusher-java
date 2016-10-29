@@ -51,7 +51,8 @@ class TcpAcceptor implements NetFreezer {
             TcpCrusher crusher, NioReactor reactor,
             InetSocketAddress bindAddress, InetSocketAddress connectAddress,
             TcpCrusherSocketOptions socketOptions, TcpFilters filters,
-            BufferOptions bufferOptions) throws IOException {
+            BufferOptions bufferOptions) throws IOException
+    {
         this.crusher = crusher;
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
@@ -109,9 +110,9 @@ class TcpAcceptor implements NetFreezer {
         socketOptions.setupSocketChannel(socketChannel2);
         bufferOptions.checkTcpSocket(socketChannel2.socket());
 
-        final boolean connectedNow;
+        final boolean connectedImmediately;
         try {
-            connectedNow = socketChannel2.connect(connectAddress);
+            connectedImmediately = socketChannel2.connect(connectAddress);
         } catch (UnresolvedAddressException e) {
             LOGGER.error("Connect address <{}> is unresolved", connectAddress);
             NioUtils.closeNoLinger(socketChannel1);
@@ -129,11 +130,14 @@ class TcpAcceptor implements NetFreezer {
             return;
         }
 
-        if (connectedNow) {
+        if (connectedImmediately) {
             appendPair(socketChannel1, socketChannel2);
-            return;
+        } else {
+            connectDeferred(socketChannel1, socketChannel2);
         }
+    }
 
+    private void connectDeferred(SocketChannel socketChannel1, SocketChannel socketChannel2) throws IOException {
         final Future<?> connectCheck;
         if (socketOptions.getConnectionTimeoutMs() > 0) {
             connectCheck = reactor.getScheduler().schedule(() -> {
@@ -235,7 +239,7 @@ class TcpAcceptor implements NetFreezer {
         return state.isAnyOf(State.FROZEN | State.CLOSED);
     }
 
-    private static class State extends BitState {
+    private static final class State extends BitState {
 
         private static final int OPEN = bit(0);
 
@@ -247,4 +251,5 @@ class TcpAcceptor implements NetFreezer {
             super(state);
         }
     }
+
 }

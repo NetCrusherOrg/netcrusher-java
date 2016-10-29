@@ -12,7 +12,7 @@ class TcpQueueBuffers {
 
     private final int count;
 
-    public TcpQueueBuffers(ByteBuffer[] array, int offset, int count) {
+    TcpQueueBuffers(ByteBuffer[] array, int offset, int count) {
         this.array = array;
         this.offset = offset;
         this.count = count;

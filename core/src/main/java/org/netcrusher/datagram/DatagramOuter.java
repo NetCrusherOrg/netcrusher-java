@@ -374,7 +374,7 @@ class DatagramOuter {
         return new RateMeters(readPacketMeter, sentPacketMeter);
     }
 
-    private static class State extends BitState {
+    private static final class State extends BitState {
 
         private static final int OPEN = bit(0);
 
@@ -391,6 +391,3 @@ class DatagramOuter {
         }
     }
 }
-
-
-

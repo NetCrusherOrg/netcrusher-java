@@ -104,9 +104,7 @@ public class NioSelector {
         }
     }
 
-    /**
-     * Internal method
-     */
+    // Internal method
     public SelectionKey register(SelectableChannel channel,
                                  int options,
                                  SelectionKeyCallback callback) throws IOException
@@ -114,17 +112,13 @@ public class NioSelector {
         return execute(() -> channel.register(selector, options, callback));
     }
 
-    /**
-     * Internal method
-     */
+    // Internal method
     public int wakeup() throws IOException {
         // fixes some strange behaviour on Windows: http://stackoverflow.com/a/39657002/827139
         return execute(selector::selectNow);
     }
 
-    /**
-     * Internal method
-     */
+    // Internal method
     public <T> T execute(Callable<T> callable) throws IOException {
         if (open) {
             if (Thread.currentThread().equals(thread)) {
@@ -152,9 +146,7 @@ public class NioSelector {
         }
     }
 
-    /**
-     * Internal method
-     */
+    // Internal method
     public void schedule(long scheduledNs, Runnable runnable) {
         if (tickMs == 0) {
             throw new IllegalStateException("Tick value should be set on selector");

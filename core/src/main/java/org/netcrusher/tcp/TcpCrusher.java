@@ -44,6 +44,8 @@ public class TcpCrusher implements NetCrusher {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpCrusher.class);
 
+    private static final int DEFAULT_PAIR_CAPACITY = 32;
+
     private final InetSocketAddress bindAddress;
 
     private final InetSocketAddress connectAddress;
@@ -82,7 +84,7 @@ public class TcpCrusher implements NetCrusher {
         this.connectAddress = connectAddress;
         this.reactor = reactor;
         this.socketOptions = socketOptions;
-        this.pairs = new ConcurrentHashMap<>(32);
+        this.pairs = new ConcurrentHashMap<>(DEFAULT_PAIR_CAPACITY);
         this.filters = filters;
         this.bufferOptions = bufferOptions;
         this.creationListener = creationListener;
@@ -162,6 +164,7 @@ public class TcpCrusher implements NetCrusher {
 
     /**
      * Close all pairs but keeps listening socket open
+     * @throws IOException Exception on error
      */
     public void closeAllPairs() throws IOException {
         if (state.lockIfNot(State.CLOSED)) {
@@ -380,7 +383,7 @@ public class TcpCrusher implements NetCrusher {
         return clientTotalCount.get();
     }
 
-    private static class State extends BitState {
+    private static final class State extends BitState {
 
         private static final int OPEN = bit(0);
 

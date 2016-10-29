@@ -19,6 +19,10 @@ import java.net.StandardSocketOptions;
  */
 public final class DatagramCrusherBuilder {
 
+    public static final int DEFAULT_BUFFER_COUNT = 1024;
+
+    public static final int DEFAULT_BUFFER_SIZE = 8192;
+
     private InetSocketAddress bindAddress;
 
     private InetSocketAddress connectAddress;
@@ -49,8 +53,8 @@ public final class DatagramCrusherBuilder {
         this.socketOptions = new DatagramCrusherSocketOptions();
 
         this.bufferOptions = new BufferOptions();
-        this.bufferOptions.setCount(1024);
-        this.bufferOptions.setSize(8192);
+        this.bufferOptions.setCount(DEFAULT_BUFFER_COUNT);
+        this.bufferOptions.setSize(DEFAULT_BUFFER_SIZE);
         this.bufferOptions.setDirect(true);
     }
 

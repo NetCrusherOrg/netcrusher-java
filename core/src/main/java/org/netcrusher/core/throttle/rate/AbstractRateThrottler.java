@@ -8,6 +8,10 @@ import java.util.concurrent.TimeUnit;
 
 public abstract class AbstractRateThrottler implements Throttler {
 
+    private static final long MAX_PERIOD_HOURS = 1;
+
+    private static final long MIN_PERIOD_MILLIS = 10;
+
     private final long periodNs;
 
     private final long rate;
@@ -21,10 +25,10 @@ public abstract class AbstractRateThrottler implements Throttler {
             throw new IllegalArgumentException("Rate value is invalid");
         }
 
-        if (rateTimeUnit.toHours(rateTime) > 1) {
+        if (rateTimeUnit.toHours(rateTime) > MAX_PERIOD_HOURS) {
             throw new IllegalArgumentException("Period is too high");
         }
-        if (rateTimeUnit.toMillis(rateTime) < 10) {
+        if (rateTimeUnit.toMillis(rateTime) < MIN_PERIOD_MILLIS) {
             throw new IllegalArgumentException("Period is too small");
         }
 
@@ -38,7 +42,8 @@ public abstract class AbstractRateThrottler implements Throttler {
     @Override
     public long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb) {
         final long nowNs = nowNs();
-        final long elapsedNs = nowNs - markerNs; // could be even negative
+        // elapsed value could be even negative
+        final long elapsedNs = nowNs - markerNs;
 
         count += events(clientAddress, bb);
 

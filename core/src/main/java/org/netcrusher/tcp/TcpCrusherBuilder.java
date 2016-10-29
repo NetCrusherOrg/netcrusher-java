@@ -16,6 +16,10 @@ import java.net.StandardSocketOptions;
  */
 public final class TcpCrusherBuilder {
 
+    public static final int DEFAULT_BUFFER_COUNT = 64;
+
+    public static final int DEFAULT_BUFFER_SIZE = 32 * 1024;
+
     private InetSocketAddress bindAddress;
 
     private InetSocketAddress connectAddress;
@@ -42,8 +46,8 @@ public final class TcpCrusherBuilder {
         this.socketOptions = new TcpCrusherSocketOptions();
 
         this.bufferOptions = new BufferOptions();
-        this.bufferOptions.setCount(64);
-        this.bufferOptions.setSize(32 * 1024);
+        this.bufferOptions.setCount(DEFAULT_BUFFER_COUNT);
+        this.bufferOptions.setSize(DEFAULT_BUFFER_SIZE);
         this.bufferOptions.setDirect(true);
     }
 

@@ -11,7 +11,7 @@ public class SelectionKeyControl {
     }
 
     public boolean isValid() {
-         return selectionKey.isValid();
+        return selectionKey.isValid();
     }
 
     public void enable(int operations) {

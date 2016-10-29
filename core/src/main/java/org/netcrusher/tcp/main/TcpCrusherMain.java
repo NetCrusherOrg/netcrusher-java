@@ -6,6 +6,7 @@ import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
+import org.netcrusher.tcp.TcpCrusherSocketOptions;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -34,9 +35,11 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
                 LOGGER.info("Client for <{}> is deleted", address);
                 statusClientMeters(byteMeters);
             })
-            .withBufferCount(Integer.getInteger("crusher.buffer.count", 64))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size", 32 * 1024))
-            .withBacklog(Integer.getInteger("crusher.socket.backlog", 10))
+            .withBufferCount(Integer.getInteger("crusher.buffer.count", TcpCrusherBuilder.DEFAULT_BUFFER_COUNT))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size", TcpCrusherBuilder.DEFAULT_BUFFER_SIZE))
+            .withBacklog(Integer.getInteger("crusher.socket.backlog", TcpCrusherSocketOptions.DEFAULT_BACKLOG))
+            .withConnectionTimeoutMs(
+                Long.getLong("crusher.socket.conntimems", TcpCrusherSocketOptions.DEFAULT_CONNECTION_TIMEOUT_MS))
             .withKeepAlive(Boolean.getBoolean("crusher.socker.keepalive"))
             .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
             .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))

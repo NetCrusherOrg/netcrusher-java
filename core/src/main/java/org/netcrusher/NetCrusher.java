@@ -73,6 +73,7 @@ public interface NetCrusher extends NetFreezer, Closeable {
      * Close facilities for the specified client
      * @param clientAddress Client address
      * @return Return true if client is closed, return false if client is not found
+     * @throws IOException Exception on error
      */
     boolean closeClient(InetSocketAddress clientAddress) throws IOException;
 

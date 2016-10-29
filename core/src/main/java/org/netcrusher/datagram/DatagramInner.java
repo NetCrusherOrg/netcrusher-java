@@ -26,6 +26,8 @@ class DatagramInner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramInner.class);
 
+    private static final int DEFAULT_OUTER_CAPACITY = 32;
+
     private final DatagramCrusher crusher;
 
     private final NioReactor reactor;
@@ -75,7 +77,7 @@ class DatagramInner {
         this.socketOptions = socketOptions;
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
-        this.outers = new ConcurrentHashMap<>(32);
+        this.outers = new ConcurrentHashMap<>(DEFAULT_OUTER_CAPACITY);
         this.incoming = new DatagramQueue(bufferOptions);
         this.bufferOptions = bufferOptions;
 
@@ -400,7 +402,7 @@ class DatagramInner {
         return new RateMeters(readPacketMeter, sentPacketMeter);
     }
 
-    private static class State extends BitState {
+    private static final class State extends BitState {
 
         private static final int OPEN = bit(0);
 

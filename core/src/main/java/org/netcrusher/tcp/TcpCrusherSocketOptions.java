@@ -7,6 +7,10 @@ import java.nio.channels.SocketChannel;
 
 public class TcpCrusherSocketOptions implements Serializable {
 
+    public static final long DEFAULT_CONNECTION_TIMEOUT_MS = 5000;
+
+    public static final int DEFAULT_BACKLOG = 10;
+
     private int backlog;
 
     private int rcvBufferSize;
@@ -22,10 +26,10 @@ public class TcpCrusherSocketOptions implements Serializable {
     private int lingerMs;
 
     public TcpCrusherSocketOptions() {
-        this.backlog = 0;
+        this.backlog = DEFAULT_BACKLOG;
         this.rcvBufferSize = 0;
         this.sndBufferSize = 0;
-        this.connectionTimeoutMs = 3000;
+        this.connectionTimeoutMs = DEFAULT_CONNECTION_TIMEOUT_MS;
         this.tcpNoDelay = true;
         this.keepAlive = true;
         this.lingerMs = -1;

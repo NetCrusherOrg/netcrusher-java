@@ -20,7 +20,7 @@ class DatagramQueue implements Serializable {
 
     private final Queue<BufferEntry> pending;
 
-    public DatagramQueue(BufferOptions bufferOptions) {
+    DatagramQueue(BufferOptions bufferOptions) {
         this.entries = new ArrayDeque<>(bufferOptions.getCount());
         this.pending = new ArrayDeque<>(bufferOptions.getCount());
 

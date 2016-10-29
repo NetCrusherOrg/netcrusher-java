@@ -15,7 +15,8 @@ public class TcpFilters {
 
     public TcpFilters(
             TransformFilter incomingTransformFilter, TransformFilter outgoingTransformFilter,
-            Throttler incomingThrottler, Throttler outgoingThrottler) {
+            Throttler incomingThrottler, Throttler outgoingThrottler)
+    {
         this.incomingTransformFilter = incomingTransformFilter;
         this.outgoingTransformFilter = outgoingTransformFilter;
         this.incomingThrottler = incomingThrottler;

@@ -15,6 +15,10 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrusherMain.class);
 
+    private static final int ERR_EXIT_CODE_NO_ARGUMENT = 1;
+    private static final int ERR_EXIT_CODE_INVALID_ADDRESS = 2;
+    private static final int ERR_EXIT_INITIALIZATION = 3;
+
     private static final String CMD_OPEN = "OPEN";
     private static final String CMD_CLOSE = "CLOSE";
     private static final String CMD_REOPEN = "REOPEN";
@@ -30,7 +34,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     protected int run(String[] arguments) {
         if (arguments == null || arguments.length != 2) {
             printUsage();
-            return 1;
+            return ERR_EXIT_CODE_NO_ARGUMENT;
         }
 
         final InetSocketAddress bindAddress;
@@ -38,7 +42,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             bindAddress = NioUtils.parseInetSocketAddress(arguments[0]);
         } catch (IllegalArgumentException e) {
             LOGGER.error("Fail to parse listening address: {}", arguments[0], e);
-            return 2;
+            return ERR_EXIT_CODE_INVALID_ADDRESS;
         }
 
         final InetSocketAddress connectAddress;
@@ -46,18 +50,22 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             connectAddress = NioUtils.parseInetSocketAddress(arguments[1]);
         } catch (IllegalArgumentException e) {
             LOGGER.error("Fail to parse connect address: {}", arguments[1], e);
-            return 2;
+            return ERR_EXIT_CODE_INVALID_ADDRESS;
         }
 
         final long tickMs = Integer.getInteger("crusher.tick", 10);
         LOGGER.debug("Reactor tick = {} ms", tickMs);
 
+        return run(bindAddress, connectAddress, tickMs);
+    }
+
+    protected int run(InetSocketAddress bindAddress, InetSocketAddress connectAddress, long tickMs) {
         final NioReactor reactor;
         try {
             reactor = new NioReactor(tickMs);
         } catch (Exception e) {
             LOGGER.error("Fail to create reactor", e);
-            return 3;
+            return ERR_EXIT_INITIALIZATION;
         }
 
         final T crusher;
@@ -66,7 +74,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         } catch (Exception e) {
             LOGGER.error("Fail to create crusher", e);
             reactor.close();
-            return 3;
+            return ERR_EXIT_INITIALIZATION;
         }
 
         final String version = getClass().getPackage().getImplementationVersion();
@@ -115,7 +123,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
                     } else {
                         try {
                             command(crusher, line);
-                        } catch (Throwable e) {
+                        } catch (Exception e) {
                             LOGGER.error("Command failed: '{}'", line, e);
                         }
                     }

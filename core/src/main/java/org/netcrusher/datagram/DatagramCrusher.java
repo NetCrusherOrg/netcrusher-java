@@ -249,6 +249,7 @@ public class DatagramCrusher implements NetCrusher {
 
     /**
      * Get client packet meters
+     * @param clientAddress Client address
      * @return Rate meters
      */
     public RateMeters getClientPacketMeters(InetSocketAddress clientAddress) {
@@ -316,6 +317,7 @@ public class DatagramCrusher implements NetCrusher {
      * @param maxIdleDuration Maximum allowed idle time
      * @param timeUnit Time unit of idle time
      * @throws IOException Exception on error
+     * @return Number of closed clients
      */
     public int closeIdleClients(long maxIdleDuration, TimeUnit timeUnit) throws IOException {
         if (state.lockIfNot(State.CLOSED)) {
@@ -334,7 +336,7 @@ public class DatagramCrusher implements NetCrusher {
         return clientTotalCount.get();
     }
 
-    private static class State extends BitState {
+    private static final class State extends BitState {
 
         private static final int OPEN = bit(0);
 

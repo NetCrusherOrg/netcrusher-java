@@ -8,6 +8,10 @@ import java.nio.ByteBuffer;
 
 public class LoggingFilter implements TransformFilter {
 
+    private static final int BYTE_RANGE = 256;
+
+    private static final int BYTE_MASK = 0x0000_0000_0000_00FF;
+
     private final Logger logger;
 
     private final LoggingFilterLevel level;
@@ -15,8 +19,8 @@ public class LoggingFilter implements TransformFilter {
     private final String[] hex;
 
     public LoggingFilter(String loggerName, LoggingFilterLevel level) {
-        this.hex = new String[256];
-        for (int i = 0; i < 256; i++) {
+        this.hex = new String[BYTE_RANGE];
+        for (int i = 0; i < BYTE_RANGE; i++) {
             this.hex[i] = String.format("%02x", i);
         }
 
@@ -38,12 +42,12 @@ public class LoggingFilter implements TransformFilter {
                     final int limit = bb.arrayOffset() + bb.limit();
 
                     for (int i = offset; i < limit; i++) {
-                        int b = 0x0000_0000_0000_00FF & (int) bytes[i];
+                        int b = BYTE_MASK & (int) bytes[i];
                         sb.append(hex[b]);
                     }
                 } else {
                     for (int i = bb.position(); i < bb.limit(); i++) {
-                        int b = 0x0000_0000_0000_00FF & (int) bb.get(i);
+                        int b = BYTE_MASK & (int) bb.get(i);
                         sb.append(hex[b]);
                     }
                 }
@@ -90,6 +94,8 @@ public class LoggingFilter implements TransformFilter {
                 break;
             case ERROR:
                 logger.error("<{}> ({}): {}", params);
+                break;
+            default:
                 break;
         }
     }

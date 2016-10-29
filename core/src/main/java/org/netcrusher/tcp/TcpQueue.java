@@ -27,11 +27,12 @@ class TcpQueue implements Serializable {
 
     private final InetSocketAddress clientAddress;
 
-    public TcpQueue(
+    TcpQueue(
             InetSocketAddress clientAddress,
             TransformFilter filter,
             Throttler throttler,
-            BufferOptions bufferOptions) {
+            BufferOptions bufferOptions)
+    {
         this.readable = new ArrayDeque<>(bufferOptions.getCount());
         this.writable = new ArrayDeque<>(bufferOptions.getCount());
 
