@@ -26,7 +26,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
             "-o", "pipefail",
             "-c", "openssl rand " + bytes
                 + " | tee >(openssl md5 >&2)"
-                + " | pv -q -L " + throughputKbSec + "K"
+                + ((throughputKbSec > 0) ? " | pv -q -L " + throughputKbSec + "K" : "")
                 + " | dd bs=1M"
                 + " | " + SOCAT4 + " - tcp4:127.0.0.1:" + sndPort + ",ignoreeof"
                 + " | dd bs=1M"
@@ -70,9 +70,9 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
             "-o", "pipefail",
             "-c", "openssl rand " + bytes
                 + " | tee >(openssl md5 >&2)"
-                + " | pv -q -L " + throughputKbSec + "K"
+                + ((throughputKbSec > 0) ? " | pv -q -L " + throughputKbSec + "K" : "")
                 + " | dd bs=1M"
-                + " | " + SOCAT4 + " - tcp4:127.0.0.1:" + sndPort + ""
+                + " | " + SOCAT4 + " - tcp4:127.0.0.1:" + sndPort
         ));
 
         ProcessWrapper consumer = new ProcessWrapper(Arrays.asList(

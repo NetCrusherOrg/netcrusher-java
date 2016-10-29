@@ -72,7 +72,7 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
                 + " | tee >(openssl md5 >&2)"
                 + " | pv -q -L " + throughputKbSec + "K"
                 + " | dd bs=1024"
-                + " | " + SOCAT4 + " - udp4-sendto:127.0.0.1:" + sndPort + ""
+                + " | " + SOCAT4 + " - udp4-sendto:127.0.0.1:" + sndPort
         ));
 
         ProcessWrapper consumer = new ProcessWrapper(Arrays.asList(
