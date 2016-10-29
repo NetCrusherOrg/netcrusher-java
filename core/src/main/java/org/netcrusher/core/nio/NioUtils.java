@@ -5,8 +5,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 
 public final class NioUtils {
@@ -16,7 +18,11 @@ public final class NioUtils {
     private NioUtils() {
     }
 
-    public static void closeChannel(AbstractSelectableChannel channel) {
+    public static ByteBuffer allocaleByteBuffer(int capacity, boolean direct) {
+        return direct ? ByteBuffer.allocateDirect(capacity) : ByteBuffer.allocate(capacity);
+    }
+
+    public static void close(AbstractSelectableChannel channel) {
         if (channel.isOpen()) {
             try {
                 channel.close();
@@ -26,13 +32,20 @@ public final class NioUtils {
         }
     }
 
-    public static ByteBuffer copy(ByteBuffer source) {
-        ByteBuffer target = ByteBuffer.allocate(source.remaining());
+    public static void closeNoLinger(SocketChannel channel) {
+        if (channel.isOpen()) {
+            try {
+                channel.setOption(StandardSocketOptions.SO_LINGER, 0);
+            } catch (IOException e) {
+                LOGGER.error("Fail to set SO_LINGER on channel", e);
+            }
 
-        target.put(source);
-        target.flip();
-
-        return target;
+            try {
+                channel.close();
+            } catch (IOException e) {
+                LOGGER.error("Fail to close channel", e);
+            }
+        }
     }
 
     public static void setupInterestOps(SelectionKey selectionKey, int options) {

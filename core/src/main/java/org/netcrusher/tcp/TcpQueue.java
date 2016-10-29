@@ -2,6 +2,7 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.throttle.Throttler;
 
 import java.io.Serializable;
@@ -208,7 +209,7 @@ class TcpQueue implements Serializable {
         private long scheduledNs;
 
         private BufferEntry(int capacity, boolean direct) {
-            this.buffer = direct ? ByteBuffer.allocateDirect(capacity) : ByteBuffer.allocate(capacity);
+            this.buffer = NioUtils.allocaleByteBuffer(capacity, direct);
             this.scheduledNs = System.nanoTime();
         }
 

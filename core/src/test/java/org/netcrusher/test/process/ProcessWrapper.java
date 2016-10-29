@@ -49,7 +49,7 @@ public class ProcessWrapper {
         private Watcher(ProcessBuilder builder) throws IOException {
             this.process = builder.start();
 
-            LOGGER.info("Process started: {}", builder.command());
+            LOGGER.info("Process {} started: {}", process.hashCode(), builder.command());
 
             this.future = new CompletableFuture<ProcessResult>() {
                 @Override
@@ -70,6 +70,14 @@ public class ProcessWrapper {
 
         private CompletableFuture<ProcessResult> open() {
             start();
+
+            // poor man's garantee that process started and sockets are opened
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
             return future;
         }
 
@@ -83,6 +91,7 @@ public class ProcessWrapper {
                      BufferedReader reader = new BufferedReader(isr)) {
                     String line;
                     while ((line = reader.readLine()) != null) {
+                        LOGGER.debug("process {} output: {}", process.hashCode(), line);
                         output.add(line);
                     }
                 }

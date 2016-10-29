@@ -45,7 +45,32 @@ public class CrusherTcpLinuxTest extends AbstractTcpLinuxTest {
     }
 
     @Test
-    public void test() throws Exception {
-        session(DEFAULT_BYTES, 50100, 50101);
+    public void loop() throws Exception {
+        loop(DEFAULT_BYTES, DEFAULT_THROUGHPUT, 50100, 50101);
+    }
+
+    @Test
+    public void direct() throws Exception {
+        direct(DEFAULT_BYTES, DEFAULT_THROUGHPUT, 50100, 50101);
+    }
+
+    @Test
+    public void loopSlower() throws Exception {
+        loop(DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10, 50100, 50101);
+    }
+
+    @Test
+    public void directSlower() throws Exception {
+        direct(DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10, 50100, 50101);
+    }
+
+    @Test
+    public void loopSlowest() throws Exception {
+        loop(DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100, 50100, 50101);
+    }
+
+    @Test
+    public void directSlowest() throws Exception {
+        direct(DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100, 50100, 50101);
     }
 }

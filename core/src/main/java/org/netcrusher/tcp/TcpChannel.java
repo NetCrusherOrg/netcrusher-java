@@ -71,7 +71,7 @@ class TcpChannel {
                     freeze();
                 }
 
-                NioUtils.closeChannel(channel);
+                NioUtils.close(channel);
 
                 state.set(State.CLOSED);
             } finally {

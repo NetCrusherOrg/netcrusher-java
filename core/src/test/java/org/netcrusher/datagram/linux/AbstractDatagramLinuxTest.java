@@ -20,7 +20,7 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_THROUGHPUT = 1000;
 
-    protected void session(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
+    protected void loop(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
         ProcessWrapper processor = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
@@ -28,7 +28,7 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
                 + " | tee >(openssl md5 >&2)"
                 + " | pv -q -L " + throughputKbSec + "K"
                 + " | dd bs=1024"
-                + " | socat -T3 -4 - udp4-sendto:127.0.0.1:" + sndPort + ",ignoreeof"
+                + " | " + SOCAT4 + " - udp4-sendto:127.0.0.1:" + sndPort + ",ignoreeof"
                 + " | dd bs=1024"
                 + " | openssl md5 >&2"
         ));
@@ -36,7 +36,7 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
         ProcessWrapper reflector = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
-            "-c", "socat -T3 -4 -b 16384 PIPE udp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
+            "-c", SOCAT4 + " -b 16384 PIPE udp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
         ));
 
         Future<ProcessResult> reflectorFuture = reflector.run();
@@ -45,8 +45,8 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
         ProcessResult processorResult = processorFuture.get();
         ProcessResult reflectorResult = reflectorFuture.get();
 
-        LOGGER.info("Processor: \n-----\n{}\n-----\n", processorResult.getOutputText());
-        LOGGER.info("Reflector: \n-----\n{}\n-----\n", reflectorResult.getOutputText());
+        output(LOGGER, "Processor", processorResult.getOutputText());
+        output(LOGGER, "Reflector", reflectorResult.getOutputText());
 
         Assert.assertEquals(0, processorResult.getExitCode());
         Assert.assertEquals(0, reflectorResult.getExitCode());
@@ -63,4 +63,57 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
         Assert.assertEquals(2, hashes.size());
         Assert.assertEquals(hashes.get(0), hashes.get(1));
     }
+
+    protected void direct(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
+        ProcessWrapper producer = new ProcessWrapper(Arrays.asList(
+            "bash",
+            "-o", "pipefail",
+            "-c", "openssl rand " + bytes
+                + " | tee >(openssl md5 >&2)"
+                + " | pv -q -L " + throughputKbSec + "K"
+                + " | dd bs=1024"
+                + " | " + SOCAT4 + " - udp4-sendto:127.0.0.1:" + sndPort + ""
+        ));
+
+        ProcessWrapper consumer = new ProcessWrapper(Arrays.asList(
+            "bash",
+            "-o", "pipefail",
+            "-c", SOCAT4 + " - udp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
+                + " | dd bs=1024"
+                + " | openssl md5 >&2"
+        ));
+
+        Future<ProcessResult> consumerFuture = consumer.run();
+        Future<ProcessResult> producerFuture = producer.run();
+
+        ProcessResult producerResult = producerFuture.get();
+        ProcessResult consumerResult = consumerFuture.get();
+
+        output(LOGGER, "Producer", producerResult.getOutputText());
+        output(LOGGER, "Consumer", consumerResult.getOutputText());
+
+        Assert.assertEquals(0, producerResult.getExitCode());
+        Assert.assertEquals(0, consumerResult.getExitCode());
+
+        Assert.assertEquals(1, producerResult.getOutput().stream()
+            .filter((s) -> s.startsWith(String.format("%d bytes", bytes)))
+            .count()
+        );
+        Assert.assertEquals(1, consumerResult.getOutput().stream()
+            .filter((s) -> s.startsWith(String.format("%d bytes", bytes)))
+            .count()
+        );
+
+        String producerHash = producerResult.getOutput().stream()
+            .filter((s) -> MD5_PATTERN.matcher(s).find())
+            .findFirst()
+            .orElse("no-producer-hash");
+        String consumerHash = consumerResult.getOutput().stream()
+            .filter((s) -> MD5_PATTERN.matcher(s).find())
+            .findFirst()
+            .orElse("no-consumer-hash");
+
+        Assert.assertEquals(producerHash, consumerHash);
+    }
+
 }

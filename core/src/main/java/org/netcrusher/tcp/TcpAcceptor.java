@@ -85,7 +85,7 @@ class TcpAcceptor implements NetFreezer {
 
                 serverSelectionKey.cancel();
 
-                NioUtils.closeChannel(serverSocketChannel);
+                NioUtils.close(serverSocketChannel);
 
                 reactor.getSelector().wakeup();
 
@@ -114,18 +114,18 @@ class TcpAcceptor implements NetFreezer {
             connectedNow = socketChannel2.connect(connectAddress);
         } catch (UnresolvedAddressException e) {
             LOGGER.error("Connect address <{}> is unresolved", connectAddress);
-            NioUtils.closeChannel(socketChannel1);
-            NioUtils.closeChannel(socketChannel2);
+            NioUtils.closeNoLinger(socketChannel1);
+            NioUtils.closeNoLinger(socketChannel2);
             return;
         } catch (UnsupportedAddressTypeException e) {
             LOGGER.error("Connect address <{}> is unsupported", connectAddress);
-            NioUtils.closeChannel(socketChannel1);
-            NioUtils.closeChannel(socketChannel2);
+            NioUtils.closeNoLinger(socketChannel1);
+            NioUtils.closeNoLinger(socketChannel2);
             return;
         } catch (IOException e) {
             LOGGER.error("IOException on connection", e);
-            NioUtils.closeChannel(socketChannel1);
-            NioUtils.closeChannel(socketChannel2);
+            NioUtils.closeNoLinger(socketChannel1);
+            NioUtils.closeNoLinger(socketChannel2);
             return;
         }
 
@@ -140,8 +140,8 @@ class TcpAcceptor implements NetFreezer {
                 if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
                     LOGGER.error("Fail to connect to <{}> in {}ms",
                         connectAddress, socketOptions.getConnectionTimeoutMs());
-                    NioUtils.closeChannel(socketChannel1);
-                    NioUtils.closeChannel(socketChannel2);
+                    NioUtils.closeNoLinger(socketChannel1);
+                    NioUtils.closeNoLinger(socketChannel2);
                 }
                 return true;
             }, socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
@@ -156,14 +156,14 @@ class TcpAcceptor implements NetFreezer {
             try {
                 connected = socketChannel2.finishConnect();
             } catch (IOException e) {
-                LOGGER.error("Exception while finishing the connection", e);
+                LOGGER.error("Exception while finishing the connection to <{}>", connectAddress,  e);
                 connected = false;
             }
 
             if (!connected) {
                 LOGGER.error("Fail to finish outgoing connection to <{}>", connectAddress);
-                NioUtils.closeChannel(socketChannel1);
-                NioUtils.closeChannel(socketChannel2);
+                NioUtils.closeNoLinger(socketChannel1);
+                NioUtils.closeNoLinger(socketChannel2);
                 return;
             }
 
@@ -184,12 +184,12 @@ class TcpAcceptor implements NetFreezer {
             crusher.notifyPairCreated(pair);
         } catch (ClosedChannelException | CancelledKeyException e) {
             LOGGER.debug("One of the channels is already closed", e);
-            NioUtils.closeChannel(socketChannel1);
-            NioUtils.closeChannel(socketChannel2);
+            NioUtils.closeNoLinger(socketChannel1);
+            NioUtils.closeNoLinger(socketChannel2);
         } catch (IOException e) {
             LOGGER.error("Fail to create TcpCrusher TCP pair", e);
-            NioUtils.closeChannel(socketChannel1);
-            NioUtils.closeChannel(socketChannel2);
+            NioUtils.closeNoLinger(socketChannel1);
+            NioUtils.closeNoLinger(socketChannel2);
         }
     }
 
@@ -208,7 +208,9 @@ class TcpAcceptor implements NetFreezer {
 
             LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is frozen", bindAddress, connectAddress);
         } else {
-            LOGGER.debug("Acceptor is not open on freeze");
+            if (!isFrozen()) {
+                throw new IllegalStateException("Acceptor is not finally frozen: " + state);
+            }
         }
     }
 
@@ -222,7 +224,9 @@ class TcpAcceptor implements NetFreezer {
 
             LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is unfrozen", bindAddress, connectAddress);
         } else {
-            LOGGER.debug("Acceptor is not frozen on unfreeze");
+            if (isFrozen()) {
+                throw new IllegalStateException("Acceptor is not finally unfrozen: " + state);
+            }
         }
     }
 

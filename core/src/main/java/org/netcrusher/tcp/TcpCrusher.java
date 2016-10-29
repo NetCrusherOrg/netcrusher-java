@@ -213,7 +213,9 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("TcpCrusher is not in open state");
+            if (!isFrozen()) {
+                throw new IllegalStateException("TcpCrusher is not finally frozen: " + state);
+            }
         }
     }
 
@@ -258,7 +260,9 @@ public class TcpCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("TcpCrusher is not frozen");
+            if (isFrozen()) {
+                throw new IllegalStateException("TcpCrusher is not finally unfrozen: " + state);
+            }
         }
     }
 

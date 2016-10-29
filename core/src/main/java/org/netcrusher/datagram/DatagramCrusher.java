@@ -176,7 +176,9 @@ public class DatagramCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("DatagramСrusher is not open");
+            if (!isFrozen()) {
+                throw new IllegalStateException("DatagramСrusher is not finally frozen: " + state);
+            }
         }
     }
 
@@ -193,7 +195,9 @@ public class DatagramCrusher implements NetCrusher {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("DatagramCrusher is not frozen");
+            if (isFrozen()) {
+                throw new IllegalStateException("DatagramCrusher is not finally unfrozen: " + state);
+            }
         }
     }
 

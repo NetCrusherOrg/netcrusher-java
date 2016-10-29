@@ -1,6 +1,7 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.buffer.BufferOptions;
+import org.netcrusher.core.nio.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,7 +86,7 @@ class DatagramQueue implements Serializable {
         private long scheduledNs;
 
         private BufferEntry(int capacity, boolean direct) {
-            this.buffer = direct ? ByteBuffer.allocateDirect(capacity) : ByteBuffer.allocate(capacity);
+            this.buffer = NioUtils.allocaleByteBuffer(capacity, direct);
             this.address = null;
             this.scheduledNs = System.nanoTime();
         }

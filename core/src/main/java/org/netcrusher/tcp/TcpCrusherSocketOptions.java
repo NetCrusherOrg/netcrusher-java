@@ -28,7 +28,7 @@ public class TcpCrusherSocketOptions implements Serializable {
         this.connectionTimeoutMs = 3000;
         this.tcpNoDelay = true;
         this.keepAlive = true;
-        this.lingerMs = 0;
+        this.lingerMs = -1;
     }
 
     public TcpCrusherSocketOptions copy() {

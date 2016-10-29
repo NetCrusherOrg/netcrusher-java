@@ -18,14 +18,17 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_BYTES = 256 * 1024 * 1024;
 
-    protected void session(int bytes, int sndPort, int rcvPort) throws Exception {
+    protected static final int DEFAULT_THROUGHPUT = 100000;
+
+    protected void loop(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
         ProcessWrapper processor = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
             "-c", "openssl rand " + bytes
                 + " | tee >(openssl md5 >&2)"
+                + " | pv -q -L " + throughputKbSec + "K"
                 + " | dd bs=1M"
-                + " | socat -T3 -4 - tcp4:127.0.0.1:" + sndPort + ",ignoreeof"
+                + " | " + SOCAT4 + " - tcp4:127.0.0.1:" + sndPort + ",ignoreeof"
                 + " | dd bs=1M"
                 + " | openssl md5 >&2"
         ));
@@ -33,7 +36,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
         ProcessWrapper reflector = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
-            "-c", "socat -T3 -4 -b 16384 PIPE tcp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
+            "-c", SOCAT4 + " -b 16384 PIPE tcp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
         ));
 
         Future<ProcessResult> reflectorFuture = reflector.run();
@@ -42,8 +45,8 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
         ProcessResult processorResult = processorFuture.get();
         ProcessResult reflectorResult = reflectorFuture.get();
 
-        LOGGER.info("Processor: \n-----\n{}\n-----\n", processorResult.getOutputText());
-        LOGGER.info("Reflector: \n-----\n{}\n-----\n", reflectorResult.getOutputText());
+        output(LOGGER, "Processor", processorResult.getOutputText());
+        output(LOGGER, "Reflector", reflectorResult.getOutputText());
 
         Assert.assertEquals(0, processorResult.getExitCode());
         Assert.assertEquals(0, reflectorResult.getExitCode());
@@ -59,5 +62,57 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
         Assert.assertEquals(2, hashes.size());
         Assert.assertEquals(hashes.get(0), hashes.get(1));
+    }
+
+    protected void direct(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
+        ProcessWrapper producer = new ProcessWrapper(Arrays.asList(
+            "bash",
+            "-o", "pipefail",
+            "-c", "openssl rand " + bytes
+                + " | tee >(openssl md5 >&2)"
+                + " | pv -q -L " + throughputKbSec + "K"
+                + " | dd bs=1M"
+                + " | " + SOCAT4 + " - tcp4:127.0.0.1:" + sndPort + ""
+        ));
+
+        ProcessWrapper consumer = new ProcessWrapper(Arrays.asList(
+            "bash",
+            "-o", "pipefail",
+            "-c",  SOCAT4 + " - tcp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
+                + " | dd bs=1M"
+                + " | openssl md5 >&2"
+        ));
+
+        Future<ProcessResult> reflectorFuture = consumer.run();
+        Future<ProcessResult> processorFuture = producer.run();
+
+        ProcessResult producerResult = processorFuture.get();
+        ProcessResult consumerResult = reflectorFuture.get();
+
+        output(LOGGER, "Producer", producerResult.getOutputText());
+        output(LOGGER, "Consumer", consumerResult.getOutputText());
+
+        Assert.assertEquals(0, producerResult.getExitCode());
+        Assert.assertEquals(0, consumerResult.getExitCode());
+
+        Assert.assertEquals(1, producerResult.getOutput().stream()
+            .filter((s) -> s.startsWith(String.format("%d bytes", bytes)))
+            .count()
+        );
+        Assert.assertEquals(1, consumerResult.getOutput().stream()
+            .filter((s) -> s.startsWith(String.format("%d bytes", bytes)))
+            .count()
+        );
+
+        String producerHash = producerResult.getOutput().stream()
+            .filter((s) -> MD5_PATTERN.matcher(s).find())
+            .findFirst()
+            .orElse("no-producer-hash");
+        String consumerHash = consumerResult.getOutput().stream()
+            .filter((s) -> MD5_PATTERN.matcher(s).find())
+            .findFirst()
+            .orElse("no-consumer-hash");
+
+        Assert.assertEquals(producerHash, consumerHash);
     }
 }

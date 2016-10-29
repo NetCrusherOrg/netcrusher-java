@@ -14,12 +14,7 @@ public class LoggingFilter implements TransformFilter {
 
     private final String[] hex;
 
-    public LoggingFilter(String loggerSuffix, LoggingFilterLevel level) {
-        String loggerName = this.getClass().getCanonicalName();
-        if (loggerSuffix != null) {
-            loggerName = loggerName + "." + loggerSuffix;
-        }
-
+    public LoggingFilter(String loggerName, LoggingFilterLevel level) {
         this.hex = new String[256];
         for (int i = 0; i < 256; i++) {
             this.hex[i] = String.format("%02x", i);

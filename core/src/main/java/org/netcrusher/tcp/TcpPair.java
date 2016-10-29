@@ -109,7 +109,9 @@ class TcpPair implements NetFreezer {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Pair is not in open state on freeze");
+            if (!isFrozen()) {
+                throw new IllegalStateException("Pair is not finally frozen: " + state);
+            }
         }
     }
 
@@ -134,7 +136,9 @@ class TcpPair implements NetFreezer {
                 state.unlock();
             }
         } else {
-            throw new IllegalStateException("Pair is not in frozen state on unfreeze");
+            if (isFrozen()) {
+                throw new IllegalStateException("Pair is not finally unfrozen: " + state);
+            }
         }
     }
 

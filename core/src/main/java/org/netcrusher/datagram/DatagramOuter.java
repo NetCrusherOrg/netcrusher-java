@@ -90,7 +90,7 @@ class DatagramOuter {
         this.channel.configureBlocking(false);
         bufferOptions.checkDatagramSocket(channel.socket());
 
-        this.bb = ByteBuffer.allocate(channel.socket().getReceiveBufferSize());
+        this.bb = NioUtils.allocaleByteBuffer(channel.socket().getReceiveBufferSize(), bufferOptions.isDirect());
 
         SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
         this.selectionKeyControl = new SelectionKeyControl(selectionKey);
@@ -113,7 +113,7 @@ class DatagramOuter {
                     LOGGER.warn("On closing outer has {} incoming datagrams", incoming.size());
                 }
 
-                NioUtils.closeChannel(channel);
+                NioUtils.close(channel);
 
                 state.set(State.CLOSED);
 
