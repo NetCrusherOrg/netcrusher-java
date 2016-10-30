@@ -10,9 +10,21 @@ import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CrusherTcpLinuxTest extends AbstractTcpLinuxTest {
+public class CrusherTcp4LinuxTest extends AbstractTcpLinuxTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherTcpLinuxTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherTcp4LinuxTest.class);
+
+    private static final String SOCAT4_PROCESSOR =
+        SOCAT4 + " - tcp4:127.0.0.1:50100,ignoreeof";
+
+    private static final String SOCAT4_REFLECTOR =
+        SOCAT4 + " -b 16384 PIPE tcp4-listen:50101,bind=127.0.0.1,reuseaddr";
+
+    private static final String SOCAT4_PRODUCER =
+        SOCAT4 + " - tcp4:127.0.0.1:50100";
+
+    private static final String SOCAT4_CONSUMER =
+        SOCAT4 + " - tcp4-listen:50101,bind=127.0.0.1,reuseaddr";
 
     private NioReactor reactor;
 
@@ -46,31 +58,31 @@ public class CrusherTcpLinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void loop() throws Exception {
-        loop(DEFAULT_BYTES, DEFAULT_THROUGHPUT, 50100, 50101);
-    }
-
-    @Test
-    public void direct() throws Exception {
-        direct(DEFAULT_BYTES, DEFAULT_THROUGHPUT, 50100, 50101);
+        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
     }
 
     @Test
     public void loopSlower() throws Exception {
-        loop(DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10, 50100, 50101);
-    }
-
-    @Test
-    public void directSlower() throws Exception {
-        direct(DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10, 50100, 50101);
+        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
     }
 
     @Test
     public void loopSlowest() throws Exception {
-        loop(DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100, 50100, 50101);
+        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
+    }
+
+    @Test
+    public void direct() throws Exception {
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
+    }
+
+    @Test
+    public void directSlower() throws Exception {
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
     }
 
     @Test
     public void directSlowest() throws Exception {
-        direct(DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100, 50100, 50101);
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
     }
 }

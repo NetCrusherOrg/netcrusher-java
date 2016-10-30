@@ -20,7 +20,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_THROUGHPUT = 100000;
 
-    protected void loop(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
+    protected void loop(String processorCmd, String reflectorCmd, int bytes, int throughputKbSec) throws Exception {
         ProcessWrapper processor = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
@@ -28,7 +28,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
                 + " | tee >(openssl md5 >&2)"
                 + ((throughputKbSec > 0) ? " | pv -q -L " + throughputKbSec + "K" : "")
                 + " | dd bs=1M"
-                + " | " + SOCAT4 + " - tcp4:127.0.0.1:" + sndPort + ",ignoreeof"
+                + " | " + processorCmd
                 + " | dd bs=1M"
                 + " | openssl md5 >&2"
         ));
@@ -36,7 +36,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
         ProcessWrapper reflector = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
-            "-c", SOCAT4 + " -b 16384 PIPE tcp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
+            "-c", reflectorCmd
         ));
 
         Future<ProcessResult> reflectorFuture = reflector.run();
@@ -64,7 +64,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
         Assert.assertEquals(hashes.get(0), hashes.get(1));
     }
 
-    protected void direct(int bytes, int throughputKbSec, int sndPort, int rcvPort) throws Exception {
+    protected void direct(String producerCmd, String consumerCmd, int bytes, int throughputKbSec) throws Exception {
         ProcessWrapper producer = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
@@ -72,13 +72,13 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
                 + " | tee >(openssl md5 >&2)"
                 + ((throughputKbSec > 0) ? " | pv -q -L " + throughputKbSec + "K" : "")
                 + " | dd bs=1M"
-                + " | " + SOCAT4 + " - tcp4:127.0.0.1:" + sndPort
+                + " | " + producerCmd
         ));
 
         ProcessWrapper consumer = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
-            "-c",  SOCAT4 + " - tcp4-listen:" + rcvPort + ",bind=127.0.0.1,reuseaddr"
+            "-c",  consumerCmd
                 + " | dd bs=1M"
                 + " | openssl md5 >&2"
         ));
