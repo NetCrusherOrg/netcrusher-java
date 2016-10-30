@@ -17,5 +17,11 @@ public class NioUtilsTest {
 
         addr = NioUtils.parseInetSocketAddress("localhost:80");
         Assert.assertEquals(new InetSocketAddress("localhost", 80), addr);
+
+        addr = NioUtils.parseInetSocketAddress("::1:80");
+        Assert.assertEquals(new InetSocketAddress("0:0:0:0:0:0:0:1", 80), addr);
+
+        addr = NioUtils.parseInetSocketAddress("[0:0:0:0:0:0:0:1]:80");
+        Assert.assertEquals(new InetSocketAddress("0:0:0:0:0:0:0:1", 80), addr);
     }
 }

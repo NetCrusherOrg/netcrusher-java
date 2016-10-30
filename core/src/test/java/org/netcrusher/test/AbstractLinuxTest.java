@@ -12,6 +12,8 @@ public abstract class AbstractLinuxTest {
 
     protected static final String SOCAT4 = "socat -d -T5 -4";
 
+    protected static final String SOCAT6 = "socat -d -T5 -6";
+
     @Before
     public void checkLinux() throws Exception {
         String os = System.getProperty("os.name");
