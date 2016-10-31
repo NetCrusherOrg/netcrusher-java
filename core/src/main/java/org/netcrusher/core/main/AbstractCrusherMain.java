@@ -87,13 +87,17 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         repl(crusher);
 
         try {
-            close(crusher);
+            if (crusher.isOpen()) {
+                close(crusher);
+            }
         } catch (Exception e) {
             LOGGER.error("Fail to close the crusher", e);
         }
 
         try {
-            reactor.close();
+            if (reactor.isOpen()) {
+                reactor.close();
+            }
         } catch (Exception e) {
             LOGGER.error("Fail to close the reactor", e);
         }

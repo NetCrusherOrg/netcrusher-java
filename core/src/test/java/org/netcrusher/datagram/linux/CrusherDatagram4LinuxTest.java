@@ -16,18 +16,6 @@ public class CrusherDatagram4LinuxTest extends AbstractDatagramLinuxTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CrusherDatagram4LinuxTest.class);
 
-    private static final String SOCAT4_PROCESSOR =
-        SOCAT4 + " - udp4-sendto:127.0.0.1:50100,ignoreeof";
-
-    private static final String SOCAT4_REFLECTOR =
-        SOCAT4 + " -b 16384 PIPE udp4-listen:50101,bind=127.0.0.1,reuseaddr";
-
-    private static final String SOCAT4_PRODUCER =
-        SOCAT4 + " - udp4-sendto:127.0.0.1:50100";
-
-    private static final String SOCAT4_CONSUMER =
-        SOCAT4 + " - udp4-listen:50101,bind=127.0.0.1,reuseaddr";
-
     private NioReactor reactor;
 
     private DatagramCrusher crusher;
@@ -38,8 +26,8 @@ public class CrusherDatagram4LinuxTest extends AbstractDatagramLinuxTest {
 
         crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
-            .withBindAddress("127.0.0.1", 50100)
-            .withConnectAddress("127.0.0.1", 50101)
+            .withBindAddress(ADDR_LOOPBACK4, PORT_DIRECT)
+            .withConnectAddress(ADDR_LOOPBACK4, PORT_PROXY)
             .withProtocolFamily(StandardProtocolFamily.INET)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
@@ -61,32 +49,32 @@ public class CrusherDatagram4LinuxTest extends AbstractDatagramLinuxTest {
 
     @Test
     public void loop() throws Exception {
-        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
+        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
     }
 
     @Test
     public void loopSlower() throws Exception {
-        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
+        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
     }
 
     @Test
     public void loopSlowest() throws Exception {
-        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
+        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
     }
 
     @Test
     public void direct() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
     }
 
     @Test
     public void directSlower() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
     }
 
     @Test
     public void directSlowest() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
     }
 
 }

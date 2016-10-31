@@ -20,6 +20,46 @@ public abstract class AbstractDatagramLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_THROUGHPUT = 1000;
 
+    /* IP4 */
+
+    protected static final String SOCAT4_PROCESSOR =
+        SOCAT4 + " - udp4-sendto:127.0.0.1:50100,ignoreeof";
+
+    protected static final String SOCAT4_REFLECTOR_DIRECT =
+        SOCAT4 + " -b 16384 PIPE udp4-listen:50100,bind=127.0.0.1,reuseaddr";
+
+    protected static final String SOCAT4_REFLECTOR_PROXIED =
+        SOCAT4 + " -b 16384 PIPE udp4-listen:50101,bind=127.0.0.1,reuseaddr";
+
+    protected static final String SOCAT4_PRODUCER =
+        SOCAT4 + " - udp4-sendto:127.0.0.1:50100";
+
+    protected static final String SOCAT4_CONSUMER_DIRECT =
+        SOCAT4 + " - udp4-listen:50100,bind=127.0.0.1,reuseaddr";
+
+    protected static final String SOCAT4_CONSUMER_PROXIED =
+        SOCAT4 + " - udp4-listen:50101,bind=127.0.0.1,reuseaddr";
+
+    /* IP6 */
+
+    protected static final String SOCAT6_PROCESSOR =
+        SOCAT6 + " - udp6-sendto:[::1]:50100,ignoreeof";
+
+    protected static final String SOCAT6_REFLECTOR_DIRECT =
+        SOCAT6 + " -b 16384 PIPE udp6-listen:50100,bind=[::1],reuseaddr";
+
+    protected static final String SOCAT6_REFLECTOR_PROXIED =
+        SOCAT6 + " -b 16384 PIPE udp6-listen:50101,bind=[::1],reuseaddr";
+
+    protected static final String SOCAT6_PRODUCER =
+        SOCAT6 + " - udp6-sendto:[::1]:50100";
+
+    protected static final String SOCAT6_CONSUMER_DIRECT =
+        SOCAT6 + " - udp6-listen:50100,bind=[::1],reuseaddr";
+
+    protected static final String SOCAT6_CONSUMER_PROXIED =
+        SOCAT6 + " - udp6-listen:50101,bind=[::1],reuseaddr";
+
     protected void loop(String processorCmd, String reflectorCmd, int bytes, int throughputKbSec) throws Exception {
         ProcessWrapper processor = new ProcessWrapper(Arrays.asList(
             "bash",

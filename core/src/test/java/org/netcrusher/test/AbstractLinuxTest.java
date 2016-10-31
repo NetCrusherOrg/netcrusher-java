@@ -1,7 +1,7 @@
 package org.netcrusher.test;
 
 import org.junit.Assume;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.slf4j.Logger;
 
 import java.util.regex.Pattern;
@@ -14,10 +14,21 @@ public abstract class AbstractLinuxTest {
 
     protected static final String SOCAT6 = "socat -d -T5 -6";
 
-    @Before
-    public void checkLinux() throws Exception {
+    protected static final String ADDR_LOOPBACK4 = "127.0.0.1";
+
+    protected static final String ADDR_LOOPBACK6 = "::1";
+
+    protected static final int PORT_DIRECT = 50100;
+
+    protected static final int PORT_PROXY = 50101;
+
+    @BeforeClass
+    public static void checkLinux() throws Exception {
         String os = System.getProperty("os.name");
-        Assume.assumeTrue("linux".equalsIgnoreCase(os));
+        Assume.assumeTrue("This test runs only on Linux", "linux".equalsIgnoreCase(os));
+
+        Assume.assumeFalse("Linux tests are disabled", Boolean.getBoolean("disable.linux.tests"));
+
     }
 
     protected static void output(Logger logger, String name, String lines) {

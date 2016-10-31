@@ -14,18 +14,6 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CrusherTcp6LinuxTest.class);
 
-    private static final String SOCAT6_PROCESSOR =
-        SOCAT6 + " - tcp6:[::1]:50100,ignoreeof";
-
-    private static final String SOCAT6_REFLECTOR =
-        SOCAT6 + " -b 16384 PIPE tcp6-listen:50101,bind=[::1],reuseaddr";
-
-    private static final String SOCAT6_PRODUCER =
-        SOCAT6 + " - tcp6:[::1]:50100";
-
-    private static final String SOCAT6_CONSUMER =
-        SOCAT6 + " - tcp6-listen:50101,bind=[::1],reuseaddr";
-
     private NioReactor reactor;
 
     private TcpCrusher crusher;
@@ -36,8 +24,8 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
 
         crusher = TcpCrusherBuilder.builder()
             .withReactor(reactor)
-            .withBindAddress("::1", 50100)
-            .withConnectAddress("::1", 50101)
+            .withBindAddress(ADDR_LOOPBACK6, PORT_DIRECT)
+            .withConnectAddress(ADDR_LOOPBACK6, PORT_PROXY)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
@@ -58,31 +46,31 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void loop() throws Exception {
-        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
+        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
     }
 
     @Test
     public void loopSlower() throws Exception {
-        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
+        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR_PROXIED, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
     }
 
     @Test
     public void loopSlowest() throws Exception {
-        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
+        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
     }
 
     @Test
     public void direct() throws Exception {
-        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
+        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
     }
 
     @Test
     public void directSlower() throws Exception {
-        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
+        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
     }
 
     @Test
     public void directSlowest() throws Exception {
-        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
+        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
     }
 }

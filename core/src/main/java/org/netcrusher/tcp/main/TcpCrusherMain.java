@@ -114,8 +114,12 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void freezeAcceptor(TcpCrusher crusher) throws IOException {
         if (crusher.isOpen()) {
-            crusher.getAcceptorFreezer().freeze();
-            LOGGER.info("Acceptor is frozen");
+            if (!crusher.getAcceptorFreezer().isFrozen()) {
+                crusher.getAcceptorFreezer().freeze();
+                LOGGER.info("Acceptor is frozen");
+            } else {
+                LOGGER.warn("Acceptor is already frozen");
+            }
         } else {
             LOGGER.warn("Crusher is not open");
         }
@@ -123,8 +127,12 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     protected void unfreezeAcceptor(TcpCrusher crusher) throws IOException {
         if (crusher.isOpen()) {
-            crusher.getAcceptorFreezer().unfreeze();
-            LOGGER.info("Acceptor is unfrozen");
+            if (crusher.getAcceptorFreezer().isFrozen()) {
+                crusher.getAcceptorFreezer().unfreeze();
+                LOGGER.info("Acceptor is unfrozen");
+            } else {
+                LOGGER.warn("Acceptor is already frozen");
+            }
         } else {
             LOGGER.warn("Crusher is not open");
         }
