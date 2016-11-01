@@ -6,7 +6,6 @@ import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.DatagramCrusher;
 import org.netcrusher.datagram.DatagramCrusherBuilder;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
@@ -19,7 +18,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
     @Override
     protected DatagramCrusher create(NioReactor reactor,
                                 InetSocketAddress bindAddress,
-                                InetSocketAddress connectAddress) throws IOException
+                                InetSocketAddress connectAddress)
     {
         return DatagramCrusherBuilder.builder()
             .withReactor(reactor)
@@ -48,7 +47,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
     }
 
     @Override
-    protected void command(DatagramCrusher crusher, String command) throws IOException {
+    protected void command(DatagramCrusher crusher, String command) {
         if (command.startsWith(CMD_CLOSE_IDLE)) {
             closeIdle(crusher, command);
         } else {
@@ -56,7 +55,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
         }
     }
 
-    protected void closeIdle(DatagramCrusher crusher, String command) throws IOException {
+    protected void closeIdle(DatagramCrusher crusher, String command) {
         if (crusher.isOpen()) {
             int closed = crusher.closeIdleClients(DEFAULT_IDLE_PERIOD_SEC, TimeUnit.SECONDS);
             LOGGER.info("Idle clients are closed: {}", closed);
@@ -66,7 +65,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
     }
 
     @Override
-    protected void status(DatagramCrusher crusher) throws IOException {
+    protected void status(DatagramCrusher crusher) {
         super.status(crusher);
 
         if (crusher.isOpen()) {
@@ -83,7 +82,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
     }
 
     @Override
-    protected void statusClient(DatagramCrusher crusher, InetSocketAddress address) throws IOException {
+    protected void statusClient(DatagramCrusher crusher, InetSocketAddress address) {
         RateMeters byteMeters = crusher.getClientByteMeters(address);
         RateMeters packetMeters = crusher.getClientPacketMeters(address);
         if (byteMeters != null && packetMeters != null) {

@@ -7,7 +7,6 @@ import org.netcrusher.core.throttle.Throttler;
 import org.netcrusher.tcp.callback.TcpClientCreation;
 import org.netcrusher.tcp.callback.TcpClientDeletion;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 
@@ -316,9 +315,8 @@ public final class TcpCrusherBuilder {
     /**
      * Builds a new TcpCrusher instance and opens it for incoming connections
      * @return TcpCrusher instance
-     * @throws IOException Raises if opening fails
      */
-    public TcpCrusher buildAndOpen() throws IOException {
+    public TcpCrusher buildAndOpen() {
         TcpCrusher crusher = build();
         crusher.open();
         return crusher;

@@ -8,7 +8,6 @@ import org.netcrusher.core.state.BitState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -174,10 +173,9 @@ class TcpAcceptor implements NetFreezer {
         try {
             InetSocketAddress clientAddress = (InetSocketAddress) socketChannel1.getRemoteAddress();
 
-            Closeable closeable = () -> crusher.closeClient(clientAddress);
+            Runnable pairShutdown = () -> crusher.closeClient(clientAddress);
 
-            TcpPair pair = new TcpPair(reactor, filters,
-                socketChannel1, socketChannel2, bufferOptions, closeable);
+            TcpPair pair = new TcpPair(reactor, filters, socketChannel1, socketChannel2, bufferOptions, pairShutdown);
             pair.unfreeze();
 
             crusher.notifyPairCreated(pair);

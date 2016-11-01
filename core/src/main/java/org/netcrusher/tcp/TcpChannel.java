@@ -9,7 +9,6 @@ import org.netcrusher.core.state.BitState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
@@ -27,7 +26,7 @@ class TcpChannel {
 
     private final NioReactor reactor;
 
-    private final Closeable ownerClose;
+    private final Runnable ownerClose;
 
     private final SocketChannel channel;
 
@@ -45,7 +44,7 @@ class TcpChannel {
 
     private TcpChannel other;
 
-    TcpChannel(String name, NioReactor reactor, Closeable ownerClose, SocketChannel channel,
+    TcpChannel(String name, NioReactor reactor, Runnable ownerClose, SocketChannel channel,
                TcpQueue incomingQueue, TcpQueue outgoingQueue) throws IOException
     {
         this.name = name;
@@ -65,7 +64,7 @@ class TcpChannel {
         this.state = new State(State.FROZEN);
     }
 
-    void close() throws IOException {
+    void close() {
         reactor.getSelector().execute(() -> {
             if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
@@ -94,22 +93,16 @@ class TcpChannel {
         });
     }
 
-    private void closeAll() throws IOException {
+    private void closeAll()  {
         this.close();
-        ownerClose.close();
+        ownerClose.run();
     }
 
-    private void closeAllDeferred() throws IOException {
-        reactor.getSelector().schedule(() -> {
-            try {
-                closeAll();
-            } catch (IOException e) {
-                LOGGER.error("Fail to close channel", e);
-            }
-        }, LINGER_PERIOD_NS);
+    private void closeAllDeferred() {
+        reactor.getSelector().schedule(this::closeAll, LINGER_PERIOD_NS);
     }
 
-    private void closeEOF() throws IOException {
+    private void closeEOF() {
         this.state.setEof(true);
 
         if (other.state.isEof() && !incomingQueue.hasReadable()) {
@@ -127,7 +120,7 @@ class TcpChannel {
         }
     }
 
-    private void closeLocal() throws IOException {
+    private void closeLocal() {
         this.close();
 
         if (other.state.is(State.OPEN) && outgoingQueue.hasReadable()) {

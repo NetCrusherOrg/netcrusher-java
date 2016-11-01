@@ -38,7 +38,7 @@ public class NioReactor implements Closeable {
 
         this.open = true;
 
-        LOGGER.debug("Reactor has been created");
+        LOGGER.debug("Reactor has been created with tick={}ms", tickMs);
     }
 
     /**

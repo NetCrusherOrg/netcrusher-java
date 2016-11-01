@@ -33,29 +33,27 @@ public class NioScheduler {
     }
 
     synchronized void close() {
-        if (!open) {
-            return;
-        }
+        if (open) {
+            boolean interrupted = false;
+            LOGGER.debug("Scheduler is closing");
 
-        boolean interrupted = false;
-        LOGGER.debug("Scheduler is closing");
-
-        scheduledExecutorService.shutdownNow();
-        try {
-            boolean shutdown = scheduledExecutorService
-                .awaitTermination(THREAD_TERMINATION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            if (!shutdown) {
-                LOGGER.error("Fail to shutdown scheduled executor service");
+            scheduledExecutorService.shutdownNow();
+            try {
+                boolean shutdown = scheduledExecutorService
+                    .awaitTermination(THREAD_TERMINATION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                if (!shutdown) {
+                    LOGGER.error("Fail to shutdown scheduled executor service");
+                }
+            } catch (InterruptedException e) {
+                interrupted = true;
             }
-        } catch (InterruptedException e) {
-            interrupted = true;
-        }
 
-        open = false;
-        LOGGER.debug("Scheduler is closed");
+            open = false;
+            LOGGER.debug("Scheduler is closed");
 
-        if (interrupted) {
-            Thread.currentThread().interrupt();
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

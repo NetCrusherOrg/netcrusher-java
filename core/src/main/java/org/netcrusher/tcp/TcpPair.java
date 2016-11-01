@@ -8,7 +8,6 @@ import org.netcrusher.core.state.BitState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
@@ -21,7 +20,7 @@ class TcpPair implements NetFreezer {
 
     private final TcpChannel outerChannel;
 
-    private final Closeable ownerClose;
+    private final Runnable ownerClose;
 
     private final NioReactor reactor;
 
@@ -35,7 +34,7 @@ class TcpPair implements NetFreezer {
         SocketChannel inner,
         SocketChannel outer,
         BufferOptions bufferOptions,
-        Closeable ownerClose) throws IOException
+        Runnable ownerClose) throws IOException
     {
         this.ownerClose = ownerClose;
         this.reactor = reactor;
@@ -60,9 +59,9 @@ class TcpPair implements NetFreezer {
         this.state = new State(State.FROZEN);
     }
 
-    private void closeAll() throws IOException {
+    private void closeAll() {
         this.close();
-        ownerClose.close();
+        ownerClose.run();
     }
 
     void close() {

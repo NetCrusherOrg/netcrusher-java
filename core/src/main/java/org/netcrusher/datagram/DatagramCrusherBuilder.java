@@ -8,7 +8,6 @@ import org.netcrusher.core.throttle.Throttler;
 import org.netcrusher.datagram.callback.DatagramClientCreation;
 import org.netcrusher.datagram.callback.DatagramClientDeletion;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ProtocolFamily;
 import java.net.StandardProtocolFamily;
@@ -318,9 +317,8 @@ public final class DatagramCrusherBuilder {
     /**
      * Builds a new DatagramCrusher instance and opens it for incoming packets
      * @return DatagramCrusher instance
-     * @throws IOException Raises if opening fails
      */
-    public DatagramCrusher buildAndOpen() throws IOException {
+    public DatagramCrusher buildAndOpen() {
         DatagramCrusher crusher = build();
         crusher.open();
         return crusher;

@@ -102,7 +102,7 @@ class DatagramOuter {
         }
     }
 
-    void close() throws IOException {
+    void close() {
         reactor.getSelector().execute(() -> {
             if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
@@ -126,12 +126,12 @@ class DatagramOuter {
         });
     }
 
-    private void closeAll() throws IOException {
+    private void closeAll() {
         this.close();
         inner.closeOuter(clientAddress);
     }
 
-    void unfreeze() throws IOException {
+    void unfreeze() {
         reactor.getSelector().execute(() -> {
             if (state.is(State.FROZEN)) {
                 if (incoming.isEmpty()) {
@@ -149,7 +149,7 @@ class DatagramOuter {
         });
     }
 
-    void freeze() throws IOException {
+    void freeze() {
         reactor.getSelector().execute(() -> {
             if (state.is(State.OPEN)) {
                 if (selectionKeyControl.isValid()) {

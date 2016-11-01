@@ -11,7 +11,6 @@ import org.netcrusher.tcp.callback.TcpClientDeletion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
@@ -166,7 +165,6 @@ public class TcpCrusher implements NetCrusher {
 
     /**
      * Close all pairs but keeps listening socket open
-     * @throws IOException Exception on error
      */
     public void closeAllPairs() {
         reactor.getSelector().execute(() -> {

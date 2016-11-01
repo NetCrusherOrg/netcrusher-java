@@ -1,5 +1,6 @@
 package org.netcrusher.core.reactor;
 
+import org.netcrusher.NetCrusherException;
 import org.netcrusher.core.nio.SelectionKeyCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,76 +55,70 @@ public class NioSelector {
     }
 
     synchronized void close() {
-        if (!open) {
-            return;
-        }
+        if (open) {
+            LOGGER.debug("Selector is closing");
+            boolean interrupted = false;
 
-        LOGGER.debug("Selector is closing");
-        boolean interrupted = false;
+            postOperationQueue.clear();
 
-        postOperationQueue.clear();
-
-        try {
             wakeup();
-        } catch (IOException e) {
-            LOGGER.error("Fail to wake up selector", e);
-        }
-
-        if (thread.isAlive()) {
-            thread.interrupt();
-
-            try {
-                thread.join(THREAD_TERMINATION_TIMEOUT_MS);
-            } catch (InterruptedException e) {
-                interrupted = true;
-            }
 
             if (thread.isAlive()) {
-                LOGGER.error("NetCrusher selector thread is still alive");
+                thread.interrupt();
+
+                try {
+                    thread.join(THREAD_TERMINATION_TIMEOUT_MS);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+
+                if (thread.isAlive()) {
+                    LOGGER.error("NetCrusher selector thread is still alive");
+                }
             }
-        }
 
-        int activeSelectionKeys = selector.keys().size();
-        if (activeSelectionKeys > 0) {
-            LOGGER.warn("Selector still has {} selection keys. Have you closed all linked crushers before?",
-                activeSelectionKeys);
-        }
+            int activeSelectionKeys = selector.keys().size();
+            if (activeSelectionKeys > 0) {
+                LOGGER.warn("Selector still has {} selection keys. Have you closed all linked crushers before?",
+                    activeSelectionKeys);
+            }
 
-        try {
-            selector.close();
-        } catch (IOException e) {
-            LOGGER.error("Fail to close selector", e);
-        }
+            try {
+                selector.close();
+            } catch (IOException e) {
+                LOGGER.error("Fail to close selector", e);
+            }
 
-        open = false;
-        LOGGER.debug("Selector is closed");
+            open = false;
+            LOGGER.debug("Selector is closed");
 
-        if (interrupted) {
-            Thread.currentThread().interrupt();
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
     // Internal method
     public SelectionKey register(SelectableChannel channel,
-                                 int options, SelectionKeyCallback callback) throws IOException
+                                 int options, SelectionKeyCallback callback)
     {
         return execute(() -> channel.register(selector, options, callback));
     }
 
     // Internal method
-    public int wakeup() throws IOException {
+    public int wakeup() {
         // fixes some strange behaviour on Windows: http://stackoverflow.com/a/39657002/827139
         return execute(selector::selectNow);
     }
 
     // Internal method
-    public <T> T execute(Callable<T> callable) throws NioExecutionException {
+    public <T> T execute(Callable<T> callable) throws NetCrusherException {
         if (open) {
             if (Thread.currentThread().equals(thread)) {
                 try {
                     return callable.call();
                 } catch (Exception e) {
-                    throw new NioExecutionException("Fail to execute selector op", e);
+                    throw new NetCrusherException("Fail to execute selector op", e);
                 }
             } else {
                 NioSelectorPostOp<T> postOperation = new NioSelectorPostOp<>(callable);
@@ -134,9 +129,9 @@ public class NioSelector {
                 try {
                     return postOperation.await();
                 } catch (InterruptedException e) {
-                    throw new NioExecutionException("Reactor operation was interrupted", e);
+                    throw new NetCrusherException("Reactor operation was interrupted", e);
                 } catch (ExecutionException e) {
-                    throw new NioExecutionException("Selector operation has failed", e);
+                    throw new NetCrusherException("Selector operation has failed", e);
                 }
             }
         } else {
@@ -168,8 +163,8 @@ public class NioSelector {
                 count = selector.select(tickMs);
             } catch (ClosedSelectorException e) {
                 break;
-            } catch (IOException e) {
-                LOGGER.error("Error on select", e);
+            } catch (Exception e) {
+                LOGGER.error("Error on select()", e);
                 break;
             }
 

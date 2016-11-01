@@ -10,9 +10,11 @@ public abstract class AbstractLinuxTest {
 
     protected static final Pattern MD5_PATTERN = Pattern.compile("[0-9abcdef]{32}");
 
-    protected static final String SOCAT4 = "socat -d -d -T5 -4";
+    protected static final int SOCAT_TIMEOUT_SEC = 3;
 
-    protected static final String SOCAT6 = "socat -d -T5 -6";
+    protected static final String SOCAT4 = String.format("socat -d -T%d -4", SOCAT_TIMEOUT_SEC);
+
+    protected static final String SOCAT6 = String.format("socat -d -T%d -6", SOCAT_TIMEOUT_SEC);
 
     protected static final String ADDR_LOOPBACK4 = "127.0.0.1";
 

@@ -138,7 +138,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void command(T crusher, String command) throws IOException {
+    protected void command(T crusher, String command) {
         if (command.equals(CMD_OPEN)) {
             open(crusher);
         } else if (command.equals(CMD_CLOSE)) {
@@ -162,7 +162,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void open(T crusher) throws IOException {
+    protected void open(T crusher) {
         if (crusher.isOpen()) {
             LOGGER.warn("Crusher is already open");
         } else {
@@ -171,7 +171,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void close(T crusher) throws IOException {
+    protected void close(T crusher) {
         if (crusher.isOpen()) {
             crusher.close();
             LOGGER.info("Crusher is closed");
@@ -180,7 +180,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void reopen(T crusher) throws IOException {
+    protected void reopen(T crusher) {
         if (crusher.isOpen()) {
             crusher.reopen();
             LOGGER.info("Crusher is reopen");
@@ -189,7 +189,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void freeze(T crusher) throws IOException {
+    protected void freeze(T crusher) {
         if (crusher.isOpen()) {
             crusher.freeze();
             LOGGER.info("Crusher is frozen");
@@ -198,7 +198,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void unfreeze(T crusher) throws IOException {
+    protected void unfreeze(T crusher) {
         if (crusher.isOpen()) {
             crusher.unfreeze();
             LOGGER.info("Crusher is unfrozen");
@@ -207,7 +207,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void status(T crusher) throws IOException {
+    protected void status(T crusher) {
         LOGGER.info("{} crusher for <{}>-<{}>", new Object[] {
             crusher.getClass().getSimpleName(), crusher.getBindAddress(), crusher.getConnectAddress()
         });
@@ -230,7 +230,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void closeClient(T crusher, String command) throws IOException {
+    protected void closeClient(T crusher, String command) {
         InetSocketAddress address = parseAddress(command);
         boolean closed = crusher.closeClient(address);
         if (closed) {
@@ -240,12 +240,12 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         }
     }
 
-    protected void statusClient(T crusher, String command) throws IOException {
+    protected void statusClient(T crusher, String command) {
         InetSocketAddress address = parseAddress(command);
         statusClient(crusher, address);
     }
 
-    protected void statusClient(T crusher, InetSocketAddress address) throws IOException {
+    protected void statusClient(T crusher, InetSocketAddress address)  {
         LOGGER.info("Client address <{}>", address);
     }
 
@@ -280,7 +280,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
     }
 
     protected abstract T create(NioReactor reactor,
-        InetSocketAddress bindAddress, InetSocketAddress connectAddress) throws IOException;
+        InetSocketAddress bindAddress, InetSocketAddress connectAddress);
 
 }
 

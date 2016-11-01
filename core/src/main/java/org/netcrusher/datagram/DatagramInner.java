@@ -102,7 +102,7 @@ class DatagramInner {
         LOGGER.debug("Inner on <{}> is started", bindAddress);
     }
 
-    void close() throws IOException {
+    void close() {
         reactor.getSelector().execute(() -> {
             if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
@@ -137,13 +137,13 @@ class DatagramInner {
         });
     }
 
-    private void closeAll() throws IOException {
+    private void closeAll() {
         this.close();
         crusher.close();
     }
 
-    void unfreeze() throws IOException {
-        boolean succeed = reactor.getSelector().execute(() -> {
+    void unfreeze() {
+        reactor.getSelector().execute(() -> {
             if (state.is(State.FROZEN)) {
                 if (incoming.isEmpty()) {
                     selectionKeyControl.setReadsOnly();
@@ -164,7 +164,7 @@ class DatagramInner {
         });
     }
 
-    void freeze() throws IOException {
+    void freeze() {
         reactor.getSelector().execute(() -> {
             if (state.is(State.OPEN)) {
                 if (selectionKeyControl.isValid()) {
@@ -323,7 +323,7 @@ class DatagramInner {
         incoming.add(address, bbToCopy, delayNs);
     }
 
-    boolean closeOuter(InetSocketAddress clientAddress) throws IOException {
+    boolean closeOuter(InetSocketAddress clientAddress) {
         DatagramOuter outer = outers.remove(clientAddress);
         if (outer != null) {
             outer.close();
@@ -336,7 +336,7 @@ class DatagramInner {
         }
     }
 
-    int closeIdleOuters(long maxIdleDurationMs) throws IOException {
+    int closeIdleOuters(long maxIdleDurationMs) {
         int countBefore = outers.size();
         if (countBefore > 0) {
             Iterator<DatagramOuter> outerIterator = outers.values().iterator();
