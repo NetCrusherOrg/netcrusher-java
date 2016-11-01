@@ -10,7 +10,7 @@ public abstract class AbstractLinuxTest {
 
     protected static final Pattern MD5_PATTERN = Pattern.compile("[0-9abcdef]{32}");
 
-    protected static final String SOCAT4 = "socat -d -T5 -4";
+    protected static final String SOCAT4 = "socat -d -d -T5 -4";
 
     protected static final String SOCAT6 = "socat -d -T5 -6";
 

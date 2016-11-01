@@ -21,7 +21,7 @@ class TcpChannel {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpChannel.class);
 
-    private static final long LINGER_PERIOD_NS = TimeUnit.SECONDS.toNanos(1);
+    private static final long LINGER_PERIOD_NS = TimeUnit.SECONDS.toNanos(10);
 
     private final String name;
 
