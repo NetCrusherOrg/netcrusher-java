@@ -19,8 +19,6 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.nio.channels.UnsupportedAddressTypeException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 class TcpAcceptor implements NetFreezer {
@@ -77,9 +75,9 @@ class TcpAcceptor implements NetFreezer {
         this.state = new State(State.FROZEN);
     }
 
-    void close() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    void close() {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
                     freeze();
                 }
@@ -91,10 +89,12 @@ class TcpAcceptor implements NetFreezer {
                 reactor.getSelector().wakeup();
 
                 state.set(State.CLOSED);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                return false;
             }
-        }
+        });
     }
 
     private void accept() throws IOException {
@@ -138,24 +138,19 @@ class TcpAcceptor implements NetFreezer {
     }
 
     private void connectDeferred(SocketChannel socketChannel1, SocketChannel socketChannel2) throws IOException {
-        final Future<?> connectCheck;
         if (socketOptions.getConnectionTimeoutMs() > 0) {
-            connectCheck = reactor.getScheduler().schedule(() -> {
+            reactor.getSelector().schedule(() -> {
                 if (socketChannel2.isOpen() && !socketChannel2.isConnected()) {
                     LOGGER.error("Fail to connect to <{}> in {}ms",
                         connectAddress, socketOptions.getConnectionTimeoutMs());
+
                     NioUtils.closeNoLinger(socketChannel1);
                     NioUtils.closeNoLinger(socketChannel2);
                 }
-                return true;
-            }, socketOptions.getConnectionTimeoutMs(), TimeUnit.MILLISECONDS);
-        } else {
-            connectCheck = CompletableFuture.completedFuture(null);
+            }, TimeUnit.MILLISECONDS.toNanos(socketOptions.getConnectionTimeoutMs()));
         }
 
         reactor.getSelector().register(socketChannel2, SelectionKey.OP_CONNECT, (selectionKey) -> {
-            connectCheck.cancel(false);
-
             boolean connected;
             try {
                 connected = socketChannel2.finishConnect();
@@ -198,40 +193,39 @@ class TcpAcceptor implements NetFreezer {
     }
 
     @Override
-    public void freeze() throws IOException {
-        if (state.lockIf(State.OPEN)) {
-            reactor.getSelector().execute(() -> {
+    public void freeze() {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.OPEN)) {
                 if (serverSelectionKey.isValid()) {
                     serverSelectionKey.interestOps(0);
                 }
 
+                state.set(State.FROZEN);
+
+                LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is frozen", bindAddress, connectAddress);
+
                 return true;
-            });
-
-            state.set(State.FROZEN);
-
-            LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is frozen", bindAddress, connectAddress);
-        } else {
-            if (!isFrozen()) {
-                throw new IllegalStateException("Acceptor is not finally frozen: " + state);
+            } else {
+                throw new IllegalStateException("Acceptor is not open on freeze");
             }
-        }
+        });
     }
 
     @Override
-    public void unfreeze() throws IOException {
-        if (state.lockIf(State.FROZEN)) {
-            reactor.getSelector().execute(() ->
-                serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT));
+    public void unfreeze() {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.FROZEN)) {
+                serverSelectionKey.interestOps(SelectionKey.OP_ACCEPT);
 
-            state.set(State.OPEN);
+                state.set(State.OPEN);
 
-            LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is unfrozen", bindAddress, connectAddress);
-        } else {
-            if (isFrozen()) {
-                throw new IllegalStateException("Acceptor is not finally unfrozen: " + state);
+                LOGGER.debug("TcpCrusher acceptor <{}>-<{}> is unfrozen", bindAddress, connectAddress);
+
+                return true;
+            } else {
+                throw new IllegalStateException("Acceptor is not frozen on unfreeze");
             }
-        }
+        });
     }
 
     @Override

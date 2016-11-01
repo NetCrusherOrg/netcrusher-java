@@ -9,11 +9,11 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 
-public class DeadPortDatagramTest {
+public class UnknownPortDatagramTest {
 
-    private static final int CRUSHER_PORT = 10283;
+    private static final int PORT_CRUSHER = 10283;
 
-    private static final int DEAD_PORT = 10284;
+    private static final int PORT_CONNECT = 10284;
 
     private static final String HOSTNAME = "127.0.0.1";
 
@@ -27,8 +27,8 @@ public class DeadPortDatagramTest {
 
         crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
-            .withBindAddress(HOSTNAME, CRUSHER_PORT)
-            .withConnectAddress(HOSTNAME, DEAD_PORT)
+            .withBindAddress(HOSTNAME, PORT_CRUSHER)
+            .withConnectAddress(HOSTNAME, PORT_CONNECT)
             .buildAndOpen();
     }
 
@@ -47,16 +47,18 @@ public class DeadPortDatagramTest {
     public void test() throws Exception {
         DatagramChannel channel = DatagramChannel.open();
         channel.configureBlocking(true);
-        channel.connect(new InetSocketAddress(HOSTNAME, CRUSHER_PORT));
+        channel.connect(new InetSocketAddress(HOSTNAME, PORT_CRUSHER));
 
-        ByteBuffer bb = ByteBuffer.allocate(1024);
-        bb.limit(800);
-        bb.position(0);
+        try {
+            ByteBuffer bb = ByteBuffer.allocate(1024);
+            bb.limit(800);
+            bb.position(0);
 
-        channel.write(bb);
+            channel.write(bb);
 
-        Thread.sleep(1000);
-
-        channel.close();
+            Thread.sleep(1001);
+        } finally {
+            channel.close();
+        }
     }
 }

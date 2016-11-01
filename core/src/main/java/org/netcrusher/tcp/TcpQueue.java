@@ -33,17 +33,19 @@ class TcpQueue implements Serializable {
             Throttler throttler,
             BufferOptions bufferOptions)
     {
-        this.readable = new ArrayDeque<>(bufferOptions.getCount());
-        this.writable = new ArrayDeque<>(bufferOptions.getCount());
+        final int count = bufferOptions.getCount();
 
-        this.bufferArray = new ByteBuffer[bufferOptions.getCount()];
-        this.entryArray = new BufferEntry[bufferOptions.getCount()];
+        this.readable = new ArrayDeque<>(count);
+        this.writable = new ArrayDeque<>(count);
+
+        this.bufferArray = new ByteBuffer[count];
+        this.entryArray = new BufferEntry[count];
 
         this.filter = filter;
         this.throttler = throttler;
         this.clientAddress = clientAddress;
 
-        for (int i = 0; i < bufferOptions.getCount(); i++) {
+        for (int i = 0; i < count; i++) {
             this.writable.add(new BufferEntry(bufferOptions.getSize(), bufferOptions.isDirect()));
         }
     }
@@ -100,9 +102,18 @@ class TcpQueue implements Serializable {
             return TcpQueueBuffers.EMPTY;
         }
 
+        long nowNs = System.nanoTime();
+
         readable.toArray(entryArray);
         for (int i = 0; i < size; i++) {
-            bufferArray[i] = entryArray[i].getBuffer();
+            BufferEntry entry = entryArray[i];
+
+            long delayNs = entry.scheduledNs - nowNs;
+            if (delayNs > 0) {
+                return new TcpQueueBuffers(bufferArray, 0, i, delayNs);
+            } else {
+                bufferArray[i] = entry.getBuffer();
+            }
         }
 
         return new TcpQueueBuffers(bufferArray, 0, size);
@@ -158,7 +169,8 @@ class TcpQueue implements Serializable {
 
         writable.toArray(entryArray);
         for (int i = 0; i < size; i++) {
-            bufferArray[i] = entryArray[i].getBuffer();
+            BufferEntry entry = entryArray[i];
+            bufferArray[i] = entry.getBuffer();
         }
 
         return new TcpQueueBuffers(bufferArray, 0, size);
@@ -167,7 +179,6 @@ class TcpQueue implements Serializable {
     public void releaseWritableBuffers() {
         while (!writable.isEmpty()) {
             BufferEntry entry = writable.element();
-
             if (entry.getBuffer().hasRemaining()) {
                 break;
             } else {

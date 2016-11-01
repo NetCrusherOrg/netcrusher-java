@@ -28,7 +28,6 @@ public abstract class AbstractLinuxTest {
         Assume.assumeTrue("This test runs only on Linux", "linux".equalsIgnoreCase(os));
 
         Assume.assumeFalse("Linux tests are disabled", Boolean.getBoolean("disable.linux.tests"));
-
     }
 
     protected static void output(Logger logger, String name, String lines) {

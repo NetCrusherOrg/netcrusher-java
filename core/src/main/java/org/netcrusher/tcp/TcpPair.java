@@ -62,16 +62,12 @@ class TcpPair implements NetFreezer {
 
     private void closeAll() throws IOException {
         this.close();
-
-        reactor.getScheduler().execute(() -> {
-            ownerClose.close();
-            return true;
-        });
+        ownerClose.close();
     }
 
-    void close() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    void close() {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
                     freeze();
                 }
@@ -82,64 +78,44 @@ class TcpPair implements NetFreezer {
                 state.set(State.CLOSED);
 
                 LOGGER.debug("Pair for '{}' is closed", clientAddress);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                return false;
             }
-        }
+        });
     }
 
     @Override
-    public void freeze() throws IOException {
-        if (state.lockIf(State.OPEN)) {
-            try {
-                reactor.getSelector().execute(() -> {
-                    if (!innerChannel.isFrozen()) {
-                        innerChannel.freeze();
-                    }
-
-                    if (!outerChannel.isFrozen()) {
-                        outerChannel.freeze();
-                    }
-
-                    return true;
-                });
+    public void freeze() {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.OPEN)) {
+                innerChannel.freeze();
+                outerChannel.freeze();
 
                 state.set(State.FROZEN);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("Pair is not open on freeze");
             }
-        } else {
-            if (!isFrozen()) {
-                throw new IllegalStateException("Pair is not finally frozen: " + state);
-            }
-        }
+        });
     }
 
     @Override
-    public void unfreeze() throws IOException {
-        if (state.lockIf(State.FROZEN)) {
-            try {
-                reactor.getSelector().execute(() -> {
-                    if (innerChannel.isFrozen()) {
-                        innerChannel.unfreeze();
-                    }
-
-                    if (outerChannel.isFrozen()) {
-                        outerChannel.unfreeze();
-                    }
-
-                    return true;
-                });
+    public void unfreeze() {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.FROZEN)) {
+                innerChannel.unfreeze();
+                outerChannel.unfreeze();
 
                 state.set(State.OPEN);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("Pair is not frozen on unfreeze");
             }
-        } else {
-            if (isFrozen()) {
-                throw new IllegalStateException("Pair is not finally unfrozen: " + state);
-            }
-        }
+        });
     }
 
     @Override

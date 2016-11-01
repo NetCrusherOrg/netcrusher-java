@@ -102,9 +102,9 @@ class DatagramOuter {
         }
     }
 
-    void close() {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    void close() throws IOException {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
                     freeze();
                 }
@@ -118,24 +118,22 @@ class DatagramOuter {
                 state.set(State.CLOSED);
 
                 LOGGER.debug("Outer for <{}> to <{}> is closed", clientAddress, connectAddress);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                return false;
             }
-        }
-    }
-
-    private void closeAll() {
-        this.close();
-
-        reactor.getScheduler().execute(() -> {
-            inner.closeOuter(clientAddress);
-            return true;
         });
     }
 
-    void unfreeze() {
-        if (state.lockIf(State.FROZEN)) {
-            try {
+    private void closeAll() throws IOException {
+        this.close();
+        inner.closeOuter(clientAddress);
+    }
+
+    void unfreeze() throws IOException {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.FROZEN)) {
                 if (incoming.isEmpty()) {
                     selectionKeyControl.setReadsOnly();
                 } else {
@@ -143,32 +141,28 @@ class DatagramOuter {
                 }
 
                 state.set(State.OPEN);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                return false;
             }
-        } else {
-            throw new IllegalStateException("Outer is not frozen");
-        }
+        });
     }
 
-    void freeze() {
-        if (state.lockIf(State.OPEN)) {
-            try {
+    void freeze() throws IOException {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.OPEN)) {
                 if (selectionKeyControl.isValid()) {
                     selectionKeyControl.setNone();
                 }
 
                 state.set(State.FROZEN);
-            } finally {
-                state.unlock();
-            }
-        } else {
-            throw new IllegalStateException("Outer is not open on freeze");
-        }
-    }
 
-    boolean isFrozen() {
-        return state.isAnyOf(State.FROZEN | State.CLOSED);
+                return true;
+            } else {
+                return false;
+            }
+        });
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
@@ -211,7 +205,7 @@ class DatagramOuter {
 
     void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
-        while (true) {
+        while (channel.isOpen()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
             if (entry == null) {
                 break;
@@ -264,7 +258,7 @@ class DatagramOuter {
     }
 
     private void handleReadableEvent() throws IOException {
-        while (true) {
+        while (channel.isOpen()) {
             final SocketAddress address = channel.receive(bb);
             if (address == null) {
                 break;

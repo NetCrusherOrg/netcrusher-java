@@ -21,7 +21,7 @@ class TcpChannel {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpChannel.class);
 
-    private static final long LINGER_PERIOD_MS = 1_000;
+    private static final long LINGER_PERIOD_NS = TimeUnit.SECONDS.toNanos(1);
 
     private final String name;
 
@@ -66,48 +66,53 @@ class TcpChannel {
     }
 
     void close() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
                     freeze();
                 }
 
-                NioUtils.close(channel);
+                if (sentMeter.getTotalCount() > 0) {
+                    NioUtils.close(channel);
+                } else {
+                    NioUtils.closeNoLinger(channel);
+                }
 
                 state.set(State.CLOSED);
-            } finally {
-                state.unlock();
-            }
 
-            if (LOGGER.isDebugEnabled()) {
-                long incomingBytes = incomingQueue.calculateReadableBytes();
-                if (incomingBytes > 0) {
-                    LOGGER.debug("Channel {} has {} incoming bytes when closing", name, incomingBytes);
+                if (LOGGER.isDebugEnabled()) {
+                    long incomingBytes = incomingQueue.calculateReadableBytes();
+                    if (incomingBytes > 0) {
+                        LOGGER.debug("Channel {} has {} incoming bytes when closing", name, incomingBytes);
+                    }
                 }
+
+                return true;
+            } else {
+                return false;
             }
-        }
+        });
     }
 
     private void closeAll() throws IOException {
         this.close();
-
-        reactor.getScheduler().execute(() -> {
-            ownerClose.close();
-            return true;
-        });
+        ownerClose.close();
     }
 
     private void closeAllDeferred() throws IOException {
-        reactor.getScheduler().schedule(() -> {
-            closeAll();
-            return true;
-        }, LINGER_PERIOD_MS, TimeUnit.MILLISECONDS);
+        reactor.getSelector().schedule(() -> {
+            try {
+                closeAll();
+            } catch (IOException e) {
+                LOGGER.error("Fail to close channel", e);
+            }
+        }, LINGER_PERIOD_NS);
     }
 
     private void closeEOF() throws IOException {
-        this.state.setReadEof();
+        this.state.setEof(true);
 
-        if (other.state.isReadEof() && !incomingQueue.hasReadable()) {
+        if (other.state.isEof() && !incomingQueue.hasReadable()) {
             this.close();
         }
 
@@ -165,10 +170,14 @@ class TcpChannel {
     private void handleWritableEvent(boolean forced) throws IOException {
         final TcpQueue queue = incomingQueue;
 
-        while (state.isWritable()) {
+        while (channel.isOpen() && state.isWritable()) {
             final TcpQueueBuffers queueBuffers = queue.requestReadableBuffers();
             if (queueBuffers.isEmpty()) {
-                selectionKeyControl.disableWrites();
+                if (queueBuffers.getDelayNs() > 0) {
+                    turnThrottlingOn(queueBuffers.getDelayNs());
+                } else {
+                    selectionKeyControl.disableWrites();
+                }
                 break;
             }
 
@@ -198,7 +207,7 @@ class TcpChannel {
     private void handleReadableEvent() throws IOException {
         final TcpQueue queue = outgoingQueue;
 
-        while (state.isReadable()) {
+        while (channel.isOpen() && state.isReadable()) {
             final TcpQueueBuffers queueBuffers = queue.requestWritableBuffers();
             if (queueBuffers.isEmpty()) {
                 selectionKeyControl.disableReads();
@@ -240,41 +249,53 @@ class TcpChannel {
     }
 
     void freeze() {
-        if (state.lockIf(State.OPEN)) {
-            try {
-                if (selectionKeyControl.isValid()) {
-                    selectionKeyControl.setNone();
-                }
-
-                state.set(State.FROZEN);
-            } finally {
-                state.unlock();
+        if (state.is(State.OPEN)) {
+            if (selectionKeyControl.isValid()) {
+                selectionKeyControl.setNone();
             }
-        } else {
-            throw new IllegalStateException("Channel is not in open state on freeze");
+
+            state.set(State.FROZEN);
         }
     }
 
     void unfreeze() {
-        if (state.lockIf(State.FROZEN)) {
-            try {
-                if (incomingQueue.hasReadable()) {
-                    selectionKeyControl.setAll();
-                } else {
-                    selectionKeyControl.setReadsOnly();
-                }
-
-                state.set(State.OPEN);
-            } finally {
-                state.unlock();
+        if (state.is(State.FROZEN)) {
+            if (incomingQueue.hasReadable()) {
+                selectionKeyControl.setAll();
+            } else {
+                selectionKeyControl.setReadsOnly();
             }
-        } else {
-            throw new IllegalStateException("Channel is not in frozen state on unfreeze");
+
+            state.set(State.OPEN);
         }
     }
 
-    boolean isFrozen() {
-        return state.isAnyOf(State.FROZEN | State.CLOSED);
+    private void turnThrottlingOn(long delayNs) {
+        if (!this.state.isThrottling()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Channel {} is throttled on {}ns", name, delayNs);
+            }
+
+            this.state.setThrottling(true);
+
+            if (this.selectionKeyControl.isValid()) {
+                this.selectionKeyControl.disableWrites();
+            }
+
+            reactor.getSelector().schedule(this::turnThrottlingOff, delayNs);
+        }
+    }
+
+    private void turnThrottlingOff() {
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace("Channel {} is unthrottled", name);
+        }
+
+        this.state.setThrottling(false);
+
+        if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
+            this.selectionKeyControl.enableWrites();
+        }
     }
 
     void setOther(TcpChannel other) {
@@ -297,27 +318,38 @@ class TcpChannel {
 
         private static final int CLOSED = bit(2);
 
-        private volatile boolean readEof;
+        private boolean eof;
+
+        private boolean throttling;
 
         private State(int state) {
             super(state);
-            this.readEof = false;
+            this.eof = false;
+            this.throttling = false;
         }
 
-        private void setReadEof() {
-            this.readEof = true;
+        public void setEof(boolean eof) {
+            this.eof = eof;
         }
 
-        private boolean isReadEof() {
-            return is(CLOSED) || this.readEof;
+        private boolean isEof() {
+            return is(CLOSED) || this.eof;
+        }
+
+        public boolean isThrottling() {
+            return throttling;
+        }
+
+        public void setThrottling(boolean throttling) {
+            this.throttling = throttling;
         }
 
         private boolean isWritable() {
-            return is(OPEN);
+            return is(OPEN) && !throttling;
         }
 
         private boolean isReadable() {
-            return is(OPEN) && !readEof;
+            return is(OPEN) && !eof;
         }
     }
 

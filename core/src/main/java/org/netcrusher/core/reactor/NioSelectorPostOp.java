@@ -3,6 +3,8 @@ package org.netcrusher.core.reactor;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class NioSelectorPostOp<T> implements Runnable {
 
@@ -29,4 +31,7 @@ public class NioSelectorPostOp<T> implements Runnable {
         return future.get();
     }
 
+    public T await(long timeout, TimeUnit timeUnit) throws TimeoutException, InterruptedException, ExecutionException {
+        return future.get(timeout, timeUnit);
+    }
 }

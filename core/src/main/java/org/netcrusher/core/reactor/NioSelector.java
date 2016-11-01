@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -106,8 +105,7 @@ public class NioSelector {
 
     // Internal method
     public SelectionKey register(SelectableChannel channel,
-                                 int options,
-                                 SelectionKeyCallback callback) throws IOException
+                                 int options, SelectionKeyCallback callback) throws IOException
     {
         return execute(() -> channel.register(selector, options, callback));
     }
@@ -119,13 +117,13 @@ public class NioSelector {
     }
 
     // Internal method
-    public <T> T execute(Callable<T> callable) throws IOException {
+    public <T> T execute(Callable<T> callable) throws NioExecutionException {
         if (open) {
             if (Thread.currentThread().equals(thread)) {
                 try {
                     return callable.call();
                 } catch (Exception e) {
-                    throw new IOException("Fail to execute selector op", e);
+                    throw new NioExecutionException("Fail to execute selector op", e);
                 }
             } else {
                 NioSelectorPostOp<T> postOperation = new NioSelectorPostOp<>(callable);
@@ -136,9 +134,9 @@ public class NioSelector {
                 try {
                     return postOperation.await();
                 } catch (InterruptedException e) {
-                    throw new InterruptedIOException("Reactor operation was interrupted");
+                    throw new NioExecutionException("Reactor operation was interrupted", e);
                 } catch (ExecutionException e) {
-                    throw new IOException("Selector operation has failed", e);
+                    throw new NioExecutionException("Selector operation has failed", e);
                 }
             }
         } else {
@@ -147,12 +145,17 @@ public class NioSelector {
     }
 
     // Internal method
-    public void schedule(long scheduledNs, Runnable runnable) {
+    public void schedule(Runnable runnable, long delayNs) {
         if (tickMs == 0) {
             throw new IllegalStateException("Tick value should be set on selector");
         }
+        if (!Thread.currentThread().equals(thread)) {
+            throw new IllegalStateException("Scheduling only should be made fron selector's thread");
+        }
 
-        scheduledOperationQueue.add(new NioSelectorScheduledOp(scheduledNs, runnable));
+        long nowNs = System.nanoTime();
+
+        scheduledOperationQueue.add(new NioSelectorScheduledOp(nowNs + delayNs, runnable));
     }
 
     private void loop() {
@@ -178,7 +181,7 @@ public class NioSelector {
                 while (keyIterator.hasNext()) {
                     SelectionKey selectionKey = keyIterator.next();
 
-                    if (selectionKey.isValid()) {
+                    if (selectionKey.isValid() && selectionKey.channel().isOpen()) {
                         SelectionKeyCallback callback = (SelectionKeyCallback) selectionKey.attachment();
                         try {
                             callback.execute(selectionKey);
@@ -191,27 +194,37 @@ public class NioSelector {
                 }
             }
 
-            // execute all ready scheduled operations
-            NioSelectorScheduledOp scheduledOperation;
-            while ((scheduledOperation = scheduledOperationQueue.peek()) != null) {
-                if (scheduledOperation.isReady()) {
-                    scheduledOperation = scheduledOperationQueue.poll();
-                    if (scheduledOperation != null) {
-                        scheduledOperation.run();
-                    }
-                } else {
-                    break;
-                }
-            }
+            runScheduledOperations();
 
-            // execute all post operations
-            NioSelectorPostOp postOperation;
-            while ((postOperation = postOperationQueue.poll()) != null) {
-                postOperation.run();
-            }
+            runPostOperations();
         }
 
         LOGGER.debug("Selector event loop has finished");
+    }
+
+    private void runScheduledOperations() {
+        while (true) {
+            NioSelectorScheduledOp scheduledOperation = scheduledOperationQueue.peek();
+            if (scheduledOperation != null && scheduledOperation.isReady()) {
+                scheduledOperation = scheduledOperationQueue.poll();
+                if (scheduledOperation != null) {
+                    scheduledOperation.run();
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    private void runPostOperations() {
+        while (true) {
+            NioSelectorPostOp postOperation = postOperationQueue.poll();
+            if (postOperation != null) {
+                postOperation.run();
+            } else {
+                break;
+            }
+        }
     }
 
 }

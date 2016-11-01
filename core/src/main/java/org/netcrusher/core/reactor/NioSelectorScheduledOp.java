@@ -18,13 +18,11 @@ public class NioSelectorScheduledOp implements Runnable, Comparable<NioSelectorS
 
     @Override
     public int compareTo(NioSelectorScheduledOp that) {
-        long nowNs = System.nanoTime();
-        return Long.compare(this.scheduledNs - nowNs, that.scheduledNs - nowNs);
+        return Long.compare(this.scheduledNs, that.scheduledNs);
     }
 
     boolean isReady() {
-        long nowNs = System.nanoTime();
-        return (scheduledNs - nowNs) < 0;
+        return scheduledNs <= System.nanoTime();
     }
 
 }

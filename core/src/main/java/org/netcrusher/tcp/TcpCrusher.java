@@ -114,9 +114,9 @@ public class TcpCrusher implements NetCrusher {
     }
 
     @Override
-    public void open() throws IOException {
-        if (state.lockIf(State.CLOSED)) {
-            try {
+    public void open() {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.CLOSED)) {
                 this.acceptor = new TcpAcceptor(this, reactor, bindAddress, connectAddress, socketOptions,
                     filters, bufferOptions);
 
@@ -127,18 +127,18 @@ public class TcpCrusher implements NetCrusher {
                 LOGGER.info("TcpCrusher <{}>-<{}> is open", bindAddress, connectAddress);
 
                 unfreeze();
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("TcpCrusher is already open");
             }
-        } else {
-            throw new IllegalStateException("TcpCrusher is already open");
-        }
+        });
     }
 
     @Override
-    public void close() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    public void close() {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
                     freeze();
                 }
@@ -151,10 +151,12 @@ public class TcpCrusher implements NetCrusher {
                 state.set(State.CLOSED);
 
                 LOGGER.info("TcpCrusher <{}>-<{}> is closed", bindAddress, connectAddress);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                return false;
             }
-        }
+        });
     }
 
     @Override
@@ -166,45 +168,47 @@ public class TcpCrusher implements NetCrusher {
      * Close all pairs but keeps listening socket open
      * @throws IOException Exception on error
      */
-    public void closeAllPairs() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    public void closeAllPairs() {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 for (TcpPair pair : pairs.values()) {
                     pair.close();
                     notifyPairDeleted(pair);
                 }
 
                 pairs.clear();
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                return false;
             }
-        }
+        });
     }
 
     @Override
-    public void reopen() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    public void reopen() {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 close();
+
                 open();
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("TcpCrusher is already closed");
             }
-        } else {
-            throw new IllegalStateException("TcpCrusher is already closed");
-        }
+        });
     }
 
     /**
      * Freezes crusher proxy. Call freeze() on all pairs and freezes the acceptor
      * @see TcpCrusher#freezeAllPairs()
      * @see TcpPair#freeze()
-     * @throws IOException On IO error
      */
     @Override
-    public void freeze() throws IOException {
-        if (state.lockIf(State.OPEN)) {
-            try {
+    public void freeze() {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.OPEN)) {
                 if (!acceptor.isFrozen()) {
                     acceptor.freeze();
                 }
@@ -212,46 +216,42 @@ public class TcpCrusher implements NetCrusher {
                 freezeAllPairs();
 
                 state.set(State.FROZEN);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("TcpCrusher is not open on freeze");
             }
-        } else {
-            if (!isFrozen()) {
-                throw new IllegalStateException("TcpCrusher is not finally frozen: " + state);
-            }
-        }
+        });
     }
 
     /**
      * Freezes all TCP pairs
-     * @throws IOException Throwed on IO error
      */
-    public void freezeAllPairs() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    public void freezeAllPairs() {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 for (TcpPair pair : pairs.values()) {
                     if (!pair.isFrozen()) {
                         pair.freeze();
                     }
                 }
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("TcpCrusher is closed");
             }
-        } else {
-            throw new IllegalStateException("TcpCrusher is closed");
-        }
+        });
     }
 
     /**
      * Unfreezes the crusher. Call unfreeze() on all pairs and unfreezes the acceptor
      * @see TcpCrusher#unfreezeAllPairs()
      * @see TcpPair#unfreeze()
-     * @throws IOException On IO error
      */
     @Override
-    public void unfreeze() throws IOException {
-        if (state.lockIf(State.FROZEN)) {
-            try {
+    public void unfreeze() {
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.FROZEN)) {
                 unfreezeAllPairs();
 
                 if (acceptor.isFrozen()) {
@@ -259,34 +259,31 @@ public class TcpCrusher implements NetCrusher {
                 }
 
                 state.set(State.OPEN);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("TcpCrusher is not frozen on unfreeze");
             }
-        } else {
-            if (isFrozen()) {
-                throw new IllegalStateException("TcpCrusher is not finally unfrozen: " + state);
-            }
-        }
+        });
     }
 
     /**
      * Unfreezes all TCP pairs
-     * @throws IOException Throwed on IO error
      */
-    public void unfreezeAllPairs() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    public void unfreezeAllPairs() {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 for (TcpPair pair : pairs.values()) {
                     if (pair.isFrozen()) {
                         pair.unfreeze();
                     }
                 }
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("TcpCrusher is closed");
             }
-        } else {
-            throw new IllegalStateException("TcpCrusher is closed");
-        }
+        });
     }
 
     @Override
@@ -306,51 +303,45 @@ public class TcpCrusher implements NetCrusher {
 
     @Override
     public Collection<InetSocketAddress> getClientAddresses() {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+        return reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 return this.pairs.values().stream()
                     .map(TcpPair::getClientAddress)
                     .collect(Collectors.toList());
-            } finally {
-                state.unlock();
+            } else {
+                return Collections.emptyList();
             }
-        } else {
-            return Collections.emptyList();
-        }
+        });
     }
 
     @Override
     public RateMeters getClientByteMeters(InetSocketAddress clientAddress) {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+        return reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 TcpPair pair = this.pairs.get(clientAddress);
                 if (pair != null) {
                     return pair.getByteMeters();
                 }
-            } finally {
-                state.unlock();
             }
-        }
 
-        return null;
+            return null;
+        });
     }
 
     @Override
-    public boolean closeClient(InetSocketAddress clientAddress) throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+    public boolean closeClient(InetSocketAddress clientAddress) {
+        return reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 TcpPair pair = pairs.remove(clientAddress);
                 if (pair != null) {
                     pair.close();
                     notifyPairDeleted(pair);
                     return true;
                 }
-            } finally {
-                state.unlock();
             }
-        }
 
-        return false;
+            return false;
+        });
     }
 
     /**
@@ -364,18 +355,16 @@ public class TcpCrusher implements NetCrusher {
 
     /**
      * Return acceptor freezer
-     * @return Freezer for acceptor
+     * @return Freezer for acceptor or null
      */
     public NetFreezer getAcceptorFreezer() {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+        return reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 return acceptor;
-            } finally {
-                state.unlock();
+            } else {
+                return null;
             }
-        } else {
-            throw new IllegalStateException("TcpCrusher is closed");
-        }
+        });
     }
 
     @Override

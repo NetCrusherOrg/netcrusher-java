@@ -18,7 +18,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_BYTES = 256 * 1024 * 1024;
 
-    protected static final int DEFAULT_THROUGHPUT = 100000;
+    protected static final int DEFAULT_THROUGHPUT = 100_000;
 
     /* IP4 */
 

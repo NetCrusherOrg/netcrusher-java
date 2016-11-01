@@ -103,8 +103,8 @@ class DatagramInner {
     }
 
     void close() throws IOException {
-        if (state.lockIfNot(State.CLOSED)) {
-            try {
+        reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
                 if (state.is(State.OPEN)) {
                     freeze();
                 }
@@ -129,73 +129,59 @@ class DatagramInner {
                 state.set(State.CLOSED);
 
                 LOGGER.debug("Inner on <{}> is closed", bindAddress);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                return false;
             }
-        }
+        });
     }
 
     private void closeAll() throws IOException {
         this.close();
-
-        reactor.getScheduler().execute(() -> {
-            crusher.close();
-            return true;
-        });
+        crusher.close();
     }
 
     void unfreeze() throws IOException {
-        if (state.lockIf(State.FROZEN)) {
-            try {
-                reactor.getSelector().execute(() -> {
-                    if (incoming.isEmpty()) {
-                        selectionKeyControl.setReadsOnly();
-                    } else {
-                        selectionKeyControl.setAll();
-                    }
+        boolean succeed = reactor.getSelector().execute(() -> {
+            if (state.is(State.FROZEN)) {
+                if (incoming.isEmpty()) {
+                    selectionKeyControl.setReadsOnly();
+                } else {
+                    selectionKeyControl.setAll();
+                }
 
-                    for (DatagramOuter outer : outers.values()) {
-                        if (outer.isFrozen()) {
-                            outer.unfreeze();
-                        }
-                    }
-
-                    return true;
-                });
+                for (DatagramOuter outer : outers.values()) {
+                    outer.unfreeze();
+                }
 
                 state.set(State.OPEN);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("Inner is not frozen on unfreeze");
             }
-        } else {
-            throw new IllegalStateException("Inner is not frozen");
-        }
+        });
     }
 
     void freeze() throws IOException {
-        if (state.lockIf(State.OPEN)) {
-            try {
-                reactor.getSelector().execute(() -> {
-                    if (selectionKeyControl.isValid()) {
-                        selectionKeyControl.setNone();
-                    }
+        reactor.getSelector().execute(() -> {
+            if (state.is(State.OPEN)) {
+                if (selectionKeyControl.isValid()) {
+                    selectionKeyControl.setNone();
+                }
 
-                    for (DatagramOuter outer : outers.values()) {
-                        if (!outer.isFrozen()) {
-                            outer.freeze();
-                        }
-                    }
-
-                    return true;
-                });
+                for (DatagramOuter outer : outers.values()) {
+                    outer.freeze();
+                }
 
                 state.set(State.FROZEN);
-            } finally {
-                state.unlock();
+
+                return true;
+            } else {
+                throw new IllegalStateException("Inner is not open on freeze");
             }
-        } else {
-            throw new IllegalStateException("Inner is not open on freeze");
-        }
+        });
     }
 
     boolean isFrozen() {
@@ -230,7 +216,7 @@ class DatagramInner {
 
     void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
-        while (true) {
+        while (channel.isOpen()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
             if (entry == null) {
                 break;
@@ -282,7 +268,7 @@ class DatagramInner {
     }
 
     private void handleReadableEvent() throws IOException {
-        while (true) {
+        while (channel.isOpen()) {
             final InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
             if (address == null) {
                 break;
@@ -337,7 +323,7 @@ class DatagramInner {
         incoming.add(address, bbToCopy, delayNs);
     }
 
-    boolean closeOuter(InetSocketAddress clientAddress) {
+    boolean closeOuter(InetSocketAddress clientAddress) throws IOException {
         DatagramOuter outer = outers.remove(clientAddress);
         if (outer != null) {
             outer.close();
@@ -350,7 +336,7 @@ class DatagramInner {
         }
     }
 
-    int closeIdleOuters(long maxIdleDurationMs) {
+    int closeIdleOuters(long maxIdleDurationMs) throws IOException {
         int countBefore = outers.size();
         if (countBefore > 0) {
             Iterator<DatagramOuter> outerIterator = outers.values().iterator();
