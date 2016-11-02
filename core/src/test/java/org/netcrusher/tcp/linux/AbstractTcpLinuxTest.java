@@ -20,6 +20,8 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_THROUGHPUT = 100_000;
 
+    protected static final int FULL_THROUGHPUT = 0;
+
     /* IP4 */
 
     protected static final String SOCAT4_PROCESSOR =

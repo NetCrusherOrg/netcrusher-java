@@ -46,7 +46,7 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void loop() throws Exception {
-        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
+        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
     }
 
     @Test
@@ -61,7 +61,7 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void direct() throws Exception {
-        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT);
+        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
     }
 
     @Test

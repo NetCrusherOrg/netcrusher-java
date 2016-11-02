@@ -103,9 +103,9 @@ class TcpChannel {
     }
 
     private void closeEOF() {
-        this.state.setEof(true);
+        this.state.setReadEof(true);
 
-        if (other.state.isEof() && !incomingQueue.hasReadable()) {
+        if (other.state.isReadEof() && !incomingQueue.hasReadable()) {
             this.close();
         }
 
@@ -167,7 +167,7 @@ class TcpChannel {
             final TcpQueueBuffers queueBuffers = queue.requestReadableBuffers();
             if (queueBuffers.isEmpty()) {
                 if (queueBuffers.getDelayNs() > 0) {
-                    turnThrottlingOn(queueBuffers.getDelayNs());
+                    throttleSend(queueBuffers.getDelayNs());
                 } else {
                     selectionKeyControl.disableWrites();
                 }
@@ -263,31 +263,33 @@ class TcpChannel {
         }
     }
 
-    private void turnThrottlingOn(long delayNs) {
-        if (!this.state.isThrottling()) {
+    private void throttleSend(long delayNs) {
+        if (!this.state.isSendThrottled()) {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Channel {} is throttled on {}ns", name, delayNs);
             }
 
-            this.state.setThrottling(true);
+            this.state.setSendThrottled(true);
 
             if (this.selectionKeyControl.isValid()) {
                 this.selectionKeyControl.disableWrites();
             }
 
-            reactor.getSelector().schedule(this::turnThrottlingOff, delayNs);
+            reactor.getSelector().schedule(this::unthrottleSend, delayNs);
         }
     }
 
-    private void turnThrottlingOff() {
-        if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Channel {} is unthrottled", name);
-        }
+    private void unthrottleSend() {
+        if (this.state.isSendThrottled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Channel {} is unthrottled", name);
+            }
 
-        this.state.setThrottling(false);
+            this.state.setSendThrottled(false);
 
-        if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
-            this.selectionKeyControl.enableWrites();
+            if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
+                this.selectionKeyControl.enableWrites();
+            }
         }
     }
 
@@ -311,38 +313,38 @@ class TcpChannel {
 
         private static final int CLOSED = bit(2);
 
-        private boolean eof;
+        private boolean readEof;
 
-        private boolean throttling;
+        private boolean sendThrottled;
 
         private State(int state) {
             super(state);
-            this.eof = false;
-            this.throttling = false;
+            this.readEof = false;
+            this.sendThrottled = false;
         }
 
-        public void setEof(boolean eof) {
-            this.eof = eof;
+        public void setReadEof(boolean readEof) {
+            this.readEof = readEof;
         }
 
-        private boolean isEof() {
-            return is(CLOSED) || this.eof;
+        private boolean isReadEof() {
+            return is(CLOSED) || this.readEof;
         }
 
-        public boolean isThrottling() {
-            return throttling;
+        public boolean isSendThrottled() {
+            return sendThrottled;
         }
 
-        public void setThrottling(boolean throttling) {
-            this.throttling = throttling;
+        public void setSendThrottled(boolean sendThrottled) {
+            this.sendThrottled = sendThrottled;
         }
 
         private boolean isWritable() {
-            return is(OPEN) && !throttling;
+            return is(OPEN) && !sendThrottled;
         }
 
         private boolean isReadable() {
-            return is(OPEN) && !eof;
+            return is(OPEN) && !readEof;
         }
     }
 

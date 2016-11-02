@@ -5,14 +5,17 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.throttle.rate.ByteRateThrottler;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CrusherTcp4LinuxTest extends AbstractTcpLinuxTest {
+import java.util.concurrent.TimeUnit;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherTcp4LinuxTest.class);
+public class CrusherThottling10MTcpLinuxTest extends AbstractTcpLinuxTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherThottling10MTcpLinuxTest.class);
 
     private NioReactor reactor;
 
@@ -20,12 +23,17 @@ public class CrusherTcp4LinuxTest extends AbstractTcpLinuxTest {
 
     @Before
     public void setUp() throws Exception {
-        reactor = new NioReactor();
+        reactor = new NioReactor(10);
 
         crusher = TcpCrusherBuilder.builder()
             .withReactor(reactor)
             .withBindAddress(ADDR_LOOPBACK4, PORT_DIRECT)
             .withConnectAddress(ADDR_LOOPBACK4, PORT_PROXY)
+            .withBufferSize(100_000)
+            .withBufferCount(128)
+            .withRcvBufferSize(5_000_000)
+            .withSndBufferSize(5_000_000)
+            .withOutgoingThrottler(new ByteRateThrottler(10_000_000, 1, TimeUnit.SECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
@@ -45,32 +53,8 @@ public class CrusherTcp4LinuxTest extends AbstractTcpLinuxTest {
     }
 
     @Test
-    public void loop() throws Exception {
-        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
-    }
-
-    @Test
-    public void loopSlower() throws Exception {
-        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
-    }
-
-    @Test
-    public void loopSlowest() throws Exception {
-        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
-    }
-
-    @Test
     public void direct() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, 50_000_000, FULL_THROUGHPUT);
     }
 
-    @Test
-    public void directSlower() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES / 10, DEFAULT_THROUGHPUT / 10);
-    }
-
-    @Test
-    public void directSlowest() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT / 100);
-    }
 }

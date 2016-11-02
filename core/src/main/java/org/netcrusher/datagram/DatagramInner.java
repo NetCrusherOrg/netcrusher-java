@@ -7,6 +7,7 @@ import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.nio.SelectionKeyControl;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.state.BitState;
+import org.netcrusher.core.throttle.Throttler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -216,7 +217,7 @@ class DatagramInner {
 
     void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
-        while (channel.isOpen()) {
+        while (channel.isOpen() && state.isWritable()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
             if (entry == null) {
                 break;
@@ -224,7 +225,7 @@ class DatagramInner {
 
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
             if (emptyDatagram && (count > 0 || forced)) {
-                // due to NIO API problem we can't differ between two cases:
+                // due to NIO API problem we can't make a difference between two cases:
                 // - empty datagram is sent (send() returns 0)
                 // - no free space in socket buffer (send() returns 0)
                 // so we want an empty datagram to be sent first on OP_WRITE
@@ -268,7 +269,7 @@ class DatagramInner {
     }
 
     private void handleReadableEvent() throws IOException {
-        while (channel.isOpen()) {
+        while (channel.isOpen() && state.isReadable()) {
             final InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
             if (address == null) {
                 break;
@@ -319,8 +320,8 @@ class DatagramInner {
         return outer;
     }
 
-    void enqueue(InetSocketAddress address, ByteBuffer bbToCopy, long delayNs) {
-        incoming.add(address, bbToCopy, delayNs);
+    void enqueue(InetSocketAddress address, ByteBuffer bbToCopy) {
+        incoming.add(address, bbToCopy, Throttler.NO_DELAY_NS);
     }
 
     boolean closeOuter(InetSocketAddress clientAddress) {
@@ -401,6 +402,10 @@ class DatagramInner {
         }
 
         private boolean isWritable() {
+            return is(OPEN);
+        }
+
+        private boolean isReadable() {
             return is(OPEN);
         }
     }

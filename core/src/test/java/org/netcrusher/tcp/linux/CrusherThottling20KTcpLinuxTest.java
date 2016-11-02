@@ -13,9 +13,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-public class CrusherThottlingTcpLinuxTest extends AbstractTcpLinuxTest {
+public class CrusherThottling20KTcpLinuxTest extends AbstractTcpLinuxTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherThottlingTcpLinuxTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherThottling20KTcpLinuxTest.class);
 
     private NioReactor reactor;
 
@@ -23,7 +23,7 @@ public class CrusherThottlingTcpLinuxTest extends AbstractTcpLinuxTest {
 
     @Before
     public void setUp() throws Exception {
-        reactor = new NioReactor();
+        reactor = new NioReactor(10);
 
         crusher = TcpCrusherBuilder.builder()
             .withReactor(reactor)
@@ -54,7 +54,7 @@ public class CrusherThottlingTcpLinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void direct() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, 100_000, DEFAULT_THROUGHPUT);
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, 100_000, FULL_THROUGHPUT);
     }
 
 }

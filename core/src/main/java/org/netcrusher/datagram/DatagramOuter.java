@@ -205,15 +205,22 @@ class DatagramOuter {
 
     void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
-        while (channel.isOpen()) {
+        while (channel.isOpen() && state.isWritable()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
             if (entry == null) {
                 break;
             }
 
+            final long delayNs = entry.getScheduledNs() - System.nanoTime();
+            if (delayNs > 0) {
+                throttleSend(delayNs);
+                incoming.retry(entry);
+                break;
+            }
+
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
             if (emptyDatagram && (count > 0 || forced)) {
-                // due to NIO API problem we can't differ between two cases:
+                // due to NIO API problem we can't make a difference between two cases:
                 // - empty datagram is sent (send() returns 0)
                 // - no free space in socket buffer (send() returns 0)
                 // so we want an empty datagram to be sent first on OP_WRITE
@@ -258,7 +265,7 @@ class DatagramOuter {
     }
 
     private void handleReadableEvent() throws IOException {
-        while (channel.isOpen()) {
+        while (channel.isOpen() && state.isReadable()) {
             final SocketAddress address = channel.receive(bb);
             if (address == null) {
                 break;
@@ -290,7 +297,11 @@ class DatagramOuter {
                     delayNs = Throttler.NO_DELAY_NS;
                 }
 
-                inner.enqueue(clientAddress, bb, delayNs);
+                if (delayNs > 0) {
+                    throttleRead(delayNs);
+                }
+
+                inner.enqueue(clientAddress, bb);
 
                 // try to immediately sent the datagram
                 if (inner.hasIncoming() && inner.isWritable()) {
@@ -352,6 +363,22 @@ class DatagramOuter {
         return true;
     }
 
+    private void throttleSend(long delayMs) {
+        // to implement
+    }
+
+    private void unthrottleSend() {
+        // to implement
+    }
+
+    private void throttleRead(long delayMs) {
+        // to implement
+    }
+
+    private void unthrottleRead() {
+        // to implement
+    }
+
     InetSocketAddress getClientAddress() {
         return clientAddress;
     }
@@ -376,12 +403,22 @@ class DatagramOuter {
 
         private static final int CLOSED = bit(2);
 
+        private boolean sendThrottled;
+
+        private boolean readThrottled;
+
         private State(int state) {
             super(state);
+            this.sendThrottled = false;
+            this.readThrottled = false;
         }
 
         private boolean isWritable() {
-            return is(OPEN);
+            return is(OPEN) && !sendThrottled;
+        }
+
+        private boolean isReadable() {
+            return is(OPEN) && !readThrottled;
         }
     }
 }
