@@ -18,7 +18,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_BYTES = 256 * 1024 * 1024;
 
-    protected static final int DEFAULT_THROUGHPUT = 100_000;
+    protected static final int DEFAULT_THROUGHPUT_KBPERSEC = 100_000;
 
     protected static final int FULL_THROUGHPUT = 0;
 
@@ -98,8 +98,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
             .count()
         );
 
-        List<String> hashes = processorResult.getOutput().stream()
-            .filter((s) -> MD5_PATTERN.matcher(s).find())
+        List<String> hashes = extractMd5(processorResult.getOutput())
             .collect(Collectors.toList());
 
         Assert.assertEquals(2, hashes.size());
@@ -146,12 +145,10 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
             .count()
         );
 
-        String producerHash = producerResult.getOutput().stream()
-            .filter((s) -> MD5_PATTERN.matcher(s).find())
+        String producerHash = extractMd5(producerResult.getOutput())
             .findFirst()
             .orElse("no-producer-hash");
-        String consumerHash = consumerResult.getOutput().stream()
-            .filter((s) -> MD5_PATTERN.matcher(s).find())
+        String consumerHash = extractMd5(consumerResult.getOutput())
             .findFirst()
             .orElse("no-consumer-hash");
 

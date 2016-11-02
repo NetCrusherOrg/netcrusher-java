@@ -11,6 +11,7 @@ import org.netcrusher.datagram.bulk.DatagramBulkReflector;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
+import java.util.concurrent.CyclicBarrier;
 
 public class EmptyDatagramTest {
 
@@ -46,8 +47,13 @@ public class EmptyDatagramTest {
 
     @Test
     public void test() throws Exception {
-        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+
+        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS, barrier);
         reflector.open();
+
+        barrier.await();
+        Thread.sleep(1000);
 
         DatagramChannel channel = DatagramChannel.open();
         channel.configureBlocking(true);
@@ -120,7 +126,9 @@ public class EmptyDatagramTest {
 
     @Test
     public void testNoCrusher() throws Exception {
-        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS);
+        CyclicBarrier barrier = new CyclicBarrier(2);
+
+        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS, barrier);
         reflector.open();
 
         DatagramChannel channel = DatagramChannel.open();
@@ -128,6 +136,9 @@ public class EmptyDatagramTest {
         // No empty datagram for connected socket
         // https://bugs.openjdk.java.net/browse/JDK-8013175
         // channel.connect(reflectorAddress);
+
+        barrier.await();
+        Thread.sleep(1000);
 
         ByteBuffer bb = ByteBuffer.allocate(0);
 

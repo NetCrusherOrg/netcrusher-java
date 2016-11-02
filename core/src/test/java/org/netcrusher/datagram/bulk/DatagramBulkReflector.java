@@ -4,159 +4,143 @@ import org.netcrusher.datagram.DatagramUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.PortUnreachableException;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.StandardProtocolFamily;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
+import java.util.concurrent.CyclicBarrier;
 
-public class DatagramBulkReflector implements Closeable {
+public class DatagramBulkReflector implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramBulkReflector.class);
 
-    private static final String ERROR_EPERM = "Operation not permitted";
-
-    private static final int RCV_BUFFER_SIZE = 64 * 1024;
-
-    private final String name;
-
     private final DatagramChannel channel;
 
-    private final Thread thread;
+    private final Reflector reflector;
 
-    public DatagramBulkReflector(String name, InetSocketAddress localAddress) throws IOException {
+    public DatagramBulkReflector(String name, InetSocketAddress bindAddress,
+                                 CyclicBarrier readBarrier) throws IOException {
         this.channel = DatagramChannel.open(StandardProtocolFamily.INET);
         this.channel.configureBlocking(true);
-        this.channel.bind(localAddress);
+        this.channel.bind(bindAddress);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Bulk reflector {}: BIND<{}>", new Object[]{name, localAddress});
+            LOGGER.debug("Bulk reflector {}: BIND<{}>", new Object[]{name, bindAddress});
         }
 
-        this.name = name;
-
-        this.thread = new Thread(this::loop);
-        this.thread.setName("Reflector loop [" + name + "]");
+        this.reflector = new Reflector(channel, name, readBarrier);
     }
 
     public void open() {
-        this.thread.start();
+        this.reflector.start();
     }
 
     @Override
-    public void close() throws IOException {
-        channel.close();
+    public void close() throws Exception {
+        this.reflector.interrupt();
+        this.reflector.join();
 
-        boolean interrupted = false;
-
-        thread.interrupt();
-        try {
-            thread.join();
-        } catch (InterruptedException e) {
-            interrupted = true;
-        }
-
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-        }
+        this.channel.close();
     }
 
-    public void loop() {
-        LOGGER.debug("Reflector loop {} started", name);
+    private static class Reflector extends Thread {
 
-        ByteBuffer bb = ByteBuffer.allocate(RCV_BUFFER_SIZE);
+        private final DatagramChannel channel;
 
-        long processed = 0;
-        int datagrams = 0;
-        while (!Thread.currentThread().isInterrupted()) {
-            bb.clear();
+        private final String name;
 
-            final SocketAddress socketAddress = read(bb);
-            if (socketAddress == null) {
-                break;
-            }
+        private final CyclicBarrier barrier;
 
-            bb.flip();
-            processed += bb.remaining();
+        public Reflector(DatagramChannel channel, String name, CyclicBarrier barrier) {
+            this.channel = channel;
+            this.name = name;
+            this.barrier = barrier;
 
-            final boolean successSend = send(bb, socketAddress);
-            if (!successSend) {
-                break;
-            }
-
-            datagrams++;
+            this.setName("Reflector thread");
         }
 
-        LOGGER.debug("Reflector loop {} has finished {} datagrams with {} bytes",
-            new Object[] { name, datagrams, processed });
-    }
-
-    private SocketAddress read(ByteBuffer bb) {
-        final SocketAddress socketAddress;
-        try {
-            socketAddress = channel.receive(bb);
-        } catch (ClosedChannelException | EOFException e) {
-            LOGGER.debug("Socket is closed");
-            return null;
-        } catch (IOException e) {
-            LOGGER.error("Exception on read", e);
-            return null;
-        }
-
-        if (socketAddress == null) {
-            throw new IllegalStateException("Socket address is null");
-        }
-
-        return socketAddress;
-    }
-
-    private boolean send(ByteBuffer bb, SocketAddress socketAddress) {
-        final boolean emptyDatagram = !bb.hasRemaining();
-
-        while (true) {
-            bb.rewind();
-
-            final int sent;
+        @Override
+        public void run() {
             try {
-                sent = channel.send(bb, socketAddress);
-            } catch (ClosedChannelException | EOFException e) {
-                LOGGER.debug("Socket is closed");
-                return false;
-            } catch (PortUnreachableException e) {
-                LOGGER.debug("Port is unreachable");
-                return false;
-            } catch (SocketException e) {
+                loop();
+            } catch (Exception e) {
+                LOGGER.error("Reflector thread exception", e);
+            }
+        }
+
+        public void loop() throws Exception {
+            LOGGER.debug("Reflector loop {} started", name);
+
+            final int rcvBufferSize = channel.socket().getReceiveBufferSize();
+            final ByteBuffer bb = ByteBuffer.allocate(rcvBufferSize);
+
+            if (barrier != null) {
+                barrier.await();
+                LOGGER.debug("Read barrier has been passed for {}", name);
+            }
+
+            final long markerMs = System.currentTimeMillis();
+            long processedBytes = 0;
+            int processedDatagrams = 0;
+
+            try {
+                while (!Thread.currentThread().isInterrupted()) {
+                    bb.clear();
+
+                    final SocketAddress socketAddress = channel.receive(bb);
+                    if (socketAddress == null) {
+                        throw new IllegalStateException("Socket address is null");
+                    }
+
+                    bb.flip();
+                    final int read = bb.remaining();
+
+                    send(bb, socketAddress);
+
+                    processedBytes += read;
+                    processedDatagrams++;
+                }
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Reflector channel is closed for {}", name);
+            } catch (Exception e) {
+                LOGGER.error("Reflector loop exception for {}", name, e);
+            }
+
+            final long elapsedMs = System.currentTimeMillis() - markerMs;
+            LOGGER.debug("Reflector loop {} has finished {} datagrams with {} bytes in {}ms",
+                new Object[] { name, processedDatagrams, processedBytes, elapsedMs });
+        }
+
+        private void send(ByteBuffer bb, SocketAddress socketAddress) throws IOException {
+            final boolean emptyDatagram = !bb.hasRemaining();
+
+            while (true) {
+                bb.rewind();
+
+                final int sent;
                 try {
+                    sent = channel.send(bb, socketAddress);
+                } catch (SocketException e) {
                     DatagramUtils.rethrowSocketException(e);
                     continue;
-                } catch (SocketException e2) {
-                    LOGGER.error("Socket exception on write", e2);
-                    return false;
                 }
-            } catch (IOException e) {
-                LOGGER.error("IO exception on write", e);
-                return false;
-            }
 
-            if (sent > 0 || emptyDatagram) {
-                if (bb.hasRemaining()) {
-                    throw new IllegalStateException("Datagram is splitted");
+                if (emptyDatagram || sent > 0) {
+                    if (bb.hasRemaining()) {
+                        throw new IllegalStateException("Datagram is splitted");
+                    } else {
+                        break;
+                    }
+                } else {
+                    throw new IllegalStateException("Send failed");
                 }
-            } else {
-                LOGGER.error("Send failed");
-                return false;
             }
-
-            break;
         }
 
-        return true;
     }
 
 }

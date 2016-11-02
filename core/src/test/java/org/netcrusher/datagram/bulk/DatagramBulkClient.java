@@ -1,14 +1,13 @@
 package org.netcrusher.datagram.bulk;
 
+import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.core.throttle.rate.PacketRateThrottler;
 import org.netcrusher.datagram.DatagramUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.PortUnreachableException;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.StandardProtocolFamily;
@@ -18,242 +17,285 @@ import java.nio.channels.DatagramChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Random;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 
-public class DatagramBulkClient implements Closeable {
+public class DatagramBulkClient implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramBulkClient.class);
 
-    private static final String ERROR_EPERM = "Operation not permitted";
-
-    public static final int RCV_BUFFER_SIZE = 64 * 1024;
-
-    public static final int SND_BUFFER_SIZE = 1400;
+    public static final int MAX_DATAGRAM_SIZE = 1400;
 
     public static final byte[] DATAGRAM_TOKEN = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
-    private final String name;
-
-    private final InetSocketAddress remoteAddress;
-
     private final DatagramChannel channel;
 
-    private final long count;
+    private final Producer producer;
 
-    private final Random random;
-
-    private final Thread rcvThread;
-
-    private final Thread sndThread;
-
-    private byte[] rcvDigest;
-
-    private byte[] sndDigest;
+    private final Consumer consumer;
 
     public DatagramBulkClient(String name,
-                              InetSocketAddress localAddress,
-                              InetSocketAddress remoteAddress,
-                              long count) throws IOException
+                              InetSocketAddress bindAddress,
+                              InetSocketAddress connectAddress,
+                              long limit,
+                              CyclicBarrier readBarrier,
+                              CyclicBarrier sentBarrier) throws IOException
     {
-        this.remoteAddress = remoteAddress;
-
         this.channel = DatagramChannel.open(StandardProtocolFamily.INET);
         this.channel.configureBlocking(true);
-        this.channel.bind(localAddress);
+        this.channel.bind(bindAddress);
 
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Bulk client {}: BIND<{}> CONNECT<{}>", new Object[]{name, localAddress, remoteAddress});
+            LOGGER.debug("Bulk client {}: BIND<{}> CONNECT<{}>",
+                new Object[]{name, bindAddress, connectAddress});
         }
 
-        this.name = name;
-        this.count = count;
-        this.random = new Random();
-
-        this.rcvThread = new Thread(this::rcvLoop);
-        this.rcvThread.setName("Rcv loop [" + name + "]");
-
-        this.sndThread = new Thread(this::sndLoop);
-        this.sndThread.setName("Snd loop [" + name + "]");
+        this.consumer = new Consumer(channel, name, limit, connectAddress, readBarrier);
+        this.producer = new Producer(channel, name, limit, connectAddress, sentBarrier);
     }
 
-    public void open() {
-        this.rcvThread.start();
-        this.sndThread.start();
+    public void open() throws Exception {
+        this.consumer.start();
+        this.producer.start();
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() throws Exception {
+        producer.interrupt();
+        consumer.interrupt();
+
+        producer.join();
+        consumer.join();
+
         channel.close();
-
-        boolean interrupted = false;
-
-        sndThread.interrupt();
-        try {
-            sndThread.join();
-        } catch (InterruptedException e) {
-            interrupted = true;
-        }
-
-        rcvThread.interrupt();
-        try {
-            rcvThread.join();
-        } catch (InterruptedException e) {
-            interrupted = true;
-        }
-
-        if (interrupted) {
-            Thread.currentThread().interrupt();
-        }
     }
 
-    public void await(long timeoutMs) throws InterruptedException {
-        sndThread.join(timeoutMs);
-        if (sndThread.isAlive()) {
-            LOGGER.warn("Write thread {} is still alive", name);
-        }
-
-        rcvThread.join(timeoutMs);
-        if (rcvThread.isAlive()) {
-            LOGGER.warn("Read thread {} is still alive", name);
-        }
+    public byte[] awaitProducerDigest(long timeoutMs) throws Exception {
+        producer.join(timeoutMs);
+        return producer.digest;
     }
 
-    public byte[] getSndDigest() {
-        return sndDigest;
+    public byte[] awaitConsumerDigest(long timeoutMs) throws Exception {
+        consumer.join(timeoutMs);
+        return consumer.digest;
     }
 
-    public byte[] getRcvDigest() {
-        return rcvDigest;
-    }
+    private static final class Consumer extends Thread {
 
-    public void rcvLoop() {
-        LOGGER.debug("Read loop {} started", name);
+        private final DatagramChannel channel;
 
-        ByteBuffer bb = ByteBuffer.allocate(RCV_BUFFER_SIZE);
-        MessageDigest md = createMessageDigest();
+        private final String name;
 
-        long processed = 0;
-        int datagrams = 0;
-        while (processed < count && !Thread.currentThread().isInterrupted()) {
-            if (!receive(bb)) {
-                break;
-            }
+        private final long limit;
 
-            processed += bb.limit();
-            datagrams++;
+        private final InetSocketAddress connectAddress;
 
-            md.update(DATAGRAM_TOKEN);
-            md.update(bb);
+        private final CyclicBarrier barrier;
+
+        private byte[] digest;
+
+        public Consumer(DatagramChannel channel, String name, long limit,
+                        InetSocketAddress connectAddress,
+                        CyclicBarrier barrier) {
+            this.channel = channel;
+            this.name = name;
+            this.limit = limit;
+            this.connectAddress = connectAddress;
+            this.barrier = barrier;
+            this.digest = null;
+            this.setName("Consumer thread");
         }
 
-        rcvDigest = md.digest();
-
-        LOGGER.debug("Read loop {} has finished {} datagrams with {} bytes",
-            new Object[] { name, datagrams, processed });
-    }
-
-    private boolean receive(ByteBuffer bb) {
-        bb.clear();
-
-        SocketAddress socketAddress;
-        try {
-            socketAddress = channel.receive(bb);
-        } catch (ClosedChannelException | EOFException e) {
-            LOGGER.debug("Socket is closed");
-            return false;
-        } catch (IOException e) {
-            LOGGER.error("Exception on read", e);
-            return false;
-        }
-
-        if (socketAddress == null) {
-            throw new IllegalStateException("Socket is null");
-        }
-
-        if (!remoteAddress.equals(socketAddress)) {
-            throw new IllegalStateException("Packet came from unknown address");
-        }
-
-        bb.flip();
-
-        return true;
-    }
-
-    public void sndLoop() {
-        LOGGER.debug("Write loop {} started", name);
-
-        ByteBuffer bb = ByteBuffer.allocate(SND_BUFFER_SIZE);
-        MessageDigest md = createMessageDigest();
-
-        long processed = 0;
-        int datagrams = 0;
-        while (processed < count && !Thread.currentThread().isInterrupted()) {
-            random.nextBytes(bb.array());
-
-            int capacity = (int) Math.min(bb.capacity(), count - processed);
-            int limit = (random.nextInt(20) == 0) ? 0 : 1 + random.nextInt(capacity);
-
-            bb.limit(limit);
-            bb.position(0);
-            md.update(DATAGRAM_TOKEN);
-            md.update(bb);
-
-            if (!sent(bb)) {
-                break;
-            }
-
-            processed += limit;
-            datagrams++;
-        }
-
-        sndDigest = md.digest();
-
-        LOGGER.debug("Write loop {} has finished {} datagrams with {} bytes",
-            new Object[] { name, datagrams, processed });
-    }
-
-    private boolean sent(ByteBuffer bb) {
-        final boolean emptyDatagram = !bb.hasRemaining();
-
-        while (true) {
+        @Override
+        public void run() {
             try {
-                Thread.sleep(2);
-            } catch (InterruptedException e) {
-                LOGGER.debug("Thread is interrupted");
-                return false;
+                loop();
+            } catch (Exception e) {
+                LOGGER.error("Read thread error", e);
+            }
+        }
+
+        private void loop() throws Exception {
+            LOGGER.debug("Read loop {} started", name);
+
+            final int rcvBufferSize = channel.socket().getReceiveBufferSize();
+            final ByteBuffer bb = ByteBuffer.allocate(rcvBufferSize);
+            final MessageDigest md = createMessageDigest();
+
+            if (barrier != null) {
+                barrier.await();
+                LOGGER.debug("Read barrier has been passed for {}", name);
             }
 
-            bb.rewind();
+            final long markerMs = System.currentTimeMillis();
+            long readBytes = 0;
+            int readDatagrams = 0;
 
-            int sent;
             try {
-                sent = channel.send(bb, remoteAddress);
-            } catch (ClosedChannelException | EOFException e) {
-                LOGGER.debug("Socket is closed");
-                return false;
-            } catch (PortUnreachableException e) {
-                LOGGER.debug("Port is unreachable", e);
-                return false;
-            } catch (SocketException e) {
+                while (readBytes < this.limit && !Thread.currentThread().isInterrupted()) {
+                    receive(bb);
+
+                    readBytes += bb.limit();
+                    readDatagrams++;
+
+                    md.update(DATAGRAM_TOKEN);
+                    md.update(bb);
+                }
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Consumer channel is closed for {}", name);
+            } catch (Exception e) {
+                LOGGER.error("Read loop error", e);
+            }
+
+            this.digest = md.digest();
+
+            final long elapsedMs = System.currentTimeMillis() - markerMs;
+            LOGGER.debug("Read loop {} has finished {} datagrams with {} bytes in {}ms",
+                new Object[] { name, readDatagrams, readBytes, elapsedMs });
+        }
+
+        private void receive(ByteBuffer bb) throws IOException {
+            bb.clear();
+
+            SocketAddress socketAddress = channel.receive(bb);
+            if (socketAddress == null) {
+                throw new IllegalStateException("Socket address is null");
+            }
+
+            if (!connectAddress.equals(socketAddress)) {
+                throw new IllegalStateException("Packet came from unknown address");
+            }
+
+            bb.flip();
+        }
+    }
+
+    private static final class Producer extends Thread {
+
+        private final DatagramChannel channel;
+
+        private final String name;
+
+        private final long limit;
+
+        private final InetSocketAddress connectAddress;
+
+        private final CyclicBarrier barrier;
+
+        private final Throttler throttler;
+
+        private final Random random;
+
+        private byte[] digest;
+
+        public Producer(DatagramChannel channel, String name, long limit,
+                        InetSocketAddress connectAddress,
+                        CyclicBarrier barrier) {
+            this.channel = channel;
+            this.throttler = new PacketRateThrottler(30, 50, TimeUnit.MILLISECONDS);
+            this.name = name;
+            this.limit = limit;
+            this.connectAddress = connectAddress;
+            this.barrier = barrier;
+            this.random = new Random();
+            this.digest = null;
+            this.setName("Producer thread");
+        }
+
+        @Override
+        public void run() {
+            try {
+                loop();
+            } catch (Exception e) {
+                LOGGER.error("Send thread error", e);
+            }
+        }
+
+        private void loop() throws Exception {
+            LOGGER.debug("Send loop {} started", name);
+
+            final ByteBuffer bb = ByteBuffer.allocate(MAX_DATAGRAM_SIZE);
+            final MessageDigest md = createMessageDigest();
+
+            if (barrier != null) {
+                barrier.await();
+                Thread.sleep(1000);
+                LOGGER.debug("Sent barrier has been passed for {}", name);
+            }
+
+            final long markerMs = System.currentTimeMillis();
+            long sentBytes = 0;
+            int sentDatagrams = 0;
+
+            try {
+                while (sentBytes < limit && !Thread.currentThread().isInterrupted()) {
+                    random.nextBytes(bb.array());
+
+                    final int capacity = (int) Math.min(bb.capacity(), limit - sentBytes);
+                    final boolean empty = random.nextInt(20) == 0;
+                    final int limit = empty ? 0 : 1 + random.nextInt(capacity);
+
+                    bb.limit(limit);
+                    bb.position(0);
+
+                    md.update(DATAGRAM_TOKEN);
+                    md.update(bb);
+
+                    bb.position(0);
+
+                    long delayNs = throttler.calculateDelayNs(null, bb);
+                    if (delayNs > 0) {
+                        LOGGER.trace("Sent loop will be suspended on {} ns", delayNs);
+
+                        try {
+                            Thread.sleep(delayNs / 1_000_000, (int) (delayNs % 1_000_000));
+                        } catch (InterruptedException e) {
+                            break;
+                        }
+                    }
+
+                    sent(bb);
+
+                    sentBytes += limit;
+                    sentDatagrams++;
+                }
+            } catch (ClosedChannelException e) {
+                LOGGER.debug("Producer channel is closed for {}", name);
+            } catch (Exception e) {
+                LOGGER.error("Send loop error", e);
+            }
+
+            this.digest = md.digest();
+
+            final long elapsedMs = System.currentTimeMillis() - markerMs;
+            LOGGER.debug("Send loop {} has finished {} datagrams with {} bytes in {}ms",
+                new Object[] { name, sentDatagrams, sentBytes, elapsedMs });
+        }
+
+        private void sent(ByteBuffer bb) throws IOException {
+            final boolean emptyDatagram = !bb.hasRemaining();
+
+            while (true) {
+                bb.rewind();
+
+                int sent;
                 try {
+                    sent = channel.send(bb, connectAddress);
+                } catch (SocketException e) {
                     DatagramUtils.rethrowSocketException(e);
                     continue;
-                } catch (SocketException e2) {
-                    LOGGER.error("Socket exception on write", e2);
-                    return false;
                 }
-            } catch (IOException e) {
-                LOGGER.error("IO exception on write", e);
-                return false;
-            }
 
-            if (emptyDatagram || sent > 0) {
-                if (bb.hasRemaining()) {
-                    throw new IllegalStateException("Datagram is splitted");
+                if (emptyDatagram || sent > 0) {
+                    if (bb.hasRemaining()) {
+                        throw new IllegalStateException("Datagram is splitted");
+                    } else {
+                        break;
+                    }
+                } else {
+                    throw new IllegalStateException("Nothing is sent");
                 }
-                return true;
             }
-
-            LOGGER.info("resending");
         }
     }
 

@@ -4,9 +4,9 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.netcrusher.core.filter.NoopFilter;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
-import org.netcrusher.core.filter.NoopFilter;
 import org.netcrusher.core.throttle.NoopThrottler;
 import org.netcrusher.tcp.bulk.TcpBulkClient;
 import org.netcrusher.tcp.bulk.TcpBulkServer;
@@ -27,6 +27,10 @@ public class BulkTcpTest {
 
     private static final long COUNT = 256 * 1024 * 1024;
 
+    private static final long SEND_WAIT_MS = 60_000;
+
+    private static final long READ_WAIT_MS = 30_000;
+
     private NioReactor reactor;
 
     private TcpCrusher crusher;
@@ -36,6 +40,7 @@ public class BulkTcpTest {
     @Before
     public void setUp() throws Exception {
         server = new TcpBulkServer(new InetSocketAddress(HOSTNAME, PORT_SERVER), COUNT);
+        server.open();
 
         reactor = new NioReactor();
 
@@ -79,12 +84,15 @@ public class BulkTcpTest {
         Assert.assertFalse(crusher.isFrozen());
         Assert.assertTrue(crusher.isOpen());
 
-        TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_CRUSHER), COUNT);
-        client1.await(20000);
+        final TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_CRUSHER), COUNT);
+        final byte[] producer1Digest = client1.awaitProducerDigest(SEND_WAIT_MS);
 
         Assert.assertEquals(1, server.getClients().size());
-        TcpBulkClient client2 = server.getClients().iterator().next();
-        client2.await(20000);
+        final TcpBulkClient client2 = server.getClients().iterator().next();
+        final byte[] producer2Digest = client2.awaitProducerDigest(SEND_WAIT_MS);
+
+        final byte[] consumer1Digest = client1.awaitConsumerDigest(READ_WAIT_MS);
+        final byte[] consumer2Digest = client2.awaitConsumerDigest(READ_WAIT_MS);
 
         Assert.assertEquals(1, crusher.getClientAddresses().size());
         InetSocketAddress clientAddress = crusher.getClientAddresses().iterator().next();
@@ -97,10 +105,10 @@ public class BulkTcpTest {
         client1.close();
         client2.close();
 
-        Assert.assertNotNull(client1.getRcvDigest());
-        Assert.assertNotNull(client2.getRcvDigest());
+        Assert.assertNotNull(producer1Digest);
+        Assert.assertNotNull(producer2Digest);
 
-        Assert.assertArrayEquals(client1.getRcvDigest(), client2.getSndDigest());
-        Assert.assertArrayEquals(client2.getRcvDigest(), client1.getSndDigest());
+        Assert.assertArrayEquals(producer1Digest, consumer2Digest);
+        Assert.assertArrayEquals(producer2Digest, consumer1Digest);
     }
 }

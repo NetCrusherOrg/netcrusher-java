@@ -15,11 +15,16 @@ public class TcpBulkTest {
 
     private static final long COUNT = 2 * 1_000_000;
 
+    private static final long SEND_WAIT_MS = 20_000;
+
+    private static final long READ_WAIT_MS = 10_000;
+
     private TcpBulkServer server;
 
     @Before
     public void setUp() throws Exception {
         server = new TcpBulkServer(new InetSocketAddress(HOSTNAME, PORT_SERVER), COUNT);
+        server.open();
     }
 
     @After
@@ -31,20 +36,23 @@ public class TcpBulkTest {
 
     @Test
     public void test() throws Exception {
-        TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_SERVER), COUNT);
-        client1.await(10000);
+        final TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_SERVER), COUNT);
+        final byte[] producer1Digest = client1.awaitProducerDigest(SEND_WAIT_MS);
 
         Assert.assertEquals(1, server.getClients().size());
-        TcpBulkClient client2 = server.getClients().iterator().next();
-        client2.await(10000);
+        final TcpBulkClient client2 = server.getClients().iterator().next();
+        final byte[] producer2Digest = client2.awaitProducerDigest(SEND_WAIT_MS);
+
+        final byte[] consumer1Digest = client1.awaitConsumerDigest(READ_WAIT_MS);
+        final byte[] consumer2Digest = client2.awaitConsumerDigest(READ_WAIT_MS);
 
         client1.close();
         client2.close();
 
-        Assert.assertNotNull(client1.getRcvDigest());
-        Assert.assertNotNull(client2.getRcvDigest());
+        Assert.assertNotNull(producer1Digest);
+        Assert.assertNotNull(producer2Digest);
 
-        Assert.assertArrayEquals(client1.getRcvDigest(), client2.getSndDigest());
-        Assert.assertArrayEquals(client2.getRcvDigest(), client1.getSndDigest());
+        Assert.assertArrayEquals(producer1Digest, consumer2Digest);
+        Assert.assertArrayEquals(producer2Digest, consumer1Digest);
     }
 }

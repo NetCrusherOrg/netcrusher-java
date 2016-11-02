@@ -4,6 +4,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.CyclicBarrier;
 
 public class DatagramBulkReflectorTest {
 
@@ -15,25 +16,36 @@ public class DatagramBulkReflectorTest {
 
     private static final long COUNT = 2 * 1_000_000;
 
+    private static final long SEND_WAIT_MS = 20_000;
+
+    private static final long READ_WAIT_MS = 10_000;
+
     @Test
     public void test() throws Exception {
+        CyclicBarrier barrier = new CyclicBarrier(3);
+
         DatagramBulkClient client = new DatagramBulkClient("CLIENT",
             new InetSocketAddress(HOSTNAME, CLIENT_PORT),
             new InetSocketAddress(HOSTNAME, REFLECTOR_PORT),
-            COUNT);
+            COUNT,
+            barrier,
+            barrier);
+
         DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR",
-            new InetSocketAddress(HOSTNAME, REFLECTOR_PORT));
+            new InetSocketAddress(HOSTNAME, REFLECTOR_PORT),
+            barrier);
 
         reflector.open();
         client.open();
 
-        client.await(10000);
+        final byte[] producerDigest = client.awaitProducerDigest(SEND_WAIT_MS);
+        final byte[] consumerDigest = client.awaitConsumerDigest(READ_WAIT_MS);
 
         client.close();
         reflector.close();
 
-        Assert.assertNotNull(client.getRcvDigest());
-
-        Assert.assertArrayEquals(client.getRcvDigest(), client.getSndDigest());
+        Assert.assertNotNull(producerDigest);
+        Assert.assertNotNull(consumerDigest);
+        Assert.assertArrayEquals(producerDigest, consumerDigest);
     }
 }
