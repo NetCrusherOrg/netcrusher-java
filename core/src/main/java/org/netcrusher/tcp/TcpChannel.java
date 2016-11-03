@@ -333,7 +333,7 @@ class TcpChannel {
             this.sendThrottled = false;
         }
 
-        public void setReadEof(boolean readEof) {
+        private void setReadEof(boolean readEof) {
             this.readEof = readEof;
         }
 
@@ -341,11 +341,11 @@ class TcpChannel {
             return is(CLOSED) || this.readEof;
         }
 
-        public boolean isSendThrottled() {
+        private boolean isSendThrottled() {
             return sendThrottled;
         }
 
-        public void setSendThrottled(boolean sendThrottled) {
+        private void setSendThrottled(boolean sendThrottled) {
             this.sendThrottled = sendThrottled;
         }
 

@@ -59,6 +59,8 @@ public class TcpCrusher implements NetCrusher {
 
     private final TcpClientDeletion deletionListener;
 
+    private final boolean deferredListeners;
+
     private final BufferOptions bufferOptions;
 
     private final TcpFilters filters;
@@ -77,6 +79,7 @@ public class TcpCrusher implements NetCrusher {
         TcpFilters filters,
         TcpClientCreation creationListener,
         TcpClientDeletion deletionListener,
+        boolean deferredListeners,
         BufferOptions bufferOptions)
     {
         this.bindAddress = bindAddress;
@@ -88,6 +91,7 @@ public class TcpCrusher implements NetCrusher {
         this.bufferOptions = bufferOptions;
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
+        this.deferredListeners = deferredListeners;
         this.clientTotalCount = new AtomicInteger(0);
         this.state = new State(State.CLOSED);
     }
@@ -100,15 +104,17 @@ public class TcpCrusher implements NetCrusher {
         pairs.put(pair.getClientAddress(), pair);
 
         if (creationListener != null) {
-            reactor.getScheduler().execute(() ->
-                creationListener.created(pair.getClientAddress()));
+            Runnable r = () -> creationListener.created(pair.getClientAddress());
+
+            reactor.getScheduler().executeListener(r, deferredListeners);
         }
     }
 
-    void notifyPairDeleted(TcpPair pair) {
+    private void notifyPairDeleted(TcpPair pair) {
         if (deletionListener != null) {
-            reactor.getScheduler().execute(() ->
-                deletionListener.deleted(pair.getClientAddress(), pair.getByteMeters()));
+            Runnable r = () -> deletionListener.deleted(pair.getClientAddress(), pair.getByteMeters());
+
+            reactor.getScheduler().executeListener(r, deferredListeners);
         }
     }
 

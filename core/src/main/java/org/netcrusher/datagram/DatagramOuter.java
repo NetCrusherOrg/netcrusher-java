@@ -1,8 +1,6 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.buffer.BufferOptions;
-import org.netcrusher.core.filter.PassFilter;
-import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.nio.NioUtils;
@@ -266,6 +264,8 @@ class DatagramOuter {
 
     private void handleReadableEvent() throws IOException {
         while (channel.isOpen() && state.isReadable()) {
+            bb.clear();
+
             final SocketAddress address = channel.receive(bb);
             if (address == null) {
                 break;
@@ -286,71 +286,52 @@ class DatagramOuter {
             readByteMeter.update(read);
             readPacketMeter.increment();
 
-            final boolean passed = filter(bb, filters.getIncomingTransformFilter(), filters.getIncomingPassFilter());
-            if (passed) {
-                final Throttler throttler = filters.getIncomingThrottler();
-
-                final long delayNs;
-                if (throttler != null) {
-                    delayNs = throttler.calculateDelayNs(clientAddress, bb);
-                } else {
-                    delayNs = Throttler.NO_DELAY_NS;
-                }
-
-                if (delayNs > 0) {
-                    throttleRead(delayNs);
-                }
-
-                inner.enqueue(clientAddress, bb);
-                inner.suggestImmediateSent();
-            }
-
-            bb.clear();
+            inner.enqueue(clientAddress, bb);
 
             lastOperationTimestamp = System.currentTimeMillis();
         }
-
-        inner.suggestDeferredSent();
     }
 
-    void suggestDeferredSent() {
+    private void suggestDeferredSent() {
         if (!incoming.isEmpty() && state.isWritable()) {
             selectionKeyControl.enableWrites();
         }
     }
 
-    void suggestImmediateSent() throws IOException {
+    private void suggestImmediateSent() throws IOException {
         if (!incoming.isEmpty() && state.isWritable()) {
             handleWritableEvent(true);
         }
     }
 
-    void enqueue(ByteBuffer bb) {
-        final boolean passed = filter(bb, filters.getOutgoingTransformFilter(), filters.getOutgoingPassFilter());
+    void enqueue(ByteBuffer bbToCopy) throws IOException {
+        final boolean passed = filter(bbToCopy);
         if (passed) {
-            final Throttler throttler = filters.getOutgoingThrottler();
+            final Throttler throttler = this.filters.getOutgoingThrottler();
 
             final long delayNs;
             if (throttler != null) {
-                delayNs = throttler.calculateDelayNs(clientAddress, bb);
+                delayNs = throttler.calculateDelayNs(this.clientAddress, bbToCopy);
             } else {
                 delayNs = Throttler.NO_DELAY_NS;
             }
 
-            incoming.add(connectAddress, bb, delayNs);
+            incoming.add(this.connectAddress, bbToCopy, delayNs);
+            suggestImmediateSent();
+            suggestDeferredSent();
         }
     }
 
-    private boolean filter(ByteBuffer bb, TransformFilter transformFilter, PassFilter passFilter) {
-        if (passFilter != null) {
-            final boolean passed = passFilter.check(clientAddress, bb);
+    private boolean filter(ByteBuffer bbToCopy) {
+        if (filters.getOutgoingPassFilter() != null) {
+            final boolean passed = this.filters.getOutgoingPassFilter().check(this.clientAddress, bbToCopy);
             if (!passed) {
                 return false;
             }
         }
 
-        if (transformFilter != null) {
-            transformFilter.transform(clientAddress, bb);
+        if (filters.getOutgoingTransformFilter() != null) {
+            filters.getOutgoingTransformFilter().transform(this.clientAddress, bbToCopy);
         }
 
         return true;
@@ -380,38 +361,8 @@ class DatagramOuter {
 
             this.state.setSendThrottled(false);
 
-            if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
+            if (this.selectionKeyControl.isValid() && state.isWritable() && !incoming.isEmpty()) {
                 this.selectionKeyControl.enableWrites();
-            }
-        }
-    }
-
-    private void throttleRead(long delayNs) {
-        if (!this.state.isReadThrottled()) {
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Outer read is throttled on {}ns", delayNs);
-            }
-
-            this.state.setReadThrottled(true);
-
-            if (this.selectionKeyControl.isValid()) {
-                this.selectionKeyControl.disableReads();
-            }
-
-            reactor.getSelector().schedule(this::unthrottleRead, delayNs);
-        }
-    }
-
-    private void unthrottleRead() {
-        if (this.state.isReadThrottled()) {
-            if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Outer read is unthrottled");
-            }
-
-            this.state.setReadThrottled(false);
-
-            if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
-                this.selectionKeyControl.enableReads();
             }
         }
     }
@@ -442,12 +393,9 @@ class DatagramOuter {
 
         private boolean sendThrottled;
 
-        private boolean readThrottled;
-
         private State(int state) {
             super(state);
             this.sendThrottled = false;
-            this.readThrottled = false;
         }
 
         private boolean isWritable() {
@@ -455,23 +403,15 @@ class DatagramOuter {
         }
 
         private boolean isReadable() {
-            return is(OPEN) && !readThrottled;
+            return is(OPEN);
         }
 
-        public boolean isSendThrottled() {
+        private boolean isSendThrottled() {
             return sendThrottled;
         }
 
-        public void setSendThrottled(boolean sendThrottled) {
+        private void setSendThrottled(boolean sendThrottled) {
             this.sendThrottled = sendThrottled;
-        }
-
-        public boolean isReadThrottled() {
-            return readThrottled;
-        }
-
-        public void setReadThrottled(boolean readThrottled) {
-            this.readThrottled = readThrottled;
         }
     }
 }

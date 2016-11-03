@@ -76,6 +76,23 @@ public class NioScheduler {
     }
 
     /**
+     * Executes listener
+     * @param runnable Listener method
+     * @param deferred Set true if the listener should be called in a separate thread
+     */
+    public void executeListener(Runnable runnable, boolean deferred) {
+        if (deferred) {
+            execute(runnable);
+        } else {
+            try {
+                runnable.run();
+            } catch (Exception e) {
+                LOGGER.error("Exception in listener", e);
+            }
+        }
+    }
+
+    /**
      * Schedule callable instance to execute in scheduler's thread
      * @param callable Callable instance
      * @param delay Execution delay

@@ -31,6 +31,8 @@ public final class TcpCrusherBuilder {
 
     private TcpClientDeletion deletionListener;
 
+    private boolean deferredListeners;
+
     private TransformFilter incomingTransformFilter;
 
     private TransformFilter outgoingTransformFilter;
@@ -48,6 +50,8 @@ public final class TcpCrusherBuilder {
         this.bufferOptions.setCount(DEFAULT_BUFFER_COUNT);
         this.bufferOptions.setSize(DEFAULT_BUFFER_SIZE);
         this.bufferOptions.setDirect(true);
+
+        this.deferredListeners = true;
     }
 
     /**
@@ -280,6 +284,16 @@ public final class TcpCrusherBuilder {
     }
 
     /**
+     * Set listeners call method
+     * @param deferredListeners Set true if listeners should be called from separate thread
+     * @return This builder instance to chain with other methods
+     */
+    public TcpCrusherBuilder withDeferredListeners(boolean deferredListeners) {
+        this.deferredListeners = deferredListeners;
+        return this;
+    }
+
+    /**
      * Builds a new TcpCrusher instance
      * @return TcpCrusher instance
      */
@@ -308,6 +322,7 @@ public final class TcpCrusherBuilder {
             filters,
             creationListener,
             deletionListener,
+            deferredListeners,
             bufferOptions.copy()
         );
     }

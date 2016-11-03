@@ -223,6 +223,13 @@ class DatagramInner {
                 break;
             }
 
+            final long delayNs = entry.getScheduledNs() - System.nanoTime();
+            if (delayNs > 0) {
+                throttleSend(delayNs);
+                incoming.retry(entry);
+                break;
+            }
+
             final boolean emptyDatagram = !entry.getBuffer().hasRemaining();
             if (emptyDatagram && (count > 0 || forced)) {
                 // due to NIO API problem we can't make a difference between two cases:
@@ -270,6 +277,8 @@ class DatagramInner {
 
     private void handleReadableEvent() throws IOException {
         while (channel.isOpen() && state.isReadable()) {
+            bb.clear();
+
             final InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
             if (address == null) {
                 break;
@@ -286,22 +295,17 @@ class DatagramInner {
             readPacketMeter.increment();
 
             DatagramOuter outer = requestOuter(address);
-
             outer.enqueue(bb);
-            outer.suggestImmediateSent();
-            outer.suggestDeferredSent();
-
-            bb.clear();
         }
     }
 
-    void suggestDeferredSent() {
+    private void suggestDeferredSent() {
         if (!incoming.isEmpty() && state.isWritable()) {
             selectionKeyControl.enableWrites();
         }
     }
 
-    void suggestImmediateSent() throws IOException {
+    private void suggestImmediateSent() throws IOException {
         if (!incoming.isEmpty() && state.isWritable()) {
             handleWritableEvent(true);
         }
@@ -311,9 +315,7 @@ class DatagramInner {
         DatagramOuter outer = outers.get(address);
 
         if (outer == null) {
-            outer = new DatagramOuter(this,
-                reactor, socketOptions, filters, bufferOptions, address, connectAddress
-            );
+            outer = new DatagramOuter(this, reactor, socketOptions, filters, bufferOptions, address, connectAddress);
             outer.unfreeze();
 
             outers.put(address, outer);
@@ -324,8 +326,67 @@ class DatagramInner {
         return outer;
     }
 
-    void enqueue(InetSocketAddress address, ByteBuffer bbToCopy) {
-        incoming.add(address, bbToCopy, Throttler.NO_DELAY_NS);
+    void enqueue(InetSocketAddress clientAddress, ByteBuffer bbToCopy) throws IOException {
+        final boolean passed = filter(clientAddress, bbToCopy);
+        if (passed) {
+            final Throttler throttler = this.filters.getIncomingThrottler();
+
+            final long delayNs;
+            if (throttler != null) {
+                delayNs = throttler.calculateDelayNs(clientAddress, bbToCopy);
+            } else {
+                delayNs = Throttler.NO_DELAY_NS;
+            }
+
+            incoming.add(clientAddress, bbToCopy, delayNs);
+            suggestImmediateSent();
+            suggestDeferredSent();
+        }
+    }
+
+    private boolean filter(InetSocketAddress clientAddress, ByteBuffer bbToCopy) {
+        if (filters.getIncomingPassFilter() != null) {
+            final boolean passed = this.filters.getIncomingPassFilter().check(clientAddress, bbToCopy);
+            if (!passed) {
+                return false;
+            }
+        }
+
+        if (filters.getIncomingTransformFilter() != null) {
+            filters.getIncomingTransformFilter().transform(clientAddress, bbToCopy);
+        }
+
+        return true;
+    }
+
+    private void throttleSend(long delayNs) {
+        if (!this.state.isSendThrottled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Inner sent is throttled on {}ns", delayNs);
+            }
+
+            this.state.setSendThrottled(true);
+
+            if (this.selectionKeyControl.isValid()) {
+                this.selectionKeyControl.disableWrites();
+            }
+
+            reactor.getSelector().schedule(this::unthrottleSend, delayNs);
+        }
+    }
+
+    private void unthrottleSend() {
+        if (this.state.isSendThrottled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Inner sent is unthrottled");
+            }
+
+            this.state.setSendThrottled(false);
+
+            if (this.selectionKeyControl.isValid() && state.isWritable() && !incoming.isEmpty()) {
+                this.selectionKeyControl.enableWrites();
+            }
+        }
     }
 
     boolean closeOuter(InetSocketAddress clientAddress) {
@@ -389,16 +450,27 @@ class DatagramInner {
 
         private static final int CLOSED = bit(2);
 
+        private boolean sendThrottled;
+
         private State(int state) {
             super(state);
+            this.sendThrottled = false;
         }
 
         private boolean isWritable() {
-            return is(OPEN);
+            return is(OPEN) && !sendThrottled;
         }
 
         private boolean isReadable() {
             return is(OPEN);
+        }
+
+        private boolean isSendThrottled() {
+            return sendThrottled;
+        }
+
+        private void setSendThrottled(boolean sendThrottled) {
+            this.sendThrottled = sendThrottled;
         }
     }
 

@@ -407,6 +407,11 @@
         <property name="fileExtensions" value="java, xml"/>
     </module>
 
+    <module name="SuppressionFilter">
+        <property name="file" value="src/config/checkstyle/suppressions.xml"/>
+        <property name="optional" value="false"/>
+    </module>
+
     <!-- Size Violations -->
 
     <module name="FileLength">

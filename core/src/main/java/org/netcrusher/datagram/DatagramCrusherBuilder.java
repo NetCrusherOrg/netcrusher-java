@@ -34,6 +34,8 @@ public final class DatagramCrusherBuilder {
 
     private DatagramClientDeletion deletionListener;
 
+    private boolean deferredListeners;
+
     private TransformFilter incomingTransformFilter;
 
     private TransformFilter outgoingTransformFilter;
@@ -55,6 +57,8 @@ public final class DatagramCrusherBuilder {
         this.bufferOptions.setCount(DEFAULT_BUFFER_COUNT);
         this.bufferOptions.setSize(DEFAULT_BUFFER_SIZE);
         this.bufferOptions.setDirect(true);
+
+        this.deferredListeners = true;
     }
 
     /**
@@ -280,6 +284,16 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
+     * Set listeners call method
+     * @param deferredListeners Set true if listeners should be called from separate thread
+     * @return This builder instance to chain with other methods
+     */
+    public DatagramCrusherBuilder withDeferredListeners(boolean deferredListeners) {
+        this.deferredListeners = deferredListeners;
+        return this;
+    }
+
+    /**
      * Builds a new DatagramCrusher instance
      * @return DatagramCrusher instance
      */
@@ -310,6 +324,7 @@ public final class DatagramCrusherBuilder {
             filters,
             creationListener,
             deletionListener,
+            deferredListeners,
             bufferOptions.copy()
         );
     }

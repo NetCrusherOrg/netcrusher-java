@@ -86,7 +86,7 @@ public abstract class AbstractRateThottlingDatagramTest {
 
         DatagramBulkResult consumerResult = client.awaitConsumerResult(READ_WAIT_MS);
 
-        verify(consumerResult, 0.02);
+        verify(consumerResult, 0.05);
     }
 
     protected abstract DatagramCrusher createCrusher(NioReactor reactor, String host, int bindPort, int connectPort);

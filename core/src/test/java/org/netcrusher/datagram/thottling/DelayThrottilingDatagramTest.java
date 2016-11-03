@@ -48,8 +48,8 @@ public class DelayThrottilingDatagramTest {
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
-//            .withIncomingThrottler(new DelayThrottler(100, TimeUnit.MILLISECONDS))
-            .withOutgoingThrottler(new DelayThrottler(100, TimeUnit.MILLISECONDS))
+            .withIncomingThrottler(new DelayThrottler(500, TimeUnit.MILLISECONDS))
+            .withOutgoingThrottler(new DelayThrottler(500, TimeUnit.MILLISECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
@@ -91,9 +91,10 @@ public class DelayThrottilingDatagramTest {
             final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
             final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
 
-            reflector.awaitReflectorResult(READ_WAIT_MS).getDigest();
+            final byte[] reflectorDigest = reflector.awaitReflectorResult(READ_WAIT_MS).getDigest();
 
             Assert.assertArrayEquals(producerDigest, consumerDigest);
+            Assert.assertArrayEquals(producerDigest, reflectorDigest);
         } finally {
             NioUtils.close(client);
             NioUtils.close(reflector);

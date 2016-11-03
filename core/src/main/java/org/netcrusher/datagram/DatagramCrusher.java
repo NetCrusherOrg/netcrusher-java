@@ -60,6 +60,8 @@ public class DatagramCrusher implements NetCrusher {
 
     private final DatagramClientDeletion deletionListener;
 
+    private final boolean deferredListeners;
+
     private final State state;
 
     private DatagramInner inner;
@@ -72,6 +74,7 @@ public class DatagramCrusher implements NetCrusher {
             DatagramFilters filters,
             DatagramClientCreation creationListener,
             DatagramClientDeletion deletionListener,
+            boolean deferredListeners,
             BufferOptions bufferOptions)
     {
         this.bindAddress = bindAddress;
@@ -84,21 +87,25 @@ public class DatagramCrusher implements NetCrusher {
         this.clientTotalCount = new AtomicInteger(0);
         this.creationListener = creationListener;
         this.deletionListener = deletionListener;
+        this.deferredListeners = deferredListeners;
     }
 
     void notifyOuterCreated(DatagramOuter outer) {
         clientTotalCount.incrementAndGet();
 
         if (creationListener != null) {
-            reactor.getScheduler().execute(() ->
-                creationListener.created(outer.getClientAddress()));
+            Runnable r = () -> creationListener.created(outer.getClientAddress());
+
+            reactor.getScheduler().executeListener(r, deferredListeners);
         }
     }
 
     void notifyOuterDeleted(DatagramOuter outer) {
         if (deletionListener != null) {
-            reactor.getScheduler().execute(() ->
-                deletionListener.deleted(outer.getClientAddress(), outer.getByteMeters(), outer.getPacketMeters()));
+            Runnable r = () -> deletionListener.deleted(outer.getClientAddress(),
+                outer.getByteMeters(), outer.getPacketMeters());
+
+            reactor.getScheduler().executeListener(r, deferredListeners);
         }
     }
 
