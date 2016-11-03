@@ -36,10 +36,18 @@ public class TcpBulkServer implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        this.acceptor.interrupt();
-        this.acceptor.join();
+        if (this.acceptor.isAlive()) {
+            this.acceptor.interrupt();
+            this.acceptor.join();
+        }
 
-        this.serverSocketChannel.close();
+        for (TcpBulkClient client : acceptor.clients) {
+            client.close();
+        }
+
+        if (this.serverSocketChannel.isOpen()) {
+            this.serverSocketChannel.close();
+        }
     }
 
     public Collection<TcpBulkClient> getClients() {

@@ -1,5 +1,7 @@
 package org.netcrusher.datagram.bulk;
 
+import org.netcrusher.core.nio.NioUtils;
+
 import java.io.Serializable;
 
 public class DatagramBulkResult implements Serializable {
@@ -47,24 +49,7 @@ public class DatagramBulkResult implements Serializable {
     @Override
     public String toString() {
         return String.format("%d bytes, %d datagrams, %d ms, md5=%s",
-            bytes, count, elapsedMs, toHexString(digest));
+            bytes, count, elapsedMs, NioUtils.toHexString(digest));
     }
 
-    private static String toHexString(byte[] bytes) {
-        if (bytes != null) {
-            StringBuilder hexString = new StringBuilder();
-
-            for (byte b : bytes) {
-                String hex = Integer.toHexString(b & 0xFF);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-
-            return hexString.toString();
-        } else {
-            return "null";
-        }
-    }
 }

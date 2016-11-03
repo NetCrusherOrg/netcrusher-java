@@ -1,5 +1,6 @@
 package org.netcrusher.tcp.bulk;
 
+import org.netcrusher.test.Md5DigestFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SocketChannel;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Random;
 
 public class TcpBulkClient implements AutoCloseable {
@@ -120,7 +120,7 @@ public class TcpBulkClient implements AutoCloseable {
             LOGGER.debug("Read loop {} started", name);
 
             final ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
-            final MessageDigest md = createMessageDigest();
+            final MessageDigest md5 = Md5DigestFactory.createDigest();
 
             final long markerMs = System.currentTimeMillis();
             long readBytes = 0;
@@ -137,7 +137,7 @@ public class TcpBulkClient implements AutoCloseable {
                     }
 
                     bb.flip();
-                    md.update(bb);
+                    md5.update(bb);
 
                     readBytes += read;
                 }
@@ -149,13 +149,14 @@ public class TcpBulkClient implements AutoCloseable {
 
             final long elapsedMs = System.currentTimeMillis() - markerMs;
 
-            this.result = new TcpBulkResult();
-            this.result.setDigest(md.digest());
-            this.result.setElapsedMs(elapsedMs);
-            this.result.setBytes(readBytes);
+            TcpBulkResult result = new TcpBulkResult();
+            result.setDigest(md5.digest());
+            result.setElapsedMs(elapsedMs);
+            result.setBytes(readBytes);
 
-            LOGGER.debug("Read loop {} has finished with {} bytes in {}ms",
-                new Object[] { name, readBytes, elapsedMs });
+            LOGGER.debug("Read loop {} has finished: {}", name, result);
+
+            this.result = result;
         }
     }
 
@@ -192,7 +193,7 @@ public class TcpBulkClient implements AutoCloseable {
             LOGGER.debug("Send loop {} started", name);
 
             final ByteBuffer bb = ByteBuffer.allocate(BUFFER_SIZE);
-            final MessageDigest md = createMessageDigest();
+            final MessageDigest md5 = Md5DigestFactory.createDigest();
 
             final long markerMs = System.currentTimeMillis();
             long sentBytes = 0;
@@ -205,7 +206,7 @@ public class TcpBulkClient implements AutoCloseable {
 
                     bb.limit(capacity);
                     bb.position(0);
-                    md.update(bb);
+                    md5.update(bb);
 
                     bb.position(0);
 
@@ -222,27 +223,15 @@ public class TcpBulkClient implements AutoCloseable {
 
             final long elapsedMs = System.currentTimeMillis() - markerMs;
 
-            this.result = new TcpBulkResult();
-            this.result.setDigest(md.digest());
-            this.result.setElapsedMs(elapsedMs);
-            this.result.setBytes(sentBytes);
+            TcpBulkResult result = new TcpBulkResult();
+            result.setDigest(md5.digest());
+            result.setElapsedMs(elapsedMs);
+            result.setBytes(sentBytes);
 
-            LOGGER.debug("Send loop {} has finished with {} bytes in {}ms",
-                new Object[] { name, sentBytes, elapsedMs });
+            LOGGER.debug("Send loop {} has finished: {}", name, result);
+
+            this.result = result;
         }
-    }
-
-    private static MessageDigest createMessageDigest() {
-        MessageDigest md;
-        try {
-            md = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalArgumentException("Fail to create digest", e);
-        }
-
-        md.reset();
-
-        return md;
     }
 
 }

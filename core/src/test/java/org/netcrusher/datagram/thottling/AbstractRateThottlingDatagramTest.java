@@ -10,15 +10,11 @@ import org.netcrusher.datagram.DatagramCrusher;
 import org.netcrusher.datagram.bulk.DatagramBulkClient;
 import org.netcrusher.datagram.bulk.DatagramBulkReflector;
 import org.netcrusher.datagram.bulk.DatagramBulkResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.CyclicBarrier;
 
 public abstract class AbstractRateThottlingDatagramTest {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractRateThottlingDatagramTest.class);
 
     private static final int CLIENT_PORT = 10182;
 
@@ -33,6 +29,8 @@ public abstract class AbstractRateThottlingDatagramTest {
     private static final long SEND_WAIT_MS = 30_000;
 
     private static final long READ_WAIT_MS = 100;
+
+    private static final double RATE_PRECISION = 0.05;
 
     private NioReactor reactor;
 
@@ -86,7 +84,7 @@ public abstract class AbstractRateThottlingDatagramTest {
 
         DatagramBulkResult consumerResult = client.awaitConsumerResult(READ_WAIT_MS);
 
-        verify(consumerResult, 0.05);
+        verify(consumerResult, RATE_PRECISION);
     }
 
     protected abstract DatagramCrusher createCrusher(NioReactor reactor, String host, int bindPort, int connectPort);
