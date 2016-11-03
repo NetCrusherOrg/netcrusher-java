@@ -2,6 +2,7 @@ package org.netcrusher.datagram.bulk;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.netcrusher.core.nio.NioUtils;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.CyclicBarrier;
@@ -14,7 +15,7 @@ public class DatagramBulkReflectorTest {
 
     private static final String HOSTNAME = "127.0.0.1";
 
-    private static final long COUNT = 2 * 1_000_000;
+    private static final long COUNT = 1_000;
 
     private static final long SEND_WAIT_MS = 20_000;
 
@@ -33,19 +34,22 @@ public class DatagramBulkReflectorTest {
 
         DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR",
             new InetSocketAddress(HOSTNAME, REFLECTOR_PORT),
+            COUNT,
             barrier);
 
         reflector.open();
         client.open();
 
-        final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
-        final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
+        try {
+            final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
+            final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
+            final byte[] reflectorDigest = reflector.awaitReflectorResult(READ_WAIT_MS).getDigest();
 
-        client.close();
-        reflector.close();
-
-        Assert.assertNotNull(producerDigest);
-        Assert.assertNotNull(consumerDigest);
-        Assert.assertArrayEquals(producerDigest, consumerDigest);
+            Assert.assertArrayEquals(producerDigest, consumerDigest);
+            Assert.assertArrayEquals(producerDigest, reflectorDigest);
+        } finally {
+            NioUtils.close(client);
+            NioUtils.close(reflector);
+        }
     }
 }

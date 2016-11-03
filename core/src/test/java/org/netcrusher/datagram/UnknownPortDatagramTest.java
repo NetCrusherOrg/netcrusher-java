@@ -3,6 +3,7 @@ package org.netcrusher.datagram;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.reactor.NioReactor;
 
 import java.net.InetSocketAddress;
@@ -58,7 +59,7 @@ public class UnknownPortDatagramTest {
 
             Thread.sleep(1001);
         } finally {
-            channel.close();
+            NioUtils.close(channel);
         }
     }
 }

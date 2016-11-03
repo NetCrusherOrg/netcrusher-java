@@ -3,6 +3,7 @@ package org.netcrusher.core.nio;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
@@ -23,7 +24,7 @@ public final class NioUtils {
     }
 
     public static void close(AbstractSelectableChannel channel) {
-        if (channel.isOpen()) {
+        if (channel != null && channel.isOpen()) {
             try {
                 channel.close();
             } catch (IOException e) {
@@ -33,7 +34,7 @@ public final class NioUtils {
     }
 
     public static void closeNoLinger(SocketChannel channel) {
-        if (channel.isOpen()) {
+        if (channel != null && channel.isOpen()) {
             try {
                 channel.setOption(StandardSocketOptions.SO_LINGER, 0);
             } catch (IOException e) {
@@ -44,6 +45,26 @@ public final class NioUtils {
                 channel.close();
             } catch (IOException e) {
                 LOGGER.error("Fail to close channel", e);
+            }
+        }
+    }
+
+    public static void close(AutoCloseable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                LOGGER.error("Unexpected exception on close", e);
+            }
+        }
+    }
+
+    public static void close(Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException e) {
+                LOGGER.error("Unexpected exception on close", e);
             }
         }
     }

@@ -11,11 +11,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-public class IncomingByteThottlingDatagramTest extends AbstractDatagramThottlingTest {
+public class IncomingByteThottlingDatagramTest extends AbstractRateThottlingDatagramTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IncomingByteThottlingDatagramTest.class);
 
-    private static final int BYTES_PER_SEC = 5_000;
+    private static final int BYTES_PER_SEC = 20_000;
 
     @Override
     protected DatagramCrusher createCrusher(NioReactor reactor, String host, int bindPort, int connectPort) {
@@ -23,7 +23,7 @@ public class IncomingByteThottlingDatagramTest extends AbstractDatagramThottling
             .withReactor(reactor)
             .withBindAddress(host, bindPort)
             .withConnectAddress(host, connectPort)
-            .withIncomingThrottler(new ByteRateThrottler(BYTES_PER_SEC / 50, 1000 / 50, TimeUnit.MILLISECONDS))
+            .withIncomingThrottler(new ByteRateThrottler(BYTES_PER_SEC / 20, 1000 / 20, TimeUnit.MILLISECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();

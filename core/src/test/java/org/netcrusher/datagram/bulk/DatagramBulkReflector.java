@@ -1,6 +1,7 @@
 package org.netcrusher.datagram.bulk;
 
 import org.netcrusher.datagram.DatagramUtils;
+import org.netcrusher.test.Md5DigestFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,6 +13,7 @@ import java.net.StandardProtocolFamily;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
+import java.security.MessageDigest;
 import java.util.concurrent.CyclicBarrier;
 
 public class DatagramBulkReflector implements AutoCloseable {
@@ -23,6 +25,7 @@ public class DatagramBulkReflector implements AutoCloseable {
     private final Reflector reflector;
 
     public DatagramBulkReflector(String name, InetSocketAddress bindAddress,
+                                 long limit,
                                  CyclicBarrier readBarrier) throws IOException {
         this.channel = DatagramChannel.open(StandardProtocolFamily.INET);
         this.channel.configureBlocking(true);
@@ -32,7 +35,7 @@ public class DatagramBulkReflector implements AutoCloseable {
             LOGGER.debug("Bulk reflector {}: BIND<{}>", new Object[]{name, bindAddress});
         }
 
-        this.reflector = new Reflector(channel, name, readBarrier);
+        this.reflector = new Reflector(channel, name, limit, readBarrier);
     }
 
     public void open() {
@@ -47,6 +50,17 @@ public class DatagramBulkReflector implements AutoCloseable {
         this.channel.close();
     }
 
+    public DatagramBulkResult awaitReflectorResult(long timeoutMs) throws Exception {
+        reflector.join(timeoutMs);
+
+        if (!reflector.isAlive() && reflector.result != null) {
+            return reflector.result;
+        } else {
+            close();
+            throw new IllegalStateException("Reflector is still alive");
+        }
+    }
+
     private static class Reflector extends Thread {
 
         private final DatagramChannel channel;
@@ -55,10 +69,16 @@ public class DatagramBulkReflector implements AutoCloseable {
 
         private final CyclicBarrier barrier;
 
-        public Reflector(DatagramChannel channel, String name, CyclicBarrier barrier) {
+        private final long limit;
+
+        private DatagramBulkResult result;
+
+        public Reflector(DatagramChannel channel, String name, long limit, CyclicBarrier barrier) {
             this.channel = channel;
             this.name = name;
             this.barrier = barrier;
+            this.limit = limit;
+            this.result = null;
 
             this.setName("Reflector thread");
         }
@@ -77,6 +97,7 @@ public class DatagramBulkReflector implements AutoCloseable {
 
             final int rcvBufferSize = channel.socket().getReceiveBufferSize();
             final ByteBuffer bb = ByteBuffer.allocate(rcvBufferSize);
+            final MessageDigest md5 = Md5DigestFactory.createDigest();
 
             if (barrier != null) {
                 barrier.await();
@@ -88,7 +109,7 @@ public class DatagramBulkReflector implements AutoCloseable {
             int processedDatagrams = 0;
 
             try {
-                while (!Thread.currentThread().isInterrupted()) {
+                while (processedDatagrams < this.limit && !Thread.currentThread().isInterrupted()) {
                     bb.clear();
 
                     final SocketAddress socketAddress = channel.receive(bb);
@@ -101,6 +122,10 @@ public class DatagramBulkReflector implements AutoCloseable {
 
                     send(bb, socketAddress);
 
+                    bb.rewind();
+                    md5.update(Md5DigestFactory.HEAD_TOKEN);
+                    md5.update(bb);
+
                     processedBytes += read;
                     processedDatagrams++;
                 }
@@ -111,8 +136,16 @@ public class DatagramBulkReflector implements AutoCloseable {
             }
 
             final long elapsedMs = System.currentTimeMillis() - markerMs;
-            LOGGER.debug("Reflector loop {} has finished {} datagrams with {} bytes in {}ms",
-                new Object[] { name, processedDatagrams, processedBytes, elapsedMs });
+
+            DatagramBulkResult result = new DatagramBulkResult();
+            result.setElapsedMs(elapsedMs);
+            result.setCount(processedDatagrams);
+            result.setBytes(processedBytes);
+            result.setDigest(md5.digest());
+
+            LOGGER.debug("Reflector loop {} has finished: {}", name, result);
+
+            this.result = result;
         }
 
         private void send(ByteBuffer bb, SocketAddress socketAddress) throws IOException {

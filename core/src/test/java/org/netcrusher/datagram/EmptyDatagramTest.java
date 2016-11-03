@@ -5,6 +5,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.meter.RateMeters;
+import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.bulk.DatagramBulkReflector;
 
@@ -49,7 +50,7 @@ public class EmptyDatagramTest {
     public void test() throws Exception {
         CyclicBarrier barrier = new CyclicBarrier(2);
 
-        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS, barrier);
+        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS, 1, barrier);
         reflector.open();
 
         barrier.await();
@@ -87,8 +88,8 @@ public class EmptyDatagramTest {
             Assert.assertEquals(CRUSHER_ADDRESS, address);
             Assert.assertEquals(0, bb.position());
         } finally {
-            channel.close();
-            reflector.close();
+            NioUtils.close(channel);
+            NioUtils.close(reflector);
         }
     }
 
@@ -119,8 +120,8 @@ public class EmptyDatagramTest {
             Assert.assertNotNull(address);
             Assert.assertEquals(0, bb.position());
         } finally {
-            channel2.close();
-            channel1.close();
+            NioUtils.close(channel2);
+            NioUtils.close(channel1);
         }
     }
 
@@ -128,7 +129,7 @@ public class EmptyDatagramTest {
     public void testNoCrusher() throws Exception {
         CyclicBarrier barrier = new CyclicBarrier(2);
 
-        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS, barrier);
+        DatagramBulkReflector reflector = new DatagramBulkReflector("REFLECTOR", REFLECTOR_ADDRESS, 1, barrier);
         reflector.open();
 
         DatagramChannel channel = DatagramChannel.open();
@@ -156,8 +157,8 @@ public class EmptyDatagramTest {
             Assert.assertEquals(REFLECTOR_ADDRESS, address);
             Assert.assertEquals(0, bb.position());
         } finally {
-            channel.close();
-            reflector.close();
+            NioUtils.close(channel);
+            NioUtils.close(reflector);
         }
     }
 }

@@ -53,23 +53,41 @@ public class TcpBulkClient implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        producer.interrupt();
-        consumer.interrupt();
+        if (producer.isAlive()) {
+            producer.interrupt();
+            producer.join();
+        }
 
-        producer.join();
-        consumer.join();
+        if (consumer.isAlive()) {
+            consumer.interrupt();
+            consumer.join();
+        }
 
-        channel.close();
+        if (channel.isOpen()) {
+            channel.close();
+        }
     }
 
     public TcpBulkResult awaitProducerResult(long timeoutMs) throws Exception {
         producer.join(timeoutMs);
-        return producer.result;
+
+        if (!producer.isAlive() && producer.result != null) {
+            return producer.result;
+        } else {
+            close();
+            throw new IllegalStateException("Producer is still alive");
+        }
     }
 
     public TcpBulkResult awaitConsumerResult(long timeoutMs) throws Exception {
         consumer.join(timeoutMs);
-        return consumer.result;
+
+        if (!consumer.isAlive() && consumer.result != null) {
+            return consumer.result;
+        } else {
+            close();
+            throw new IllegalStateException("Consumer is still alive");
+        }
     }
 
     private static class Consumer extends Thread {

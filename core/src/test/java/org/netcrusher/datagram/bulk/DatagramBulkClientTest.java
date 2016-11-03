@@ -2,6 +2,7 @@ package org.netcrusher.datagram.bulk;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.netcrusher.core.nio.NioUtils;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.CyclicBarrier;
@@ -14,7 +15,7 @@ public class DatagramBulkClientTest {
 
     private static final String HOSTNAME = "127.0.0.1";
 
-    private static final long COUNT = 2 * 1_000_000;
+    private static final long COUNT = 1_000;
 
     private static final long SEND_WAIT_MS = 20_000;
 
@@ -42,20 +43,18 @@ public class DatagramBulkClientTest {
         client1.open();
         client2.open();
 
+        try {
+            final byte[] producer1Digest = client1.awaitProducerResult(SEND_WAIT_MS).getDigest();
+            final byte[] producer2Digest = client2.awaitProducerResult(SEND_WAIT_MS).getDigest();
 
-        final byte[] producer1Digest = client1.awaitProducerResult(SEND_WAIT_MS).getDigest();
-        final byte[] producer2Digest = client2.awaitProducerResult(SEND_WAIT_MS).getDigest();
+            final byte[] consumer1Digest = client1.awaitConsumerResult(READ_WAIT_MS).getDigest();
+            final byte[] consumer2Digest = client2.awaitConsumerResult(READ_WAIT_MS).getDigest();
 
-        final byte[] consumer1Digest = client1.awaitConsumerResult(READ_WAIT_MS).getDigest();
-        final byte[] consumer2Digest = client2.awaitConsumerResult(READ_WAIT_MS).getDigest();
-
-        client1.close();
-        client2.close();
-
-        Assert.assertNotNull(producer1Digest);
-        Assert.assertNotNull(producer2Digest);
-
-        Assert.assertArrayEquals(producer1Digest, consumer2Digest);
-        Assert.assertArrayEquals(producer2Digest, consumer1Digest);
+            Assert.assertArrayEquals(producer1Digest, consumer2Digest);
+            Assert.assertArrayEquals(producer2Digest, consumer1Digest);
+        } finally {
+            NioUtils.close(client1);
+            NioUtils.close(client2);
+        }
     }
 }
