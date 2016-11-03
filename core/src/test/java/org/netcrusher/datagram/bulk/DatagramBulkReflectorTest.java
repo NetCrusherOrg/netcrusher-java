@@ -38,8 +38,8 @@ public class DatagramBulkReflectorTest {
         reflector.open();
         client.open();
 
-        final byte[] producerDigest = client.awaitProducerDigest(SEND_WAIT_MS);
-        final byte[] consumerDigest = client.awaitConsumerDigest(READ_WAIT_MS);
+        final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
+        final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
 
         client.close();
         reflector.close();

@@ -215,7 +215,7 @@ class DatagramInner {
         }
     }
 
-    void handleWritableEvent(boolean forced) throws IOException {
+    private void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
         while (channel.isOpen() && state.isWritable()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
@@ -288,18 +288,22 @@ class DatagramInner {
             DatagramOuter outer = requestOuter(address);
 
             outer.enqueue(bb);
-
-            // try to immediately sent the datagram
-            if (outer.hasIncoming() && outer.isWritable()) {
-                outer.handleWritableEvent(true);
-            }
-
-            // if data still remains we raise the OP_WRITE flag
-            if (outer.hasIncoming() && outer.isWritable()) {
-                outer.enableWrites();
-            }
+            outer.suggestImmediateSent();
+            outer.suggestDeferredSent();
 
             bb.clear();
+        }
+    }
+
+    void suggestDeferredSent() {
+        if (!incoming.isEmpty() && state.isWritable()) {
+            selectionKeyControl.enableWrites();
+        }
+    }
+
+    void suggestImmediateSent() throws IOException {
+        if (!incoming.isEmpty() && state.isWritable()) {
+            handleWritableEvent(true);
         }
     }
 
@@ -359,18 +363,6 @@ class DatagramInner {
         } else {
             return 0;
         }
-    }
-
-    boolean hasIncoming() {
-        return !incoming.isEmpty();
-    }
-
-    void enableWrites() {
-        selectionKeyControl.enableWrites();
-    }
-
-    boolean isWritable() {
-        return state.isWritable();
     }
 
     DatagramOuter getOuter(InetSocketAddress clientAddress) {

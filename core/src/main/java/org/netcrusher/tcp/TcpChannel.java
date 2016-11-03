@@ -192,9 +192,7 @@ class TcpChannel {
             sentMeter.update(sent);
         }
 
-        if (queue.hasWritable() && other.state.isReadable()) {
-            other.selectionKeyControl.enableReads();
-        }
+        other.suggestDeferredRead();
     }
 
     private void handleReadableEvent() throws IOException {
@@ -229,15 +227,27 @@ class TcpChannel {
 
             readMeter.update(read);
 
-            // try to immediately sent all the pending data to the paired socket
-            if (outgoingQueue.hasReadable() && other.state.isWritable()) {
-                other.handleWritableEvent(true);
-            }
+            other.suggestImmediateSent();
         }
 
-        // if data still remains we raise the OP_WRITE flag
-        if (outgoingQueue.hasReadable() && other.state.isWritable()) {
-            other.selectionKeyControl.enableWrites();
+        other.suggestDeferredSent();
+    }
+
+    private void suggestDeferredRead() {
+        if (outgoingQueue.hasWritable() && state.isReadable()) {
+            selectionKeyControl.enableReads();
+        }
+    }
+
+    private void suggestDeferredSent() {
+        if (incomingQueue.hasReadable() && state.isWritable()) {
+            selectionKeyControl.enableWrites();
+        }
+    }
+
+    private void suggestImmediateSent() throws IOException {
+        if (incomingQueue.hasReadable() && state.isWritable()) {
+            handleWritableEvent(true);
         }
     }
 

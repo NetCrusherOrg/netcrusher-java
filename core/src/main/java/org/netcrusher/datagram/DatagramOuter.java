@@ -203,7 +203,7 @@ class DatagramOuter {
         }
     }
 
-    void handleWritableEvent(boolean forced) throws IOException {
+    private void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
         while (channel.isOpen() && state.isWritable()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
@@ -302,11 +302,7 @@ class DatagramOuter {
                 }
 
                 inner.enqueue(clientAddress, bb);
-
-                // try to immediately sent the datagram
-                if (inner.hasIncoming() && inner.isWritable()) {
-                    inner.handleWritableEvent(true);
-                }
+                inner.suggestImmediateSent();
             }
 
             bb.clear();
@@ -314,9 +310,18 @@ class DatagramOuter {
             lastOperationTimestamp = System.currentTimeMillis();
         }
 
-        // if data still remains we raise the OP_WRITE flag
-        if (inner.hasIncoming() && inner.isWritable()) {
-            inner.enableWrites();
+        inner.suggestDeferredSent();
+    }
+
+    void suggestDeferredSent() {
+        if (!incoming.isEmpty() && state.isWritable()) {
+            selectionKeyControl.enableWrites();
+        }
+    }
+
+    void suggestImmediateSent() throws IOException {
+        if (!incoming.isEmpty() && state.isWritable()) {
+            handleWritableEvent(true);
         }
     }
 
@@ -336,18 +341,6 @@ class DatagramOuter {
         }
     }
 
-    boolean hasIncoming() {
-        return !incoming.isEmpty();
-    }
-
-    void enableWrites() {
-        selectionKeyControl.enableWrites();
-    }
-
-    boolean isWritable() {
-        return state.isWritable();
-    }
-
     private boolean filter(ByteBuffer bb, TransformFilter transformFilter, PassFilter passFilter) {
         if (passFilter != null) {
             final boolean passed = passFilter.check(clientAddress, bb);
@@ -363,20 +356,64 @@ class DatagramOuter {
         return true;
     }
 
-    private void throttleSend(long delayMs) {
-        // to implement
+    private void throttleSend(long delayNs) {
+        if (!this.state.isSendThrottled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Outer sent is throttled on {}ns", delayNs);
+            }
+
+            this.state.setSendThrottled(true);
+
+            if (this.selectionKeyControl.isValid()) {
+                this.selectionKeyControl.disableWrites();
+            }
+
+            reactor.getSelector().schedule(this::unthrottleSend, delayNs);
+        }
     }
 
     private void unthrottleSend() {
-        // to implement
+        if (this.state.isSendThrottled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Outer sent is unthrottled");
+            }
+
+            this.state.setSendThrottled(false);
+
+            if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
+                this.selectionKeyControl.enableWrites();
+            }
+        }
     }
 
-    private void throttleRead(long delayMs) {
-        // to implement
+    private void throttleRead(long delayNs) {
+        if (!this.state.isReadThrottled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Outer read is throttled on {}ns", delayNs);
+            }
+
+            this.state.setReadThrottled(true);
+
+            if (this.selectionKeyControl.isValid()) {
+                this.selectionKeyControl.disableReads();
+            }
+
+            reactor.getSelector().schedule(this::unthrottleRead, delayNs);
+        }
     }
 
     private void unthrottleRead() {
-        // to implement
+        if (this.state.isReadThrottled()) {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Outer read is unthrottled");
+            }
+
+            this.state.setReadThrottled(false);
+
+            if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
+                this.selectionKeyControl.enableReads();
+            }
+        }
     }
 
     InetSocketAddress getClientAddress() {
@@ -419,6 +456,22 @@ class DatagramOuter {
 
         private boolean isReadable() {
             return is(OPEN) && !readThrottled;
+        }
+
+        public boolean isSendThrottled() {
+            return sendThrottled;
+        }
+
+        public void setSendThrottled(boolean sendThrottled) {
+            this.sendThrottled = sendThrottled;
+        }
+
+        public boolean isReadThrottled() {
+            return readThrottled;
+        }
+
+        public void setReadThrottled(boolean readThrottled) {
+            this.readThrottled = readThrottled;
         }
     }
 }

@@ -62,7 +62,9 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
     protected static final String SOCAT6_CONSUMER_PROXIED =
         SOCAT6 + " - tcp6-listen:50101,bind=[::1],reuseaddr";
 
-    protected void loop(String processorCmd, String reflectorCmd, int bytes, int throughputKbSec) throws Exception {
+    protected ProcessResult loop(String processorCmd, String reflectorCmd, int bytes, int throughputKbSec)
+        throws Exception
+    {
         ProcessWrapper processor = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
@@ -103,9 +105,13 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
         Assert.assertEquals(2, hashes.size());
         Assert.assertEquals(hashes.get(0), hashes.get(1));
+
+        return processorResult;
     }
 
-    protected void direct(String producerCmd, String consumerCmd, int bytes, int throughputKbSec) throws Exception {
+    protected ProcessResult direct(String producerCmd, String consumerCmd, int bytes, int throughputKbSec)
+        throws Exception
+    {
         ProcessWrapper producer = new ProcessWrapper(Arrays.asList(
             "bash",
             "-o", "pipefail",
@@ -153,5 +159,7 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
             .orElse("no-consumer-hash");
 
         Assert.assertEquals(producerHash, consumerHash);
+
+        return consumerResult;
     }
 }

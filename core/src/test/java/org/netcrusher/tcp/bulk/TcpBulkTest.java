@@ -37,14 +37,14 @@ public class TcpBulkTest {
     @Test
     public void test() throws Exception {
         final TcpBulkClient client1 = TcpBulkClient.forAddress("EXT", new InetSocketAddress(HOSTNAME, PORT_SERVER), COUNT);
-        final byte[] producer1Digest = client1.awaitProducerDigest(SEND_WAIT_MS);
+        final byte[] producer1Digest = client1.awaitProducerResult(SEND_WAIT_MS).getDigest();
 
         Assert.assertEquals(1, server.getClients().size());
         final TcpBulkClient client2 = server.getClients().iterator().next();
-        final byte[] producer2Digest = client2.awaitProducerDigest(SEND_WAIT_MS);
+        final byte[] producer2Digest = client2.awaitProducerResult(SEND_WAIT_MS).getDigest();
 
-        final byte[] consumer1Digest = client1.awaitConsumerDigest(READ_WAIT_MS);
-        final byte[] consumer2Digest = client2.awaitConsumerDigest(READ_WAIT_MS);
+        final byte[] consumer1Digest = client1.awaitConsumerResult(READ_WAIT_MS).getDigest();
+        final byte[] consumer2Digest = client2.awaitConsumerResult(READ_WAIT_MS).getDigest();
 
         client1.close();
         client2.close();

@@ -70,14 +70,14 @@ public class DatagramBulkClient implements AutoCloseable {
         channel.close();
     }
 
-    public byte[] awaitProducerDigest(long timeoutMs) throws Exception {
+    public DatagramBulkResult awaitProducerResult(long timeoutMs) throws Exception {
         producer.join(timeoutMs);
-        return producer.digest;
+        return producer.result;
     }
 
-    public byte[] awaitConsumerDigest(long timeoutMs) throws Exception {
+    public DatagramBulkResult awaitConsumerResult(long timeoutMs) throws Exception {
         consumer.join(timeoutMs);
-        return consumer.digest;
+        return consumer.result;
     }
 
     private static final class Consumer extends Thread {
@@ -92,7 +92,7 @@ public class DatagramBulkClient implements AutoCloseable {
 
         private final CyclicBarrier barrier;
 
-        private byte[] digest;
+        private DatagramBulkResult result;
 
         public Consumer(DatagramChannel channel, String name, long limit,
                         InetSocketAddress connectAddress,
@@ -102,7 +102,7 @@ public class DatagramBulkClient implements AutoCloseable {
             this.limit = limit;
             this.connectAddress = connectAddress;
             this.barrier = barrier;
-            this.digest = null;
+            this.result = null;
             this.setName("Consumer thread");
         }
 
@@ -147,9 +147,14 @@ public class DatagramBulkClient implements AutoCloseable {
                 LOGGER.error("Read loop error", e);
             }
 
-            this.digest = md.digest();
-
             final long elapsedMs = System.currentTimeMillis() - markerMs;
+
+            this.result = new DatagramBulkResult();
+            this.result.setDigest(md.digest());
+            this.result.setElapsedMs(elapsedMs);
+            this.result.setCount(readDatagrams);
+            this.result.setBytes(readBytes);
+
             LOGGER.debug("Read loop {} has finished {} datagrams with {} bytes in {}ms",
                 new Object[] { name, readDatagrams, readBytes, elapsedMs });
         }
@@ -186,7 +191,7 @@ public class DatagramBulkClient implements AutoCloseable {
 
         private final Random random;
 
-        private byte[] digest;
+        private DatagramBulkResult result;
 
         public Producer(DatagramChannel channel, String name, long limit,
                         InetSocketAddress connectAddress,
@@ -198,7 +203,7 @@ public class DatagramBulkClient implements AutoCloseable {
             this.connectAddress = connectAddress;
             this.barrier = barrier;
             this.random = new Random();
-            this.digest = null;
+            this.result = null;
             this.setName("Producer thread");
         }
 
@@ -265,9 +270,14 @@ public class DatagramBulkClient implements AutoCloseable {
                 LOGGER.error("Send loop error", e);
             }
 
-            this.digest = md.digest();
-
             final long elapsedMs = System.currentTimeMillis() - markerMs;
+
+            this.result = new DatagramBulkResult();
+            this.result.setDigest(md.digest());
+            this.result.setElapsedMs(elapsedMs);
+            this.result.setCount(sentDatagrams);
+            this.result.setBytes(sentBytes);
+
             LOGGER.debug("Send loop {} has finished {} datagrams with {} bytes in {}ms",
                 new Object[] { name, sentDatagrams, sentBytes, elapsedMs });
         }

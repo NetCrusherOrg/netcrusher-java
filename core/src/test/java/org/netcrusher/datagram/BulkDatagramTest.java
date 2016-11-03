@@ -98,8 +98,8 @@ public class BulkDatagramTest {
         reflector.open();
         client.open();
 
-        final byte[] producerDigest = client.awaitProducerDigest(SEND_WAIT_MS);
-        final byte[] consumerDigest = client.awaitConsumerDigest(READ_WAIT_MS);
+        final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
+        final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
 
         try {
             Assert.assertEquals(1, crusher.getClientAddresses().size());

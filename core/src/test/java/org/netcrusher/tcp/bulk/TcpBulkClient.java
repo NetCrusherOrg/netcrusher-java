@@ -62,14 +62,14 @@ public class TcpBulkClient implements AutoCloseable {
         channel.close();
     }
 
-    public byte[] awaitProducerDigest(long timeoutMs) throws Exception {
+    public TcpBulkResult awaitProducerResult(long timeoutMs) throws Exception {
         producer.join(timeoutMs);
-        return producer.digest;
+        return producer.result;
     }
 
-    public byte[] awaitConsumerDigest(long timeoutMs) throws Exception {
+    public TcpBulkResult awaitConsumerResult(long timeoutMs) throws Exception {
         consumer.join(timeoutMs);
-        return consumer.digest;
+        return consumer.result;
     }
 
     private static class Consumer extends Thread {
@@ -80,13 +80,13 @@ public class TcpBulkClient implements AutoCloseable {
 
         private final long limit;
 
-        private byte[] digest;
+        private TcpBulkResult result;
 
         public Consumer(SocketChannel channel, String name, long limit) {
             this.channel = channel;
             this.name = name;
             this.limit = limit;
-            this.digest = null;
+            this.result = null;
         }
 
         @Override
@@ -129,9 +129,13 @@ public class TcpBulkClient implements AutoCloseable {
                 LOGGER.error("Exception on read", e);
             }
 
-            this.digest = md.digest();
-
             final long elapsedMs = System.currentTimeMillis() - markerMs;
+
+            this.result = new TcpBulkResult();
+            this.result.setDigest(md.digest());
+            this.result.setElapsedMs(elapsedMs);
+            this.result.setBytes(readBytes);
+
             LOGGER.debug("Read loop {} has finished with {} bytes in {}ms",
                 new Object[] { name, readBytes, elapsedMs });
         }
@@ -147,14 +151,14 @@ public class TcpBulkClient implements AutoCloseable {
 
         private final Random random;
 
-        private byte[] digest;
+        private TcpBulkResult result;
 
         public Producer(SocketChannel channel, String name, long limit) {
             this.channel = channel;
             this.name = name;
             this.limit = limit;
             this.random = new Random();
-            this.digest = null;
+            this.result = null;
         }
 
         @Override
@@ -198,9 +202,13 @@ public class TcpBulkClient implements AutoCloseable {
                 LOGGER.error("Exception on write", e);
             }
 
-            this.digest = md.digest();
-
             final long elapsedMs = System.currentTimeMillis() - markerMs;
+
+            this.result = new TcpBulkResult();
+            this.result.setDigest(md.digest());
+            this.result.setElapsedMs(elapsedMs);
+            this.result.setBytes(sentBytes);
+
             LOGGER.debug("Send loop {} has finished with {} bytes in {}ms",
                 new Object[] { name, sentBytes, elapsedMs });
         }
