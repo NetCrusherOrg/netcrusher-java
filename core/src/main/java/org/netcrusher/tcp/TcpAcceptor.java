@@ -45,10 +45,13 @@ class TcpAcceptor implements NetFreezer {
     private final State state;
 
     TcpAcceptor(
-            TcpCrusher crusher, NioReactor reactor,
-            InetSocketAddress bindAddress, InetSocketAddress connectAddress,
-            TcpCrusherSocketOptions socketOptions, TcpFilters filters,
-            BufferOptions bufferOptions) throws IOException
+        TcpCrusher crusher,
+        NioReactor reactor,
+        InetSocketAddress bindAddress,
+        InetSocketAddress connectAddress,
+        TcpCrusherSocketOptions socketOptions,
+        TcpFilters filters,
+        BufferOptions bufferOptions) throws IOException
     {
         this.crusher = crusher;
         this.bindAddress = bindAddress;
