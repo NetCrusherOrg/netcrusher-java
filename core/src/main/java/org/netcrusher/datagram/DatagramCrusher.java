@@ -15,7 +15,6 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -54,8 +53,6 @@ public class DatagramCrusher implements NetCrusher {
 
     private final DatagramFilters filters;
 
-    private final AtomicInteger clientTotalCount;
-
     private final DatagramClientCreation creationListener;
 
     private final DatagramClientDeletion deletionListener;
@@ -66,33 +63,35 @@ public class DatagramCrusher implements NetCrusher {
 
     private DatagramInner inner;
 
-    public DatagramCrusher(
-            NioReactor reactor,
-            InetSocketAddress bindAddress,
-            InetSocketAddress connectAddress,
-            DatagramCrusherSocketOptions socketOptions,
-            DatagramFilters filters,
-            DatagramClientCreation creationListener,
-            DatagramClientDeletion deletionListener,
-            boolean deferredListeners,
-            BufferOptions bufferOptions)
-    {
-        this.bindAddress = bindAddress;
-        this.connectAddress = connectAddress;
-        this.socketOptions = socketOptions;
-        this.reactor = reactor;
+    public DatagramCrusher(DatagramCrusherOptions options) {
+        if (options == null) {
+            throw new IllegalArgumentException("Options are not set");
+        }
+
+        options.validate();
+
+        this.filters = new DatagramFilters(
+            options.getIncomingTransformFilterFactory(),
+            options.getOutgoingTransformFilterFactory(),
+            options.getIncomingPassFilterFactory(),
+            options.getOutgoingPassFilterFactory(),
+            options.getIncomingThrottler(),
+            options.getOutgoingThrottlerFactory()
+        );
+
+        this.reactor = options.getReactor();
+        this.bindAddress = options.getBindAddress();
+        this.connectAddress = options.getConnectAddress();
+        this.socketOptions = options.getSocketOptions().copy();
+        this.bufferOptions = options.getBufferOptions().copy();
+        this.creationListener = options.getCreationListener();
+        this.deletionListener = options.getDeletionListener();
+        this.deferredListeners = options.isDeferredListeners();
+
         this.state = new State(State.CLOSED);
-        this.filters = filters;
-        this.bufferOptions = bufferOptions;
-        this.clientTotalCount = new AtomicInteger(0);
-        this.creationListener = creationListener;
-        this.deletionListener = deletionListener;
-        this.deferredListeners = deferredListeners;
     }
 
     void notifyOuterCreated(DatagramOuter outer) {
-        clientTotalCount.incrementAndGet();
-
         if (creationListener != null) {
             Runnable r = () -> creationListener.created(outer.getClientAddress());
 
@@ -116,8 +115,6 @@ public class DatagramCrusher implements NetCrusher {
                 this.inner = new DatagramInner(this,
                     reactor, socketOptions, filters, bindAddress, connectAddress, bufferOptions);
                 this.inner.unfreeze();
-
-                clientTotalCount.set(0);
 
                 LOGGER.info("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);
 
@@ -322,7 +319,13 @@ public class DatagramCrusher implements NetCrusher {
 
     @Override
     public int getClientTotalCount() {
-        return clientTotalCount.get();
+        return reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
+                return inner.getClientTotalCount();
+            } else {
+                return 0;
+            }
+        });
     }
 
     private static final class State extends BitState {

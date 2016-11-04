@@ -5,6 +5,7 @@ import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.DatagramCrusher;
 import org.netcrusher.datagram.DatagramCrusherBuilder;
+import org.netcrusher.datagram.DatagramCrusherOptions;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
@@ -31,8 +32,8 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
                 LOGGER.info("Client for <{}> is deleted", address);
                 statusClientMeters(byteMeters, packetMeters);
             })
-            .withBufferCount(Integer.getInteger("crusher.buffer.count", DatagramCrusherBuilder.DEFAULT_BUFFER_COUNT))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size", DatagramCrusherBuilder.DEFAULT_BUFFER_SIZE))
+            .withBufferCount(Integer.getInteger("crusher.buffer.count", DatagramCrusherOptions.DEFAULT_BUFFER_COUNT))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size", DatagramCrusherOptions.DEFAULT_BUFFER_SIZE))
             .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
             .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))
             .buildAndOpen();

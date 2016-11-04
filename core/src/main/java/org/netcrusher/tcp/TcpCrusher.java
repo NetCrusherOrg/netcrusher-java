@@ -71,27 +71,30 @@ public class TcpCrusher implements NetCrusher {
 
     private TcpAcceptor acceptor;
 
-    public TcpCrusher(
-        NioReactor reactor,
-        InetSocketAddress bindAddress,
-        InetSocketAddress connectAddress,
-        TcpCrusherSocketOptions socketOptions,
-        TcpFilters filters,
-        TcpClientCreation creationListener,
-        TcpClientDeletion deletionListener,
-        boolean deferredListeners,
-        BufferOptions bufferOptions)
-    {
-        this.bindAddress = bindAddress;
-        this.connectAddress = connectAddress;
-        this.reactor = reactor;
-        this.socketOptions = socketOptions;
+    public TcpCrusher(TcpCrusherOptions options) {
+        if (options == null) {
+            throw new IllegalArgumentException("Options are not set");
+        }
+
+        options.validate();
+
+        this.filters = new TcpFilters(
+            options.getIncomingTransformFilterFactory(),
+            options.getOutgoingTransformFilterFactory(),
+            options.getIncomingThrottlerFactory(),
+            options.getOutgoingThrottlerFactory()
+        );
+
+        this.reactor = options.getReactor();
+        this.bindAddress = options.getBindAddress();
+        this.connectAddress = options.getConnectAddress();
+        this.socketOptions = options.getSocketOptions().copy();
+        this.bufferOptions = options.getBufferOptions().copy();
+        this.creationListener = options.getCreationListener();
+        this.deletionListener = options.getDeletionListener();
+        this.deferredListeners = options.isDeferredListeners();
+
         this.pairs = new ConcurrentHashMap<>(DEFAULT_PAIR_CAPACITY);
-        this.filters = filters;
-        this.bufferOptions = bufferOptions;
-        this.creationListener = creationListener;
-        this.deletionListener = deletionListener;
-        this.deferredListeners = deferredListeners;
         this.clientTotalCount = new AtomicInteger(0);
         this.state = new State(State.CLOSED);
     }

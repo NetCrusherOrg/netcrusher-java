@@ -1,6 +1,5 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.filter.TransformFilterFactory;
 import org.netcrusher.core.reactor.NioReactor;
@@ -17,43 +16,10 @@ import java.net.StandardSocketOptions;
  */
 public final class TcpCrusherBuilder {
 
-    public static final int DEFAULT_BUFFER_COUNT = 64;
-
-    public static final int DEFAULT_BUFFER_SIZE = 32 * 1024;
-
-    private InetSocketAddress bindAddress;
-
-    private InetSocketAddress connectAddress;
-
-    private NioReactor reactor;
-
-    private TcpCrusherSocketOptions socketOptions;
-
-    private TcpClientCreation creationListener;
-
-    private TcpClientDeletion deletionListener;
-
-    private boolean deferredListeners;
-
-    private TransformFilterFactory incomingTransformFilterFactory;
-
-    private TransformFilterFactory outgoingTransformFilterFactory;
-
-    private ThrottlerFactory incomingThrottlerFactory;
-
-    private ThrottlerFactory outgoingThrottlerFactory;
-
-    private BufferOptions bufferOptions;
+    private final TcpCrusherOptions options;
 
     private TcpCrusherBuilder() {
-        this.socketOptions = new TcpCrusherSocketOptions();
-
-        this.bufferOptions = new BufferOptions();
-        this.bufferOptions.setCount(DEFAULT_BUFFER_COUNT);
-        this.bufferOptions.setSize(DEFAULT_BUFFER_SIZE);
-        this.bufferOptions.setDirect(true);
-
-        this.deferredListeners = true;
+        this.options = new TcpCrusherOptions();
     }
 
     /**
@@ -70,7 +36,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBindAddress(InetSocketAddress address) {
-        this.bindAddress = address;
+        this.options.setBindAddress(address);
         return this;
     }
 
@@ -81,8 +47,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBindAddress(String hostname, int port) {
-        this.bindAddress = new InetSocketAddress(hostname, port);
-        return this;
+        return withBindAddress(new InetSocketAddress(hostname, port));
     }
 
     /**
@@ -91,7 +56,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withConnectAddress(InetSocketAddress address) {
-        this.connectAddress = address;
+        this.options.setConnectAddress(address);
         return this;
     }
 
@@ -102,8 +67,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withConnectAddress(String hostname, int port) {
-        this.connectAddress = new InetSocketAddress(hostname, port);
-        return this;
+        return withConnectAddress(new InetSocketAddress(hostname, port));
     }
 
     /**
@@ -112,7 +76,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withReactor(NioReactor reactor) {
-        this.reactor = reactor;
+        this.options.setReactor(reactor);
         return this;
     }
 
@@ -122,7 +86,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withCreationListener(TcpClientCreation creationListener) {
-        this.creationListener = creationListener;
+        this.options.setCreationListener(creationListener);
         return this;
     }
 
@@ -132,7 +96,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withDeletionListener(TcpClientDeletion deletionListener) {
-        this.deletionListener = deletionListener;
+        this.options.setDeletionListener(deletionListener);
         return this;
     }
 
@@ -142,7 +106,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBacklog(int backlog) {
-        this.socketOptions.setBacklog(backlog);
+        this.options.getSocketOptions().setBacklog(backlog);
         return this;
     }
 
@@ -153,7 +117,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withKeepAlive(boolean keepAlive) {
-        this.socketOptions.setKeepAlive(keepAlive);
+        this.options.getSocketOptions().setKeepAlive(keepAlive);
         return this;
     }
 
@@ -164,7 +128,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withTcpNoDelay(boolean tcpNoDelay) {
-        this.socketOptions.setTcpNoDelay(tcpNoDelay);
+        this.options.getSocketOptions().setTcpNoDelay(tcpNoDelay);
         return this;
     }
 
@@ -175,7 +139,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withRcvBufferSize(int bufferSize) {
-        this.socketOptions.setRcvBufferSize(bufferSize);
+        this.options.getSocketOptions().setRcvBufferSize(bufferSize);
         return this;
     }
 
@@ -186,7 +150,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withSndBufferSize(int bufferSize) {
-        this.socketOptions.setSndBufferSize(bufferSize);
+        this.options.getSocketOptions().setSndBufferSize(bufferSize);
         return this;
     }
 
@@ -197,7 +161,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withLingerMs(int timeoutMs) {
-        this.socketOptions.setLingerMs(timeoutMs);
+        this.options.getSocketOptions().setLingerMs(timeoutMs);
         return this;
     }
 
@@ -207,7 +171,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withConnectionTimeoutMs(long timeoutMs) {
-        this.socketOptions.setConnectionTimeoutMs(timeoutMs);
+        this.options.getSocketOptions().setConnectionTimeoutMs(timeoutMs);
         return this;
     }
 
@@ -217,7 +181,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBufferCount(int bufferCount) {
-        this.bufferOptions.setCount(bufferCount);
+        this.options.getBufferOptions().setCount(bufferCount);
         return this;
     }
 
@@ -227,7 +191,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBufferSize(int bufferSize) {
-        this.bufferOptions.setSize(bufferSize);
+        this.options.getBufferOptions().setSize(bufferSize);
         return this;
     }
 
@@ -237,7 +201,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withBufferDirect(boolean direct) {
-        this.bufferOptions.setDirect(direct);
+        this.options.getBufferOptions().setDirect(direct);
         return this;
     }
 
@@ -248,7 +212,7 @@ public final class TcpCrusherBuilder {
      * @see TransformFilter
      */
     public TcpCrusherBuilder withOutgoingTransformFilterFactory(TransformFilterFactory filterFactory) {
-        this.outgoingTransformFilterFactory = filterFactory;
+        this.options.setOutgoingTransformFilterFactory(filterFactory);
         return this;
     }
 
@@ -259,7 +223,7 @@ public final class TcpCrusherBuilder {
      * @see TransformFilter
      */
     public TcpCrusherBuilder withIncomingTransformFilterFactory(TransformFilterFactory filterFactory) {
-        this.incomingTransformFilterFactory = filterFactory;
+        this.options.setIncomingTransformFilterFactory(filterFactory);
         return this;
     }
 
@@ -270,7 +234,7 @@ public final class TcpCrusherBuilder {
      * @see Throttler
      */
     public TcpCrusherBuilder withOutgoingThrottlerFactory(ThrottlerFactory throttlerFactory) {
-        this.outgoingThrottlerFactory = throttlerFactory;
+        this.options.setOutgoingThrottlerFactory(throttlerFactory);
         return this;
     }
 
@@ -281,7 +245,7 @@ public final class TcpCrusherBuilder {
      * @see Throttler
      */
     public TcpCrusherBuilder withIncomingThrottlerFactory(ThrottlerFactory throttlerFactory) {
-        this.incomingThrottlerFactory = throttlerFactory;
+        this.options.setIncomingThrottlerFactory(throttlerFactory);
         return this;
     }
 
@@ -291,7 +255,7 @@ public final class TcpCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public TcpCrusherBuilder withDeferredListeners(boolean deferredListeners) {
-        this.deferredListeners = deferredListeners;
+        this.options.setDeferredListeners(deferredListeners);
         return this;
     }
 
@@ -300,33 +264,7 @@ public final class TcpCrusherBuilder {
      * @return TcpCrusher instance
      */
     public TcpCrusher build() {
-        if (bindAddress == null) {
-            throw new IllegalArgumentException("Bind address is not set");
-        }
-
-        if (connectAddress == null) {
-            throw new IllegalArgumentException("Connect address is not set");
-        }
-
-        if (reactor == null) {
-            throw new IllegalArgumentException("Reactor is not set");
-        }
-
-        TcpFilters filters = new TcpFilters(
-            incomingTransformFilterFactory, outgoingTransformFilterFactory,
-            incomingThrottlerFactory, outgoingThrottlerFactory);
-
-        return new TcpCrusher(
-            reactor,
-            bindAddress,
-            connectAddress,
-            socketOptions.copy(),
-            filters,
-            creationListener,
-            deletionListener,
-            deferredListeners,
-            bufferOptions.copy()
-        );
+        return new TcpCrusher(options);
     }
 
     /**

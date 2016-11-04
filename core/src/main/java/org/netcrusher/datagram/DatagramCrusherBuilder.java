@@ -1,6 +1,5 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.PassFilter;
 import org.netcrusher.core.filter.PassFilterFactory;
 import org.netcrusher.core.filter.TransformFilter;
@@ -21,47 +20,10 @@ import java.net.StandardSocketOptions;
  */
 public final class DatagramCrusherBuilder {
 
-    public static final int DEFAULT_BUFFER_COUNT = 1024;
-
-    public static final int DEFAULT_BUFFER_SIZE = 8192;
-
-    private InetSocketAddress bindAddress;
-
-    private InetSocketAddress connectAddress;
-
-    private NioReactor reactor;
-
-    private DatagramCrusherSocketOptions socketOptions;
-
-    private DatagramClientCreation creationListener;
-
-    private DatagramClientDeletion deletionListener;
-
-    private boolean deferredListeners;
-
-    private TransformFilterFactory incomingTransformFilterFactory;
-
-    private TransformFilterFactory outgoingTransformFilterFactory;
-
-    private PassFilterFactory incomingPassFilterFactory;
-
-    private PassFilterFactory outgoingPassFilterFactory;
-
-    private Throttler incomingThrottler;
-
-    private ThrottlerFactory outgoingThrottlerFactory;
-
-    private BufferOptions bufferOptions;
+    private final DatagramCrusherOptions options;
 
     private DatagramCrusherBuilder() {
-        this.socketOptions = new DatagramCrusherSocketOptions();
-
-        this.bufferOptions = new BufferOptions();
-        this.bufferOptions.setCount(DEFAULT_BUFFER_COUNT);
-        this.bufferOptions.setSize(DEFAULT_BUFFER_SIZE);
-        this.bufferOptions.setDirect(true);
-
-        this.deferredListeners = true;
+        this.options = new DatagramCrusherOptions();
     }
 
     /**
@@ -78,7 +40,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withBindAddress(InetSocketAddress address) {
-        this.bindAddress = address;
+        this.options.setBindAddress(address);
         return this;
     }
 
@@ -89,8 +51,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withBindAddress(String hostname, int port) {
-        this.bindAddress = new InetSocketAddress(hostname, port);
-        return this;
+        return withBindAddress(new InetSocketAddress(hostname, port));
     }
 
     /**
@@ -99,7 +60,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withConnectAddress(InetSocketAddress address) {
-        this.connectAddress = address;
+        this.options.setConnectAddress(address);
         return this;
     }
 
@@ -110,8 +71,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withConnectAddress(String hostname, int port) {
-        this.connectAddress = new InetSocketAddress(hostname, port);
-        return this;
+        return withConnectAddress(new InetSocketAddress(hostname, port));
     }
 
     /**
@@ -120,7 +80,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withReactor(NioReactor reactor) {
-        this.reactor = reactor;
+        this.options.setReactor(reactor);
         return this;
     }
 
@@ -133,7 +93,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withBroadcast(boolean broadcast) {
-        this.socketOptions.setBroadcast(broadcast);
+        this.options.getSocketOptions().setBroadcast(broadcast);
         return this;
     }
 
@@ -144,7 +104,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withProtocolFamily(ProtocolFamily protocolFamily) {
-        this.socketOptions.setProtocolFamily(protocolFamily);
+        this.options.getSocketOptions().setProtocolFamily(protocolFamily);
         return this;
     }
 
@@ -155,7 +115,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withRcvBufferSize(int bufferSize) {
-        this.socketOptions.setRcvBufferSize(bufferSize);
+        this.options.getSocketOptions().setRcvBufferSize(bufferSize);
         return this;
     }
 
@@ -166,7 +126,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withSndBufferSize(int bufferSize) {
-        this.socketOptions.setSndBufferSize(bufferSize);
+        this.options.getSocketOptions().setSndBufferSize(bufferSize);
         return this;
     }
 
@@ -176,7 +136,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withBufferCount(int bufferCount) {
-        this.bufferOptions.setCount(bufferCount);
+        this.options.getBufferOptions().setCount(bufferCount);
         return this;
     }
 
@@ -186,7 +146,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withBufferSize(int bufferSize) {
-        this.bufferOptions.setSize(bufferSize);
+        this.options.getBufferOptions().setSize(bufferSize);
         return this;
     }
 
@@ -196,7 +156,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withBufferDirect(boolean direct) {
-        this.bufferOptions.setDirect(direct);
+        this.options.getBufferOptions().setDirect(direct);
         return this;
     }
 
@@ -207,7 +167,7 @@ public final class DatagramCrusherBuilder {
      * @see TransformFilter
      */
     public DatagramCrusherBuilder withOutgoingTransformFilterFactory(TransformFilterFactory filterFactory) {
-        this.outgoingTransformFilterFactory = filterFactory;
+        this.options.setOutgoingTransformFilterFactory(filterFactory);
         return this;
     }
 
@@ -218,7 +178,7 @@ public final class DatagramCrusherBuilder {
      * @see TransformFilter
      */
     public DatagramCrusherBuilder withIncomingTransformFilterFactory(TransformFilterFactory filterFactory) {
-        this.incomingTransformFilterFactory = filterFactory;
+        this.options.setIncomingTransformFilterFactory(filterFactory);
         return this;
     }
 
@@ -229,7 +189,7 @@ public final class DatagramCrusherBuilder {
      * @see PassFilter
      */
     public DatagramCrusherBuilder withOutgoingPassFilterFactory(PassFilterFactory filterFactory) {
-        this.outgoingPassFilterFactory = filterFactory;
+        this.options.setOutgoingPassFilterFactory(filterFactory);
         return this;
     }
 
@@ -240,7 +200,7 @@ public final class DatagramCrusherBuilder {
      * @see PassFilter
      */
     public DatagramCrusherBuilder withIncomingPassFilterFactory(PassFilterFactory filterFactory) {
-        this.incomingPassFilterFactory = filterFactory;
+        this.options.setIncomingPassFilterFactory(filterFactory);
         return this;
     }
 
@@ -251,7 +211,7 @@ public final class DatagramCrusherBuilder {
      * @see Throttler
      */
     public DatagramCrusherBuilder withOutgoingThrottlerFactory(ThrottlerFactory throttlerFactory) {
-        this.outgoingThrottlerFactory = throttlerFactory;
+        this.options.setOutgoingThrottlerFactory(throttlerFactory);
         return this;
     }
 
@@ -263,7 +223,7 @@ public final class DatagramCrusherBuilder {
      * @see Throttler
      */
     public DatagramCrusherBuilder withIncomingThrottler(Throttler throttler) {
-        this.incomingThrottler = throttler;
+        this.options.setIncomingThrottler(throttler);
         return this;
     }
 
@@ -273,7 +233,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withCreationListener(DatagramClientCreation creationListener) {
-        this.creationListener = creationListener;
+        this.options.setCreationListener(creationListener);
         return this;
     }
 
@@ -283,7 +243,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withDeletionListener(DatagramClientDeletion deletionListener) {
-        this.deletionListener = deletionListener;
+        this.options.setDeletionListener(deletionListener);
         return this;
     }
 
@@ -293,7 +253,7 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      */
     public DatagramCrusherBuilder withDeferredListeners(boolean deferredListeners) {
-        this.deferredListeners = deferredListeners;
+        this.options.setDeferredListeners(deferredListeners);
         return this;
     }
 
@@ -302,38 +262,7 @@ public final class DatagramCrusherBuilder {
      * @return DatagramCrusher instance
      */
     public DatagramCrusher build() {
-        if (bindAddress == null) {
-            throw new IllegalArgumentException("Bind address is not set");
-        }
-
-        if (connectAddress == null) {
-            throw new IllegalArgumentException("Connect address is not set");
-        }
-
-        if (reactor == null) {
-            throw new IllegalArgumentException("Reactor is not set");
-        }
-
-        DatagramFilters filters = new DatagramFilters(
-            incomingTransformFilterFactory,
-            outgoingTransformFilterFactory,
-            incomingPassFilterFactory,
-            outgoingPassFilterFactory,
-            incomingThrottler,
-            outgoingThrottlerFactory
-        );
-
-        return new DatagramCrusher(
-            reactor,
-            bindAddress,
-            connectAddress,
-            socketOptions.copy(),
-            filters,
-            creationListener,
-            deletionListener,
-            deferredListeners,
-            bufferOptions.copy()
-        );
+        return new DatagramCrusher(options);
     }
 
     /**

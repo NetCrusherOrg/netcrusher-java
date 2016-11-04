@@ -1,12 +1,13 @@
 package org.netcrusher.core.filter;
 
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 
 /**
  * Datagram filter factory
  */
 @FunctionalInterface
-public interface PassFilterFactory {
+public interface PassFilterFactory extends Serializable {
 
     /**
      * Allocates pass filter for the specified client address

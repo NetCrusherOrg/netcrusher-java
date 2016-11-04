@@ -1,12 +1,13 @@
 package org.netcrusher.core.throttle;
 
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 
 /**
  * Throttler factory
  */
 @FunctionalInterface
-public interface ThrottlerFactory {
+public interface ThrottlerFactory extends Serializable {
 
     /**
      * Allocates throttler for the specified client address

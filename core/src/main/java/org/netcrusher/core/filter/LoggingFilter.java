@@ -18,9 +18,9 @@ public class LoggingFilter implements TransformFilter {
 
     private final Logger logger;
 
-    private final LoggingFilterLevel level;
+    private final Level level;
 
-    public LoggingFilter(InetSocketAddress clientAddress, String loggerName, LoggingFilterLevel level) {
+    public LoggingFilter(InetSocketAddress clientAddress, String loggerName, Level level) {
         this.logger = LoggerFactory.getLogger(loggerName);
         this.clientAddress = clientAddress;
         this.level = level;
@@ -106,5 +106,19 @@ public class LoggingFilter implements TransformFilter {
         }
 
         return hex;
+    }
+
+    public enum Level {
+
+        TRACE,
+
+        DEBUG,
+
+        INFO,
+
+        WARN,
+
+        ERROR
+
     }
 }

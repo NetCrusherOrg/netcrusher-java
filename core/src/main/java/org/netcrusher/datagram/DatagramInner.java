@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class DatagramInner {
 
@@ -301,21 +302,6 @@ class DatagramInner {
         }
     }
 
-    private DatagramOuter requestOuter(InetSocketAddress address) throws IOException {
-        DatagramOuter outer = outers.get(address);
-
-        if (outer == null) {
-            outer = new DatagramOuter(this, reactor, socketOptions, filters, bufferOptions, address, connectAddress);
-            outer.unfreeze();
-
-            outers.put(address, outer);
-
-            crusher.notifyOuterCreated(outer);
-        }
-
-        return outer;
-    }
-
     void enqueue(InetSocketAddress clientAddress, ByteBuffer bbToCopy) throws IOException {
         final Throttler throttler = this.filters.getIncomingThrottler();
 
@@ -359,6 +345,23 @@ class DatagramInner {
                 this.selectionKeyControl.enableWrites();
             }
         }
+    }
+
+    private DatagramOuter requestOuter(InetSocketAddress address) throws IOException {
+        DatagramOuter outer = outers.get(address);
+
+        if (outer == null) {
+            outer = new DatagramOuter(this, reactor, socketOptions, filters, bufferOptions, address, connectAddress);
+            outer.unfreeze();
+
+            outers.put(address, outer);
+
+            meters.clientTotalCount.incrementAndGet();
+
+            crusher.notifyOuterCreated(outer);
+        }
+
+        return outer;
     }
 
     boolean closeOuter(InetSocketAddress clientAddress) {
@@ -414,6 +417,10 @@ class DatagramInner {
         return new RateMeters(meters.readPackets, meters.sentPackets);
     }
 
+    int getClientTotalCount() {
+        return meters.clientTotalCount.get();
+    }
+
     private static final class State extends BitState {
 
         private static final int OPEN = bit(0);
@@ -456,11 +463,14 @@ class DatagramInner {
 
         private final RateMeterImpl readPackets;
 
+        private final AtomicInteger clientTotalCount;
+
         private Meters() {
             this.sentBytes = new RateMeterImpl();
             this.readBytes = new RateMeterImpl();
             this.sentPackets = new RateMeterImpl();
             this.readPackets = new RateMeterImpl();
+            this.clientTotalCount = new AtomicInteger(0);
         }
     }
 
