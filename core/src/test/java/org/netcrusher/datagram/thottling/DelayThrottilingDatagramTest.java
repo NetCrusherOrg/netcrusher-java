@@ -49,7 +49,8 @@ public class DelayThrottilingDatagramTest {
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
             .withIncomingThrottler(new DelayThrottler(500, TimeUnit.MILLISECONDS))
-            .withOutgoingThrottler(new DelayThrottler(500, TimeUnit.MILLISECONDS))
+            .withOutgoingThrottlerFactory((addr) ->
+                new DelayThrottler(500, TimeUnit.MILLISECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
@@ -72,7 +73,7 @@ public class DelayThrottilingDatagramTest {
     public void test() throws Exception {
         CyclicBarrier barrier = new CyclicBarrier(3);
 
-        DatagramBulkClient client = new DatagramBulkClient("CLIENT",
+        DatagramBulkClient client = new DatagramBulkClient("CLIENT_DELAYED",
             new InetSocketAddress(HOSTNAME, CLIENT_PORT),
             new InetSocketAddress(HOSTNAME, CRUSHER_PORT),
             COUNT,
@@ -85,18 +86,19 @@ public class DelayThrottilingDatagramTest {
             barrier);
 
         reflector.open();
-        client.open();
-
         try {
-            final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
-            final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
+            client.open();
+            try {
+                final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
+                final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
+                final byte[] reflectorDigest = reflector.awaitReflectorResult(READ_WAIT_MS).getDigest();
 
-            final byte[] reflectorDigest = reflector.awaitReflectorResult(READ_WAIT_MS).getDigest();
-
-            Assert.assertArrayEquals(producerDigest, consumerDigest);
-            Assert.assertArrayEquals(producerDigest, reflectorDigest);
+                Assert.assertArrayEquals(producerDigest, consumerDigest);
+                Assert.assertArrayEquals(producerDigest, reflectorDigest);
+            } finally {
+                NioUtils.close(client);
+            }
         } finally {
-            NioUtils.close(client);
             NioUtils.close(reflector);
         }
     }

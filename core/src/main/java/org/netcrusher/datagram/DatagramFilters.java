@@ -1,58 +1,62 @@
 package org.netcrusher.datagram;
 
-import org.netcrusher.core.filter.PassFilter;
-import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.filter.PassFilterFactory;
+import org.netcrusher.core.filter.TransformFilterFactory;
 import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.core.throttle.ThrottlerFactory;
 
 public final class DatagramFilters {
 
-    private final TransformFilter incomingTransformFilter;
+    private final TransformFilterFactory incomingTransformFilterFactory;
 
-    private final TransformFilter outgoingTransformFilter;
+    private final TransformFilterFactory outgoingTransformFilterFactory;
 
-    private final PassFilter incomingPassFilter;
+    private final PassFilterFactory incomingPassFilterFactory;
 
-    private final PassFilter outgoingPassFilter;
+    private final PassFilterFactory outgoingPassFilterFactory;
 
     private final Throttler incomingThrottler;
 
-    private final Throttler outgoingThrottler;
+    private final ThrottlerFactory outgoingThrottlerFactory;
 
     public DatagramFilters(
-            TransformFilter incomingTransformFilter, TransformFilter outgoingTransformFilter,
-            PassFilter incomingPassFilter, PassFilter outgoingPassFilter,
-            Throttler incomingThrottler, Throttler outgoingThrottler)
+        TransformFilterFactory incomingTransformFilterFactory,
+        TransformFilterFactory outgoingTransformFilterFactory,
+        PassFilterFactory incomingPassFilterFactory,
+        PassFilterFactory outgoingPassFilterFactory,
+        Throttler incomingThrottler,
+        ThrottlerFactory outgoingThrottlerFactory)
     {
-        this.incomingTransformFilter = incomingTransformFilter;
-        this.outgoingTransformFilter = outgoingTransformFilter;
-        this.incomingPassFilter = incomingPassFilter;
-        this.outgoingPassFilter = outgoingPassFilter;
+        this.incomingTransformFilterFactory = incomingTransformFilterFactory;
+        this.outgoingTransformFilterFactory = outgoingTransformFilterFactory;
+        this.incomingPassFilterFactory = incomingPassFilterFactory;
+        this.outgoingPassFilterFactory = outgoingPassFilterFactory;
         this.incomingThrottler = incomingThrottler;
-        this.outgoingThrottler = outgoingThrottler;
+        this.outgoingThrottlerFactory = outgoingThrottlerFactory;
     }
 
-    public TransformFilter getIncomingTransformFilter() {
-        return incomingTransformFilter;
+    public TransformFilterFactory getIncomingTransformFilterFactory() {
+        return incomingTransformFilterFactory;
     }
 
-    public TransformFilter getOutgoingTransformFilter() {
-        return outgoingTransformFilter;
+    public TransformFilterFactory getOutgoingTransformFilterFactory() {
+        return outgoingTransformFilterFactory;
     }
 
-    public PassFilter getIncomingPassFilter() {
-        return incomingPassFilter;
+    public PassFilterFactory getIncomingPassFilterFactory() {
+        return incomingPassFilterFactory;
     }
 
-    public PassFilter getOutgoingPassFilter() {
-        return outgoingPassFilter;
+    public PassFilterFactory getOutgoingPassFilterFactory() {
+        return outgoingPassFilterFactory;
     }
 
     public Throttler getIncomingThrottler() {
         return incomingThrottler;
     }
 
-    public Throttler getOutgoingThrottler() {
-        return outgoingThrottler;
+    public ThrottlerFactory getOutgoingThrottlerFactory() {
+        return outgoingThrottlerFactory;
     }
 }
 

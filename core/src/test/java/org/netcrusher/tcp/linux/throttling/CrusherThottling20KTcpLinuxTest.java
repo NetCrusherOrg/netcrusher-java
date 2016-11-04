@@ -35,7 +35,7 @@ public class CrusherThottling20KTcpLinuxTest extends AbstractTcpLinuxTest {
             .withBufferCount(32)
             .withRcvBufferSize(20_000)
             .withSndBufferSize(20_000)
-            .withOutgoingThrottler(new ByteRateThrottler(20_000, 1, TimeUnit.SECONDS))
+            .withOutgoingThrottlerFactory((addr) -> new ByteRateThrottler(20_000, 1, TimeUnit.SECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();

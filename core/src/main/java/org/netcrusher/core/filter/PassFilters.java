@@ -1,5 +1,8 @@
 package org.netcrusher.core.filter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public final class PassFilters {
 
     private PassFilters() {
@@ -7,41 +10,57 @@ public final class PassFilters {
 
     /**
      * All filters should return true
-     * @param filters Filters
+     * @param filterFactories Filter factories
      * @return Combined filter
      */
-    public static PassFilter all(final PassFilter... filters) {
-        if (filters == null || filters.length == 0) {
+    public static PassFilterFactory all(final PassFilterFactory... filterFactories) {
+        if (filterFactories == null || filterFactories.length == 0) {
             throw new IllegalArgumentException("Filter array is empty");
         }
 
-        return (clientAddress, bb) -> {
-            for (PassFilter filter : filters) {
-                if (!filter.check(clientAddress, bb)) {
-                    return false;
-                }
+        return (clientAddress) -> {
+            final List<PassFilter> filters = new ArrayList<>(filterFactories.length);
+
+            for (PassFilterFactory factory : filterFactories) {
+                filters.add(factory.allocate(clientAddress));
             }
-            return true;
+
+            return (bb) -> {
+                for (PassFilter filter : filters) {
+                    if (!filter.check(bb)) {
+                        return false;
+                    }
+                }
+                return true;
+            };
         };
     }
 
     /**
      * At least one filter should return true
-     * @param filters Filters
+     * @param filterFactories Filter factories
      * @return Combined filter
      */
-    public static PassFilter one(final PassFilter... filters) {
-        if (filters == null || filters.length == 0) {
+    public static PassFilterFactory one(final PassFilterFactory... filterFactories) {
+        if (filterFactories == null || filterFactories.length == 0) {
             throw new IllegalArgumentException("Filter array is empty");
         }
 
-        return (clientAddress, bb) -> {
-            for (PassFilter filter : filters) {
-                if (filter.check(clientAddress, bb)) {
-                    return true;
-                }
+        return (clientAddress) -> {
+            final List<PassFilter> filters = new ArrayList<>(filterFactories.length);
+
+            for (PassFilterFactory factory : filterFactories) {
+                filters.add(factory.allocate(clientAddress));
             }
-            return false;
+
+            return (bb) -> {
+                for (PassFilter filter : filters) {
+                    if (filter.check(bb)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
         };
     }
 }

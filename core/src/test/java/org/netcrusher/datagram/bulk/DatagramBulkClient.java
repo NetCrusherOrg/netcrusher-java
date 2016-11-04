@@ -268,7 +268,7 @@ public class DatagramBulkClient implements AutoCloseable {
 
                     bb.rewind();
 
-                    long delayNs = throttler.calculateDelayNs(null, bb);
+                    long delayNs = throttler.calculateDelayNs(bb);
                     if (delayNs > 0) {
                         LOGGER.trace("Sent loop will be suspended on {} ns", delayNs);
 

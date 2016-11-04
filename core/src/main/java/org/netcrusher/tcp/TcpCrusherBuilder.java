@@ -2,8 +2,10 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.filter.TransformFilterFactory;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.core.throttle.ThrottlerFactory;
 import org.netcrusher.tcp.callback.TcpClientCreation;
 import org.netcrusher.tcp.callback.TcpClientDeletion;
 
@@ -33,13 +35,13 @@ public final class TcpCrusherBuilder {
 
     private boolean deferredListeners;
 
-    private TransformFilter incomingTransformFilter;
+    private TransformFilterFactory incomingTransformFilterFactory;
 
-    private TransformFilter outgoingTransformFilter;
+    private TransformFilterFactory outgoingTransformFilterFactory;
 
-    private Throttler incomingThrottler;
+    private ThrottlerFactory incomingThrottlerFactory;
 
-    private Throttler outgoingThrottler;
+    private ThrottlerFactory outgoingThrottlerFactory;
 
     private BufferOptions bufferOptions;
 
@@ -240,46 +242,46 @@ public final class TcpCrusherBuilder {
     }
 
     /**
-     * Set outgoing (from the inner to the outer) transform filter
-     * @param filter Filter instance
+     * Set outgoing (from the inner to the outer) transform filter factory
+     * @param filterFactory Filter factory
      * @return This builder instance to chain with other methods
      * @see TransformFilter
      */
-    public TcpCrusherBuilder withOutgoingTransformFilter(TransformFilter filter) {
-        this.outgoingTransformFilter = filter;
+    public TcpCrusherBuilder withOutgoingTransformFilterFactory(TransformFilterFactory filterFactory) {
+        this.outgoingTransformFilterFactory = filterFactory;
         return this;
     }
 
     /**
-     * Set incoming (from the outer to the inner) transform filter
-     * @param filter Filter instance
+     * Set incoming (from the outer to the inner) transform filter factory
+     * @param filterFactory Filter factory
      * @return This builder instance to chain with other methods
      * @see TransformFilter
      */
-    public TcpCrusherBuilder withIncomingTransformFilter(TransformFilter filter) {
-        this.incomingTransformFilter = filter;
+    public TcpCrusherBuilder withIncomingTransformFilterFactory(TransformFilterFactory filterFactory) {
+        this.incomingTransformFilterFactory = filterFactory;
         return this;
     }
 
     /**
-     * Set outgoing (from the inner to the outer) throttling strategy
-     * @param throttler Throttler strategy
+     * Set outgoing (from the inner to the outer) throttler factory
+     * @param throttlerFactory Throttler factory
      * @return This builder instance to chain with other methods
      * @see Throttler
      */
-    public TcpCrusherBuilder withOutgoingThrottler(Throttler throttler) {
-        this.outgoingThrottler = throttler;
+    public TcpCrusherBuilder withOutgoingThrottlerFactory(ThrottlerFactory throttlerFactory) {
+        this.outgoingThrottlerFactory = throttlerFactory;
         return this;
     }
 
     /**
-     * Set incoming (from the outer to the inner) throttling strategy
-     * @param throttler Throttler strategy
+     * Set incoming (from the outer to the inner) throttler factory
+     * @param throttlerFactory Throttler factory
      * @return This builder instance to chain with other methods
      * @see Throttler
      */
-    public TcpCrusherBuilder withIncomingThrottler(Throttler throttler) {
-        this.incomingThrottler = throttler;
+    public TcpCrusherBuilder withIncomingThrottlerFactory(ThrottlerFactory throttlerFactory) {
+        this.incomingThrottlerFactory = throttlerFactory;
         return this;
     }
 
@@ -311,8 +313,8 @@ public final class TcpCrusherBuilder {
         }
 
         TcpFilters filters = new TcpFilters(
-            incomingTransformFilter, outgoingTransformFilter,
-            incomingThrottler, outgoingThrottler);
+            incomingTransformFilterFactory, outgoingTransformFilterFactory,
+            incomingThrottlerFactory, outgoingThrottlerFactory);
 
         return new TcpCrusher(
             reactor,

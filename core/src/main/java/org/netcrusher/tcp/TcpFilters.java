@@ -1,42 +1,44 @@
 package org.netcrusher.tcp;
 
-import org.netcrusher.core.filter.TransformFilter;
-import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.core.filter.TransformFilterFactory;
+import org.netcrusher.core.throttle.ThrottlerFactory;
 
 public class TcpFilters {
 
-    private final TransformFilter incomingTransformFilter;
+    private final TransformFilterFactory incomingTransformFilterFactory;
 
-    private final TransformFilter outgoingTransformFilter;
+    private final TransformFilterFactory outgoingTransformFilterFactory;
 
-    private final Throttler incomingThrottler;
+    private final ThrottlerFactory incomingThrottlerFactory;
 
-    private final Throttler outgoingThrottler;
+    private final ThrottlerFactory outgoingThrottlerFactory;
 
     public TcpFilters(
-            TransformFilter incomingTransformFilter, TransformFilter outgoingTransformFilter,
-            Throttler incomingThrottler, Throttler outgoingThrottler)
+        TransformFilterFactory incomingTransformFilterFactory,
+        TransformFilterFactory outgoingTransformFilterFactory,
+        ThrottlerFactory incomingThrottlerFactory,
+        ThrottlerFactory outgoingThrottlerFactory)
     {
-        this.incomingTransformFilter = incomingTransformFilter;
-        this.outgoingTransformFilter = outgoingTransformFilter;
-        this.incomingThrottler = incomingThrottler;
-        this.outgoingThrottler = outgoingThrottler;
+        this.incomingTransformFilterFactory = incomingTransformFilterFactory;
+        this.outgoingTransformFilterFactory = outgoingTransformFilterFactory;
+        this.incomingThrottlerFactory = incomingThrottlerFactory;
+        this.outgoingThrottlerFactory = outgoingThrottlerFactory;
     }
 
-    public TransformFilter getIncomingTransformFilter() {
-        return incomingTransformFilter;
+    public TransformFilterFactory getIncomingTransformFilterFactory() {
+        return incomingTransformFilterFactory;
     }
 
-    public TransformFilter getOutgoingTransformFilter() {
-        return outgoingTransformFilter;
+    public TransformFilterFactory getOutgoingTransformFilterFactory() {
+        return outgoingTransformFilterFactory;
     }
 
-    public Throttler getIncomingThrottler() {
-        return incomingThrottler;
+    public ThrottlerFactory getIncomingThrottlerFactory() {
+        return incomingThrottlerFactory;
     }
 
-    public Throttler getOutgoingThrottler() {
-        return outgoingThrottler;
+    public ThrottlerFactory getOutgoingThrottlerFactory() {
+        return outgoingThrottlerFactory;
     }
 }
 

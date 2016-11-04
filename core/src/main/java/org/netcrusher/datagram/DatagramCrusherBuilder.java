@@ -2,9 +2,12 @@ package org.netcrusher.datagram;
 
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.PassFilter;
+import org.netcrusher.core.filter.PassFilterFactory;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.filter.TransformFilterFactory;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.core.throttle.ThrottlerFactory;
 import org.netcrusher.datagram.callback.DatagramClientCreation;
 import org.netcrusher.datagram.callback.DatagramClientDeletion;
 
@@ -36,17 +39,17 @@ public final class DatagramCrusherBuilder {
 
     private boolean deferredListeners;
 
-    private TransformFilter incomingTransformFilter;
+    private TransformFilterFactory incomingTransformFilterFactory;
 
-    private TransformFilter outgoingTransformFilter;
+    private TransformFilterFactory outgoingTransformFilterFactory;
 
-    private PassFilter incomingPassFilter;
+    private PassFilterFactory incomingPassFilterFactory;
 
-    private PassFilter outgoingPassFilter;
+    private PassFilterFactory outgoingPassFilterFactory;
 
     private Throttler incomingThrottler;
 
-    private Throttler outgoingThrottler;
+    private ThrottlerFactory outgoingThrottlerFactory;
 
     private BufferOptions bufferOptions;
 
@@ -198,62 +201,63 @@ public final class DatagramCrusherBuilder {
     }
 
     /**
-     * Set outgoing (from the inner to the outer) transform filter
-     * @param filter Filter instance
+     * Set outgoing (from the inner to the outer) transform filter factory
+     * @param filterFactory Filter factory
      * @return This builder instance to chain with other methods
      * @see TransformFilter
      */
-    public DatagramCrusherBuilder withOutgoingTransformFilter(TransformFilter filter) {
-        this.outgoingTransformFilter = filter;
+    public DatagramCrusherBuilder withOutgoingTransformFilterFactory(TransformFilterFactory filterFactory) {
+        this.outgoingTransformFilterFactory = filterFactory;
         return this;
     }
 
     /**
-     * Set incoming (from the outer to the inner) transform filter
-     * @param filter Filter instance
+     * Set incoming (from the outer to the inner) transform filter factory
+     * @param filterFactory Filter factory
      * @return This builder instance to chain with other methods
      * @see TransformFilter
      */
-    public DatagramCrusherBuilder withIncomingTransformFilter(TransformFilter filter) {
-        this.incomingTransformFilter = filter;
+    public DatagramCrusherBuilder withIncomingTransformFilterFactory(TransformFilterFactory filterFactory) {
+        this.incomingTransformFilterFactory = filterFactory;
         return this;
     }
 
     /**
-     * Set outgoing (from the inner to the outer) pass filter
-     * @param filter Filter instance
+     * Set outgoing (from the inner to the outer) pass filter factory
+     * @param filterFactory Filter factory
      * @return This builder instance to chain with other methods
      * @see PassFilter
      */
-    public DatagramCrusherBuilder withOutgoingPassFilter(PassFilter filter) {
-        this.outgoingPassFilter = filter;
+    public DatagramCrusherBuilder withOutgoingPassFilterFactory(PassFilterFactory filterFactory) {
+        this.outgoingPassFilterFactory = filterFactory;
         return this;
     }
 
     /**
-     * Set incoming (from the outer to the inner) pass filter
-     * @param filter Filter instance
+     * Set incoming (from the outer to the inner) pass filter factory
+     * @param filterFactory Filter factory
      * @return This builder instance to chain with other methods
      * @see PassFilter
      */
-    public DatagramCrusherBuilder withIncomingPassFilter(PassFilter filter) {
-        this.incomingPassFilter = filter;
+    public DatagramCrusherBuilder withIncomingPassFilterFactory(PassFilterFactory filterFactory) {
+        this.incomingPassFilterFactory = filterFactory;
         return this;
     }
 
     /**
-     * Set outgoing (from the inner to the outer) throttling strategy
-     * @param throttler Throttler strategy
+     * Set outgoing (from the inner to the outer) throttling factory
+     * @param throttlerFactory Throttler factory
      * @return This builder instance to chain with other methods
      * @see Throttler
      */
-    public DatagramCrusherBuilder withOutgoingThrottler(Throttler throttler) {
-        this.outgoingThrottler = throttler;
+    public DatagramCrusherBuilder withOutgoingThrottlerFactory(ThrottlerFactory throttlerFactory) {
+        this.outgoingThrottlerFactory = throttlerFactory;
         return this;
     }
 
     /**
-     * Set incoming (from the outer to the inner) throttling strategy
+     * Set incoming (from the outer to the inner) throttler. For datagram crusher incoming throttler works on
+     * the total incoming packet stream not the individual channel streams.
      * @param throttler Throttler strategy
      * @return This builder instance to chain with other methods
      * @see Throttler
@@ -311,9 +315,12 @@ public final class DatagramCrusherBuilder {
         }
 
         DatagramFilters filters = new DatagramFilters(
-            incomingTransformFilter, outgoingTransformFilter,
-            incomingPassFilter, outgoingPassFilter,
-            incomingThrottler, outgoingThrottler
+            incomingTransformFilterFactory,
+            outgoingTransformFilterFactory,
+            incomingPassFilterFactory,
+            outgoingPassFilterFactory,
+            incomingThrottler,
+            outgoingThrottlerFactory
         );
 
         return new DatagramCrusher(

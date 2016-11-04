@@ -37,6 +37,8 @@ class DatagramInner {
 
     private final DatagramFilters filters;
 
+    private final Meters meters;
+
     private final InetSocketAddress bindAddress;
 
     private final InetSocketAddress connectAddress;
@@ -50,14 +52,6 @@ class DatagramInner {
     private final Map<InetSocketAddress, DatagramOuter> outers;
 
     private final DatagramQueue incoming;
-
-    private final RateMeterImpl sentByteMeter;
-
-    private final RateMeterImpl readByteMeter;
-
-    private final RateMeterImpl sentPacketMeter;
-
-    private final RateMeterImpl readPacketMeter;
 
     private final BufferOptions bufferOptions;
 
@@ -81,11 +75,7 @@ class DatagramInner {
         this.outers = new ConcurrentHashMap<>(DEFAULT_OUTER_CAPACITY);
         this.incoming = new DatagramQueue(bufferOptions);
         this.bufferOptions = bufferOptions;
-
-        this.sentByteMeter = new RateMeterImpl();
-        this.readByteMeter = new RateMeterImpl();
-        this.sentPacketMeter = new RateMeterImpl();
-        this.readPacketMeter = new RateMeterImpl();
+        this.meters = new Meters();
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
@@ -257,8 +247,8 @@ class DatagramInner {
                     incoming.release(entry);
                 }
 
-                sentByteMeter.update(sent);
-                sentPacketMeter.increment();
+                meters.sentBytes.update(sent);
+                meters.sentPackets.increment();
 
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Send {} bytes to client <{}>", sent, entry.getAddress());
@@ -291,8 +281,8 @@ class DatagramInner {
                 LOGGER.trace("Received {} bytes from inner <{}>", read, address);
             }
 
-            readByteMeter.update(read);
-            readPacketMeter.increment();
+            meters.readBytes.update(read);
+            meters.readPackets.increment();
 
             DatagramOuter outer = requestOuter(address);
             outer.enqueue(bb);
@@ -327,36 +317,18 @@ class DatagramInner {
     }
 
     void enqueue(InetSocketAddress clientAddress, ByteBuffer bbToCopy) throws IOException {
-        final boolean passed = filter(clientAddress, bbToCopy);
-        if (passed) {
-            final Throttler throttler = this.filters.getIncomingThrottler();
+        final Throttler throttler = this.filters.getIncomingThrottler();
 
-            final long delayNs;
-            if (throttler != null) {
-                delayNs = throttler.calculateDelayNs(clientAddress, bbToCopy);
-            } else {
-                delayNs = Throttler.NO_DELAY_NS;
-            }
-
-            incoming.add(clientAddress, bbToCopy, delayNs);
-            suggestImmediateSent();
-            suggestDeferredSent();
-        }
-    }
-
-    private boolean filter(InetSocketAddress clientAddress, ByteBuffer bbToCopy) {
-        if (filters.getIncomingPassFilter() != null) {
-            final boolean passed = this.filters.getIncomingPassFilter().check(clientAddress, bbToCopy);
-            if (!passed) {
-                return false;
-            }
+        final long delayNs;
+        if (throttler != null) {
+            delayNs = throttler.calculateDelayNs(bbToCopy);
+        } else {
+            delayNs = Throttler.NO_DELAY_NS;
         }
 
-        if (filters.getIncomingTransformFilter() != null) {
-            filters.getIncomingTransformFilter().transform(clientAddress, bbToCopy);
-        }
-
-        return true;
+        incoming.add(clientAddress, bbToCopy, delayNs);
+        suggestImmediateSent();
+        suggestDeferredSent();
     }
 
     private void throttleSend(long delayNs) {
@@ -435,11 +407,11 @@ class DatagramInner {
     }
 
     RateMeters getByteMeters() {
-        return new RateMeters(readByteMeter, sentByteMeter);
+        return new RateMeters(meters.readBytes, meters.sentBytes);
     }
 
     RateMeters getPacketMeters() {
-        return new RateMeters(readPacketMeter, sentPacketMeter);
+        return new RateMeters(meters.readPackets, meters.sentPackets);
     }
 
     private static final class State extends BitState {
@@ -471,6 +443,24 @@ class DatagramInner {
 
         private void setSendThrottled(boolean sendThrottled) {
             this.sendThrottled = sendThrottled;
+        }
+    }
+
+    private static final class Meters {
+
+        private final RateMeterImpl sentBytes;
+
+        private final RateMeterImpl readBytes;
+
+        private final RateMeterImpl sentPackets;
+
+        private final RateMeterImpl readPackets;
+
+        private Meters() {
+            this.sentBytes = new RateMeterImpl();
+            this.readBytes = new RateMeterImpl();
+            this.sentPackets = new RateMeterImpl();
+            this.readPackets = new RateMeterImpl();
         }
     }
 

@@ -1,6 +1,8 @@
 package org.netcrusher.datagram;
 
 import org.netcrusher.core.buffer.BufferOptions;
+import org.netcrusher.core.filter.PassFilter;
+import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.meter.RateMeterImpl;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.nio.NioUtils;
@@ -35,23 +37,17 @@ class DatagramOuter {
 
     private final InetSocketAddress connectAddress;
 
-    private final DatagramFilters filters;
-
     private final DatagramQueue incoming;
 
     private final DatagramChannel channel;
 
     private final SelectionKeyControl selectionKeyControl;
 
+    private final Meters meters;
+
+    private final Filters filters;
+
     private final ByteBuffer bb;
-
-    private final RateMeterImpl sentByteMeter;
-
-    private final RateMeterImpl readByteMeter;
-
-    private final RateMeterImpl sentPacketMeter;
-
-    private final RateMeterImpl readPacketMeter;
 
     private final State state;
 
@@ -73,12 +69,8 @@ class DatagramOuter {
         this.incoming = new DatagramQueue(bufferOptions);
         this.lastOperationTimestamp = System.currentTimeMillis();
 
-        this.readByteMeter = new RateMeterImpl();
-        this.sentByteMeter = new RateMeterImpl();
-        this.readPacketMeter = new RateMeterImpl();
-        this.sentPacketMeter = new RateMeterImpl();
-
-        this.filters = filters;
+        this.meters = new Meters();
+        this.filters = new Filters(filters, clientAddress);
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
@@ -243,8 +235,8 @@ class DatagramOuter {
                     incoming.release(entry);
                 }
 
-                sentByteMeter.update(sent);
-                sentPacketMeter.increment();
+                meters.sentBytes.update(sent);
+                meters.sentPackets.increment();
 
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Send {} bytes to client <{}>", sent, entry.getAddress());
@@ -283,10 +275,13 @@ class DatagramOuter {
                 LOGGER.trace("Read {} bytes from outer for <{}>", read, clientAddress);
             }
 
-            readByteMeter.update(read);
-            readPacketMeter.increment();
+            meters.readBytes.update(read);
+            meters.readPackets.increment();
 
-            inner.enqueue(clientAddress, bb);
+            final boolean passed = filter(bb, filters.incomingPassFilter, filters.incomingTransferFilter);
+            if (passed) {
+                inner.enqueue(clientAddress, bb);
+            }
 
             lastOperationTimestamp = System.currentTimeMillis();
         }
@@ -305,13 +300,13 @@ class DatagramOuter {
     }
 
     void enqueue(ByteBuffer bbToCopy) throws IOException {
-        final boolean passed = filter(bbToCopy);
+        final boolean passed = filter(bbToCopy, filters.outgoingPassFilter, filters.outgoingTransferFilter);
         if (passed) {
-            final Throttler throttler = this.filters.getOutgoingThrottler();
+            final Throttler throttler = filters.outgoingThrottler;
 
             final long delayNs;
             if (throttler != null) {
-                delayNs = throttler.calculateDelayNs(this.clientAddress, bbToCopy);
+                delayNs = throttler.calculateDelayNs(bbToCopy);
             } else {
                 delayNs = Throttler.NO_DELAY_NS;
             }
@@ -322,16 +317,16 @@ class DatagramOuter {
         }
     }
 
-    private boolean filter(ByteBuffer bbToCopy) {
-        if (filters.getOutgoingPassFilter() != null) {
-            final boolean passed = this.filters.getOutgoingPassFilter().check(this.clientAddress, bbToCopy);
+    private boolean filter(ByteBuffer bbToCopy, PassFilter passFilter, TransformFilter transformFilter) {
+        if (passFilter != null) {
+            final boolean passed = passFilter.check(bbToCopy);
             if (!passed) {
                 return false;
             }
         }
 
-        if (filters.getOutgoingTransformFilter() != null) {
-            filters.getOutgoingTransformFilter().transform(this.clientAddress, bbToCopy);
+        if (transformFilter != null) {
+            transformFilter.transform(bbToCopy);
         }
 
         return true;
@@ -376,11 +371,11 @@ class DatagramOuter {
     }
 
     RateMeters getByteMeters() {
-        return new RateMeters(readByteMeter, sentByteMeter);
+        return new RateMeters(meters.readBytes, meters.sentBytes);
     }
 
     RateMeters getPacketMeters() {
-        return new RateMeters(readPacketMeter, sentPacketMeter);
+        return new RateMeters(meters.readPackets, meters.sentPackets);
     }
 
     private static final class State extends BitState {
@@ -413,5 +408,69 @@ class DatagramOuter {
         private void setSendThrottled(boolean sendThrottled) {
             this.sendThrottled = sendThrottled;
         }
+    }
+
+    private static final class Meters {
+
+        private final RateMeterImpl sentBytes;
+
+        private final RateMeterImpl readBytes;
+
+        private final RateMeterImpl sentPackets;
+
+        private final RateMeterImpl readPackets;
+
+        private Meters() {
+            this.readBytes = new RateMeterImpl();
+            this.sentBytes = new RateMeterImpl();
+            this.readPackets = new RateMeterImpl();
+            this.sentPackets = new RateMeterImpl();
+        }
+    }
+
+    private static final class Filters {
+
+        private final TransformFilter outgoingTransferFilter;
+
+        private final TransformFilter incomingTransferFilter;
+
+        private final PassFilter outgoingPassFilter;
+
+        private final PassFilter incomingPassFilter;
+
+        private final Throttler outgoingThrottler;
+
+        private Filters(DatagramFilters filters, InetSocketAddress clientAddress) {
+            if (filters.getOutgoingTransformFilterFactory() != null) {
+                this.outgoingTransferFilter = filters.getOutgoingTransformFilterFactory().allocate(clientAddress);
+            } else {
+                this.outgoingTransferFilter = null;
+            }
+
+            if (filters.getIncomingTransformFilterFactory() != null) {
+                this.incomingTransferFilter = filters.getIncomingTransformFilterFactory().allocate(clientAddress);
+            } else {
+                this.incomingTransferFilter = null;
+            }
+
+            if (filters.getOutgoingPassFilterFactory() != null) {
+                this.outgoingPassFilter = filters.getOutgoingPassFilterFactory().allocate(clientAddress);
+            } else {
+                this.outgoingPassFilter = null;
+            }
+
+            if (filters.getIncomingPassFilterFactory() != null) {
+                this.incomingPassFilter = filters.getIncomingPassFilterFactory().allocate(clientAddress);
+            } else {
+                this.incomingPassFilter = null;
+            }
+
+            if (filters.getOutgoingThrottlerFactory() != null) {
+                this.outgoingThrottler = filters.getOutgoingThrottlerFactory().allocate(clientAddress);
+            } else {
+                this.outgoingThrottler = null;
+            }
+        }
+
     }
 }

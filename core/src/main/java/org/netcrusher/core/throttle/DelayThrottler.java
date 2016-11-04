@@ -1,6 +1,5 @@
 package org.netcrusher.core.throttle;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +37,7 @@ public class DelayThrottler implements Throttler {
     }
 
     @Override
-    public long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb) {
+    public long calculateDelayNs(ByteBuffer bb) {
         long delayNs = constantDelayNs;
 
         if (jitterDelayNs != 0) {

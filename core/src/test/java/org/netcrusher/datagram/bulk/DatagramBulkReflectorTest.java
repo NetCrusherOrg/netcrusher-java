@@ -38,17 +38,19 @@ public class DatagramBulkReflectorTest {
             barrier);
 
         reflector.open();
-        client.open();
-
         try {
-            final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
-            final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
-            final byte[] reflectorDigest = reflector.awaitReflectorResult(READ_WAIT_MS).getDigest();
+            client.open();
+            try {
+                final byte[] producerDigest = client.awaitProducerResult(SEND_WAIT_MS).getDigest();
+                final byte[] consumerDigest = client.awaitConsumerResult(READ_WAIT_MS).getDigest();
+                final byte[] reflectorDigest = reflector.awaitReflectorResult(READ_WAIT_MS).getDigest();
 
-            Assert.assertArrayEquals(producerDigest, consumerDigest);
-            Assert.assertArrayEquals(producerDigest, reflectorDigest);
+                Assert.assertArrayEquals(producerDigest, consumerDigest);
+                Assert.assertArrayEquals(producerDigest, reflectorDigest);
+            } finally {
+                NioUtils.close(client);
+            }
         } finally {
-            NioUtils.close(client);
             NioUtils.close(reflector);
         }
     }

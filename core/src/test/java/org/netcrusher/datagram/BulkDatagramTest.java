@@ -5,12 +5,13 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.filter.InverseFilter;
-import org.netcrusher.core.filter.NoopFilter;
+import org.netcrusher.core.filter.PassFilter;
+import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.filter.TransformFilters;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.reactor.NioReactor;
-import org.netcrusher.core.throttle.NoopThrottler;
+import org.netcrusher.core.throttle.Throttler;
 import org.netcrusher.datagram.bulk.DatagramBulkClient;
 import org.netcrusher.datagram.bulk.DatagramBulkReflector;
 import org.slf4j.Logger;
@@ -49,12 +50,14 @@ public class BulkDatagramTest {
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
-            .withIncomingTransformFilter(TransformFilters.all(NoopFilter.INSTANCE, InverseFilter.INSTANCE))
-            .withIncomingPassFilter((addr, bb) -> true)
-            .withIncomingThrottler(NoopThrottler.INSTANCE)
-            .withOutgoingTransformFilter(TransformFilters.all(InverseFilter.INSTANCE, NoopFilter.INSTANCE))
-            .withOutgoingPassFilter((addr, bb) -> true)
-            .withOutgoingThrottler(NoopThrottler.INSTANCE)
+            .withIncomingTransformFilterFactory(
+                TransformFilters.all((addr) -> TransformFilter.NOOP, (addr) -> InverseFilter.INSTANCE))
+            .withOutgoingTransformFilterFactory(
+                TransformFilters.all((addr) -> InverseFilter.INSTANCE, (addr) -> TransformFilter.NOOP))
+            .withIncomingPassFilterFactory((addr) -> PassFilter.NOOP)
+            .withOutgoingPassFilterFactory((addr) -> PassFilter.NOOP)
+            .withIncomingThrottler(Throttler.NOOP)
+            .withOutgoingThrottlerFactory((addr) -> Throttler.NOOP)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();

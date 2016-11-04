@@ -1,6 +1,5 @@
 package org.netcrusher.core.filter;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 /**
@@ -9,14 +8,14 @@ import java.nio.ByteBuffer;
  *
  * <p>Filter that filters nothing:</p>
  * <pre>
- * void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
+ * void transform(ByteBuffer bb) {
  *     // no op
  * }
  * </pre>
  *
  * <p>Filter that inverses all bytes:</p>
  * <pre>
- * void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
+ * void transform(ByteBuffer bb) {
  *     if (bb.hasArray()) {
  *         final byte[] bytes = bb.array();
  *         final int offset = bb.arrayOffset() + bb.position();
@@ -35,12 +34,13 @@ import java.nio.ByteBuffer;
 @FunctionalInterface
 public interface TransformFilter {
 
+    TransformFilter NOOP = (bb) -> { };
+
     /**
      * <p>Callback that filters input byte buffer and return output byte buffer</p>
      * <p><em>Verify that both bb.position() and bb.limit() are properly set after method returns</em></p>
-     * @param clientAddress Address of local client socket
      * @param bb Input byte buffer with position set to 0 and limit set to buffer size
      */
-    void transform(InetSocketAddress clientAddress, ByteBuffer bb);
+    void transform(ByteBuffer bb);
 
 }

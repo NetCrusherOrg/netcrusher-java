@@ -36,9 +36,7 @@ class TcpChannel {
 
     private final TcpQueue outgoingQueue;
 
-    private final RateMeterImpl readMeter;
-
-    private final RateMeterImpl sentMeter;
+    private final Meters meters;
 
     private final State state;
 
@@ -55,8 +53,7 @@ class TcpChannel {
         this.incomingQueue = incomingQueue;
         this.outgoingQueue = outgoingQueue;
 
-        this.readMeter = new RateMeterImpl();
-        this.sentMeter = new RateMeterImpl();
+        this.meters = new Meters();
 
         SelectionKey selectionKey = reactor.getSelector().register(channel, 0, this::callback);
         this.selectionKeyControl = new SelectionKeyControl(selectionKey);
@@ -71,7 +68,7 @@ class TcpChannel {
                     freeze();
                 }
 
-                if (sentMeter.getTotalCount() > 0) {
+                if (meters.sentBytes.getTotalCount() > 0) {
                     NioUtils.close(channel);
                 } else {
                     NioUtils.closeNoLinger(channel);
@@ -189,7 +186,7 @@ class TcpChannel {
                 LOGGER.trace("Written {} bytes to {}", sent, name);
             }
 
-            sentMeter.update(sent);
+            meters.sentBytes.update(sent);
         }
 
         other.suggestDeferredRead();
@@ -225,7 +222,7 @@ class TcpChannel {
                 LOGGER.trace("Read {} bytes from {}", read, name);
             }
 
-            readMeter.update(read);
+            meters.readBytes.update(read);
 
             other.suggestImmediateSent();
         }
@@ -307,12 +304,12 @@ class TcpChannel {
         this.other = other;
     }
 
-    RateMeter getReadMeter() {
-        return readMeter;
+    RateMeter getReadBytesMeter() {
+        return meters.readBytes;
     }
 
-    RateMeter getSentMeter() {
-        return sentMeter;
+    RateMeter getSentBytesMeter() {
+        return meters.sentBytes;
     }
 
     private static final class State extends BitState {
@@ -355,6 +352,18 @@ class TcpChannel {
 
         private boolean isReadable() {
             return is(OPEN) && !readEof;
+        }
+    }
+
+    private static final class Meters {
+
+        private final RateMeterImpl readBytes;
+
+        private final RateMeterImpl sentBytes;
+
+        private Meters() {
+            this.readBytes = new RateMeterImpl();
+            this.sentBytes = new RateMeterImpl();
         }
     }
 

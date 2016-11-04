@@ -1,5 +1,8 @@
 package org.netcrusher.core.throttle;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public final class Throttlers {
 
     private Throttlers() {
@@ -7,58 +10,82 @@ public final class Throttlers {
 
     /**
      * Sum delays
-     * @param throttlers Throttler instances
+     * @param throttlerFactories Throttler factories
      * @return Combined throttler
      */
-    public static Throttler sum(final Throttler... throttlers) {
-        if (throttlers == null || throttlers.length == 0) {
+    public static ThrottlerFactory sum(final ThrottlerFactory... throttlerFactories) {
+        if (throttlerFactories == null || throttlerFactories.length == 0) {
             throw new IllegalArgumentException("Empty throttler array");
         }
 
-        return (clientAddress, bb) -> {
-            long delayNs = 0;
-            for (Throttler throttler : throttlers) {
-                delayNs += throttler.calculateDelayNs(clientAddress, bb);
+        return (clientAddress) -> {
+            final List<Throttler> throttlers = new ArrayList<>(throttlerFactories.length);
+
+            for (ThrottlerFactory factory : throttlerFactories) {
+                throttlers.add(factory.allocate(clientAddress));
             }
-            return delayNs;
+
+            return (bb) -> {
+                long delayNs = 0;
+                for (Throttler throttler : throttlers) {
+                    delayNs += throttler.calculateDelayNs(bb);
+                }
+                return delayNs;
+            };
         };
     }
 
     /**
      * Select maximum delay
-     * @param throttlers Throttler instances
+     * @param throttlerFactories Throttler factories
      * @return Combined throttler
      */
-    public static Throttler max(final Throttler... throttlers) {
-        if (throttlers == null || throttlers.length == 0) {
+    public static ThrottlerFactory max(final ThrottlerFactory... throttlerFactories) {
+        if (throttlerFactories == null || throttlerFactories.length == 0) {
             throw new IllegalArgumentException("Empty throttler array");
         }
 
-        return (clientAddress, bb) -> {
-            long delayNs = Throttler.NO_DELAY_NS;
-            for (Throttler throttler : throttlers) {
-                delayNs = Math.max(delayNs, throttler.calculateDelayNs(clientAddress, bb));
+        return (clientAddress) -> {
+            final List<Throttler> throttlers = new ArrayList<>(throttlerFactories.length);
+
+            for (ThrottlerFactory factory : throttlerFactories) {
+                throttlers.add(factory.allocate(clientAddress));
             }
-            return delayNs;
+
+            return (bb) -> {
+                long delayNs = Long.MIN_VALUE;
+                for (Throttler throttler : throttlers) {
+                    delayNs = Math.max(delayNs, throttler.calculateDelayNs(bb));
+                }
+                return delayNs;
+            };
         };
     }
 
     /**
      * Select minimum delay
-     * @param throttlers Throttler instances
+     * @param throttlerFactories Throttler factories
      * @return Combined throttler
      */
-    public static Throttler min(final Throttler... throttlers) {
-        if (throttlers == null || throttlers.length == 0) {
+    public static ThrottlerFactory min(final ThrottlerFactory... throttlerFactories) {
+        if (throttlerFactories == null || throttlerFactories.length == 0) {
             throw new IllegalArgumentException("Empty throttler array");
         }
 
-        return (clientAddress, bb) -> {
-            long delayNs = Long.MAX_VALUE;
-            for (Throttler throttler : throttlers) {
-                delayNs = Math.min(delayNs, throttler.calculateDelayNs(clientAddress, bb));
+        return (clientAddress) -> {
+            final List<Throttler> throttlers = new ArrayList<>(throttlerFactories.length);
+
+            for (ThrottlerFactory factory : throttlerFactories) {
+                throttlers.add(factory.allocate(clientAddress));
             }
-            return delayNs;
+
+            return (bb) -> {
+                long delayNs = Long.MAX_VALUE;
+                for (Throttler throttler : throttlers) {
+                    delayNs = Math.min(delayNs, throttler.calculateDelayNs(bb));
+                }
+                return delayNs;
+            };
         };
     }
 }

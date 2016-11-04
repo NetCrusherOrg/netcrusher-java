@@ -1,6 +1,5 @@
 package org.netcrusher.core.throttle.rate;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 
@@ -20,7 +19,7 @@ public class ByteRateThrottler extends AbstractRateThrottler {
     }
 
     @Override
-    protected int events(InetSocketAddress clientAddress, ByteBuffer bb) {
+    protected int events(ByteBuffer bb) {
         return bb.remaining();
     }
 }

@@ -4,7 +4,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -14,8 +13,6 @@ public class ByteRateThrottlerTest {
 
     private static final long RATE_PER_SEC = 1000;
 
-    private InetSocketAddress stubAddress;
-
     private ByteBuffer stubBuffer;
 
     private AtomicLong mockNowNs;
@@ -24,7 +21,6 @@ public class ByteRateThrottlerTest {
 
     @Before
     public void setUp() throws Exception {
-        this.stubAddress = new InetSocketAddress("localhost", 12345);
         this.stubBuffer = ByteBuffer.allocate(10000);
 
         this.mockNowNs = new AtomicLong(System.nanoTime());
@@ -35,8 +31,7 @@ public class ByteRateThrottlerTest {
                 return mockNowNs.get();
             }
         };
-
-     }
+    }
 
     @Test
     public void testBulk() throws Exception {
@@ -52,7 +47,7 @@ public class ByteRateThrottlerTest {
             long elapsedNs = random.nextInt(100_000);
             mockNowNs.addAndGet(elapsedNs);
 
-            long delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
+            long delayNs = throttler.calculateDelayNs(stubBuffer);
             mockNowNs.addAndGet(delayNs);
 
             totalSent += bufferSize;
@@ -69,17 +64,17 @@ public class ByteRateThrottlerTest {
         long delayNs;
         stubBuffer.limit(500);
 
-        delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
+        delayNs = throttler.calculateDelayNs(stubBuffer);
         Assert.assertEquals(0, delayNs);
 
         mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(250));
 
-        delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
+        delayNs = throttler.calculateDelayNs(stubBuffer);
         Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(750), delayNs);
 
         mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(750));
 
-        delayNs = throttler.calculateDelayNs(stubAddress, stubBuffer);
+        delayNs = throttler.calculateDelayNs(stubBuffer);
         Assert.assertEquals(0, delayNs);
     }
 
@@ -97,7 +92,7 @@ public class ByteRateThrottlerTest {
 
         stubBuffer.limit(1);
 
-        long delayNs = lazyThrottler.calculateDelayNs(stubAddress, stubBuffer);
+        long delayNs = lazyThrottler.calculateDelayNs(stubBuffer);
         Assert.assertEquals(TimeUnit.SECONDS.toNanos(99), delayNs);
     }
 }

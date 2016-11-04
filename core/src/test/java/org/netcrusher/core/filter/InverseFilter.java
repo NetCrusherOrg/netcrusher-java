@@ -1,6 +1,5 @@
 package org.netcrusher.core.filter;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 
 /**
@@ -11,7 +10,7 @@ public class InverseFilter implements TransformFilter {
     public static final TransformFilter INSTANCE = new InverseFilter();
 
     @Override
-    public void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
+    public void transform(ByteBuffer bb) {
         if (bb.hasArray()) {
             final byte[] bytes = bb.array();
 

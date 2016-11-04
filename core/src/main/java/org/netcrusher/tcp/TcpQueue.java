@@ -2,8 +2,10 @@ package org.netcrusher.tcp;
 
 import org.netcrusher.core.buffer.BufferOptions;
 import org.netcrusher.core.filter.TransformFilter;
+import org.netcrusher.core.filter.TransformFilterFactory;
 import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.throttle.Throttler;
+import org.netcrusher.core.throttle.ThrottlerFactory;
 
 import java.io.Serializable;
 import java.net.InetSocketAddress;
@@ -29,9 +31,9 @@ class TcpQueue implements Serializable {
 
     TcpQueue(
             InetSocketAddress clientAddress,
+            BufferOptions bufferOptions,
             TransformFilter filter,
-            Throttler throttler,
-            BufferOptions bufferOptions)
+            Throttler throttler)
     {
         final int count = bufferOptions.getCount();
 
@@ -48,6 +50,29 @@ class TcpQueue implements Serializable {
         for (int i = 0; i < count; i++) {
             this.writable.add(new BufferEntry(bufferOptions.getSize(), bufferOptions.isDirect()));
         }
+    }
+
+    public static TcpQueue allocateQueue(
+        InetSocketAddress clientAddress,
+        BufferOptions bufferOptions,
+        TransformFilterFactory transformFilterFactory,
+        ThrottlerFactory throttlerFactory)
+    {
+        final TransformFilter transformFilter;
+        if (transformFilterFactory != null) {
+            transformFilter = transformFilterFactory.allocate(clientAddress);
+        } else {
+            transformFilter = null;
+        }
+
+        final Throttler throttler;
+        if (throttlerFactory != null) {
+            throttler = throttlerFactory.allocate(clientAddress);
+        } else {
+            throttler = null;
+        }
+
+        return new TcpQueue(clientAddress, bufferOptions, transformFilter, throttler);
     }
 
     public void reset() {
@@ -194,13 +219,13 @@ class TcpQueue implements Serializable {
         bb.flip();
 
         if (filter != null) {
-            filter.transform(clientAddress, bb);
+            filter.transform(bb);
         }
 
         if (bb.hasRemaining()) {
             final long delayNs;
             if (throttler != null) {
-                delayNs = throttler.calculateDelayNs(clientAddress, bb);
+                delayNs = throttler.calculateDelayNs(bb);
             } else {
                 delayNs = Throttler.NO_DELAY_NS;
             }

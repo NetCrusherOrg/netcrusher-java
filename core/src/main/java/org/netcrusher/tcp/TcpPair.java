@@ -41,12 +41,10 @@ class TcpPair implements NetFreezer {
 
         this.clientAddress = (InetSocketAddress) inner.getRemoteAddress();
 
-        TcpQueue innerToOuter = new TcpQueue(clientAddress,
-            filters.getOutgoingTransformFilter(), filters.getOutgoingThrottler(),
-            bufferOptions);
-        TcpQueue outerToInner = new TcpQueue(clientAddress,
-            filters.getIncomingTransformFilter(), filters.getIncomingThrottler(),
-            bufferOptions);
+        TcpQueue innerToOuter = TcpQueue.allocateQueue(clientAddress, bufferOptions,
+            filters.getOutgoingTransformFilterFactory(), filters.getOutgoingThrottlerFactory());
+        TcpQueue outerToInner = TcpQueue.allocateQueue(clientAddress, bufferOptions,
+            filters.getIncomingTransformFilterFactory(), filters.getIncomingThrottlerFactory());
 
         this.innerChannel = new TcpChannel("INNER", reactor, this::closeAll, inner,
             outerToInner, innerToOuter);
@@ -127,7 +125,7 @@ class TcpPair implements NetFreezer {
     }
 
     RateMeters getByteMeters() {
-        return new RateMeters(innerChannel.getSentMeter(), outerChannel.getSentMeter());
+        return new RateMeters(innerChannel.getSentBytesMeter(), outerChannel.getSentBytesMeter());
     }
 
     private static final class State extends BitState {

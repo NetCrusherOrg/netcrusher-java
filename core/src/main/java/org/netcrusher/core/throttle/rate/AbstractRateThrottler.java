@@ -2,7 +2,6 @@ package org.netcrusher.core.throttle.rate;
 
 import org.netcrusher.core.throttle.Throttler;
 
-import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 
@@ -40,12 +39,12 @@ public abstract class AbstractRateThrottler implements Throttler {
     }
 
     @Override
-    public long calculateDelayNs(InetSocketAddress clientAddress, ByteBuffer bb) {
+    public long calculateDelayNs(ByteBuffer bb) {
         final long nowNs = nowNs();
         // elapsed value could be even negative
         final long elapsedNs = nowNs - markerNs;
 
-        count += events(clientAddress, bb);
+        count += events(bb);
 
         long delayNs = 0;
 
@@ -69,6 +68,6 @@ public abstract class AbstractRateThrottler implements Throttler {
         return System.nanoTime();
     }
 
-    protected abstract int events(InetSocketAddress clientAddress, ByteBuffer bb);
+    protected abstract int events(ByteBuffer bb);
 
 }

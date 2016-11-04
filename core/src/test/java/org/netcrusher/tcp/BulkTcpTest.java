@@ -4,10 +4,10 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.netcrusher.core.filter.NoopFilter;
+import org.netcrusher.core.filter.TransformFilter;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
-import org.netcrusher.core.throttle.NoopThrottler;
+import org.netcrusher.core.throttle.Throttler;
 import org.netcrusher.tcp.bulk.TcpBulkClient;
 import org.netcrusher.tcp.bulk.TcpBulkServer;
 import org.slf4j.Logger;
@@ -48,10 +48,10 @@ public class BulkTcpTest {
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, PORT_CRUSHER)
             .withConnectAddress(HOSTNAME, PORT_SERVER)
-            .withIncomingTransformFilter(NoopFilter.INSTANCE)
-            .withIncomingThrottler(NoopThrottler.INSTANCE)
-            .withOutgoingTransformFilter(NoopFilter.INSTANCE)
-            .withOutgoingThrottler(NoopThrottler.INSTANCE)
+            .withIncomingTransformFilterFactory((addr) -> TransformFilter.NOOP)
+            .withOutgoingTransformFilterFactory((addr) -> TransformFilter.NOOP)
+            .withIncomingThrottlerFactory((addr) -> Throttler.NOOP)
+            .withOutgoingThrottlerFactory((addr) -> Throttler.NOOP)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();

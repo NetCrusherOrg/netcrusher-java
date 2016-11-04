@@ -12,24 +12,22 @@ public class LoggingFilter implements TransformFilter {
 
     private static final int BYTE_MASK = 0x0000_0000_0000_00FF;
 
+    private static final String[] HEX = createHexTable();
+
+    private final InetSocketAddress clientAddress;
+
     private final Logger logger;
 
     private final LoggingFilterLevel level;
 
-    private final String[] hex;
-
-    public LoggingFilter(String loggerName, LoggingFilterLevel level) {
-        this.hex = new String[BYTE_RANGE];
-        for (int i = 0; i < BYTE_RANGE; i++) {
-            this.hex[i] = String.format("%02x", i);
-        }
-
+    public LoggingFilter(InetSocketAddress clientAddress, String loggerName, LoggingFilterLevel level) {
         this.logger = LoggerFactory.getLogger(loggerName);
+        this.clientAddress = clientAddress;
         this.level = level;
     }
 
     @Override
-    public void transform(InetSocketAddress clientAddress, ByteBuffer bb) {
+    public void transform(ByteBuffer bb) {
         if (isLogEnabled()) {
             int size = bb.remaining();
             if (size > 0) {
@@ -43,12 +41,12 @@ public class LoggingFilter implements TransformFilter {
 
                     for (int i = offset; i < limit; i++) {
                         int b = BYTE_MASK & (int) bytes[i];
-                        sb.append(hex[b]);
+                        sb.append(HEX[b]);
                     }
                 } else {
                     for (int i = bb.position(); i < bb.limit(); i++) {
                         int b = BYTE_MASK & (int) bb.get(i);
-                        sb.append(hex[b]);
+                        sb.append(HEX[b]);
                     }
                 }
 
@@ -98,5 +96,15 @@ public class LoggingFilter implements TransformFilter {
             default:
                 break;
         }
+    }
+
+    private static String[] createHexTable() {
+        String[] hex = new String[BYTE_RANGE];
+
+        for (int i = 0; i < BYTE_RANGE; i++) {
+            hex[i] = String.format("%02x", i);
+        }
+
+        return hex;
     }
 }

@@ -23,9 +23,12 @@ public class OutgoingCountThottlingDatagramTest extends AbstractRateThottlingDat
             .withReactor(reactor)
             .withBindAddress(host, bindPort)
             .withConnectAddress(host, connectPort)
-            .withOutgoingThrottler(new PacketRateThrottler(PACKET_PER_SEC / 10, 1000 / 10, TimeUnit.MILLISECONDS))
-            .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
-            .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
+            .withOutgoingThrottlerFactory((addr) ->
+                new PacketRateThrottler(PACKET_PER_SEC / 10, 1000 / 10, TimeUnit.MILLISECONDS))
+            .withCreationListener((addr) ->
+                LOGGER.info("Client is created <{}>", addr))
+            .withDeletionListener((addr, byteMeters, packetMeters) ->
+                LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
     }
 
