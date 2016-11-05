@@ -208,7 +208,7 @@ class DatagramInner {
 
     private void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
-        while (channel.isOpen() && state.isWritable()) {
+        while (state.isWritable()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
             if (entry == null) {
                 break;
@@ -267,7 +267,7 @@ class DatagramInner {
     }
 
     private void handleReadableEvent() throws IOException {
-        while (channel.isOpen() && state.isReadable()) {
+        while (state.isReadable()) {
             bb.clear();
 
             final InetSocketAddress address = (InetSocketAddress) channel.receive(bb);
@@ -303,7 +303,7 @@ class DatagramInner {
     }
 
     void enqueue(InetSocketAddress clientAddress, ByteBuffer bbToCopy) throws IOException {
-        final Throttler throttler = this.filters.getIncomingThrottler();
+        final Throttler throttler = this.filters.getIncomingGlobalThrottler();
 
         final long delayNs;
         if (throttler != null) {
@@ -330,6 +330,8 @@ class DatagramInner {
             }
 
             reactor.getSelector().schedule(this::unthrottleSend, delayNs);
+        } else {
+            LOGGER.debug("Repeated throttling");
         }
     }
 
@@ -344,6 +346,8 @@ class DatagramInner {
             if (this.selectionKeyControl.isValid() && state.isWritable() && !incoming.isEmpty()) {
                 this.selectionKeyControl.enableWrites();
             }
+        } else {
+            LOGGER.debug("Repeated unthrottling");
         }
     }
 

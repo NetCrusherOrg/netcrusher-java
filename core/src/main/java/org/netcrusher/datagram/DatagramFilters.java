@@ -15,7 +15,7 @@ public final class DatagramFilters {
 
     private final PassFilterFactory outgoingPassFilterFactory;
 
-    private final Throttler incomingThrottler;
+    private final Throttler incomingGlobalThrottler;
 
     private final ThrottlerFactory outgoingThrottlerFactory;
 
@@ -24,14 +24,14 @@ public final class DatagramFilters {
         TransformFilterFactory outgoingTransformFilterFactory,
         PassFilterFactory incomingPassFilterFactory,
         PassFilterFactory outgoingPassFilterFactory,
-        Throttler incomingThrottler,
+        Throttler incomingGlobalThrottler,
         ThrottlerFactory outgoingThrottlerFactory)
     {
         this.incomingTransformFilterFactory = incomingTransformFilterFactory;
         this.outgoingTransformFilterFactory = outgoingTransformFilterFactory;
         this.incomingPassFilterFactory = incomingPassFilterFactory;
         this.outgoingPassFilterFactory = outgoingPassFilterFactory;
-        this.incomingThrottler = incomingThrottler;
+        this.incomingGlobalThrottler = incomingGlobalThrottler;
         this.outgoingThrottlerFactory = outgoingThrottlerFactory;
     }
 
@@ -51,8 +51,8 @@ public final class DatagramFilters {
         return outgoingPassFilterFactory;
     }
 
-    public Throttler getIncomingThrottler() {
-        return incomingThrottler;
+    public Throttler getIncomingGlobalThrottler() {
+        return incomingGlobalThrottler;
     }
 
     public ThrottlerFactory getOutgoingThrottlerFactory() {

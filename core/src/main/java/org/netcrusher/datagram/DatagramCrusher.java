@@ -75,7 +75,7 @@ public class DatagramCrusher implements NetCrusher {
             options.getOutgoingTransformFilterFactory(),
             options.getIncomingPassFilterFactory(),
             options.getOutgoingPassFilterFactory(),
-            options.getIncomingThrottler(),
+            options.getIncomingGlobalThrottler(),
             options.getOutgoingThrottlerFactory()
         );
 

@@ -195,7 +195,7 @@ class DatagramOuter {
 
     private void handleWritableEvent(boolean forced) throws IOException {
         int count = 0;
-        while (channel.isOpen() && state.isWritable()) {
+        while (state.isWritable()) {
             final DatagramQueue.BufferEntry entry = incoming.request();
             if (entry == null) {
                 break;
@@ -255,7 +255,7 @@ class DatagramOuter {
     }
 
     private void handleReadableEvent() throws IOException {
-        while (channel.isOpen() && state.isReadable()) {
+        while (state.isReadable()) {
             bb.clear();
 
             final SocketAddress address = channel.receive(bb);
@@ -345,6 +345,8 @@ class DatagramOuter {
             }
 
             reactor.getSelector().schedule(this::unthrottleSend, delayNs);
+        } else {
+            LOGGER.debug("Repeated throttling");
         }
     }
 
@@ -359,6 +361,8 @@ class DatagramOuter {
             if (this.selectionKeyControl.isValid() && state.isWritable() && !incoming.isEmpty()) {
                 this.selectionKeyControl.enableWrites();
             }
+        } else {
+            LOGGER.debug("Repeated unthrotting");
         }
     }
 

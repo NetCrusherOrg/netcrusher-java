@@ -48,7 +48,7 @@ public class DelayThrottilingDatagramTest {
             .withReactor(reactor)
             .withBindAddress(HOSTNAME, CRUSHER_PORT)
             .withConnectAddress(HOSTNAME, REFLECTOR_PORT)
-            .withIncomingThrottler(new DelayThrottler(500, TimeUnit.MILLISECONDS))
+            .withIncomingGlobalThrottler(new DelayThrottler(500, TimeUnit.MILLISECONDS))
             .withOutgoingThrottlerFactory((addr) -> new DelayThrottler(500, TimeUnit.MILLISECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))

@@ -56,7 +56,7 @@ public class BulkDatagramTest {
                 TransformFilters.all((addr) -> InverseFilter.INSTANCE, (addr) -> TransformFilter.NOOP))
             .withIncomingPassFilterFactory((addr) -> PassFilter.NOOP)
             .withOutgoingPassFilterFactory((addr) -> PassFilter.NOOP)
-            .withIncomingThrottler(Throttler.NOOP)
+            .withIncomingGlobalThrottler(Throttler.NOOP)
             .withOutgoingThrottlerFactory((addr) -> Throttler.NOOP)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))

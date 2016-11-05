@@ -222,8 +222,8 @@ public final class DatagramCrusherBuilder {
      * @return This builder instance to chain with other methods
      * @see Throttler
      */
-    public DatagramCrusherBuilder withIncomingThrottler(Throttler throttler) {
-        this.options.setIncomingThrottler(throttler);
+    public DatagramCrusherBuilder withIncomingGlobalThrottler(Throttler throttler) {
+        this.options.setIncomingGlobalThrottler(throttler);
         return this;
     }
 

@@ -39,7 +39,7 @@ public class DatagramCrusherOptions {
 
     private PassFilterFactory outgoingPassFilterFactory;
 
-    private Throttler incomingThrottler;
+    private Throttler incomingGlobalThrottler;
 
     private ThrottlerFactory outgoingThrottlerFactory;
 
@@ -166,12 +166,12 @@ public class DatagramCrusherOptions {
         this.outgoingPassFilterFactory = outgoingPassFilterFactory;
     }
 
-    public Throttler getIncomingThrottler() {
-        return incomingThrottler;
+    public Throttler getIncomingGlobalThrottler() {
+        return incomingGlobalThrottler;
     }
 
-    public void setIncomingThrottler(Throttler incomingThrottler) {
-        this.incomingThrottler = incomingThrottler;
+    public void setIncomingGlobalThrottler(Throttler incomingGlobalThrottler) {
+        this.incomingGlobalThrottler = incomingGlobalThrottler;
     }
 
     public ThrottlerFactory getOutgoingThrottlerFactory() {

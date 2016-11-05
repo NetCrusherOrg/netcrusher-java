@@ -120,7 +120,7 @@ class TcpChannel {
     private void closeLocal() {
         this.close();
 
-        if (other.state.is(State.OPEN) && outgoingQueue.hasReadable()) {
+        if (other.state.not(State.CLOSED) && outgoingQueue.hasReadable()) {
             closeAllDeferred();
         } else {
             closeAll();
@@ -160,7 +160,7 @@ class TcpChannel {
     private void handleWritableEvent(boolean forced) throws IOException {
         final TcpQueue queue = incomingQueue;
 
-        while (channel.isOpen() && state.isWritable()) {
+        while (state.isWritable()) {
             final TcpQueueBuffers queueBuffers = queue.requestReadableBuffers();
             if (queueBuffers.isEmpty()) {
                 if (queueBuffers.getDelayNs() > 0) {
@@ -195,7 +195,7 @@ class TcpChannel {
     private void handleReadableEvent() throws IOException {
         final TcpQueue queue = outgoingQueue;
 
-        while (channel.isOpen() && state.isReadable()) {
+        while (state.isReadable()) {
             final TcpQueueBuffers queueBuffers = queue.requestWritableBuffers();
             if (queueBuffers.isEmpty()) {
                 selectionKeyControl.disableReads();
@@ -255,6 +255,8 @@ class TcpChannel {
             }
 
             state.set(State.FROZEN);
+        } else {
+            LOGGER.warn("Freezing while not open");
         }
     }
 
@@ -267,6 +269,8 @@ class TcpChannel {
             }
 
             state.set(State.OPEN);
+        } else {
+            LOGGER.warn("Unfreezing while not frozen");
         }
     }
 
@@ -283,6 +287,8 @@ class TcpChannel {
             }
 
             reactor.getSelector().schedule(this::unthrottleSend, delayNs);
+        } else {
+            LOGGER.warn("Repeated throttling");
         }
     }
 
@@ -297,6 +303,8 @@ class TcpChannel {
             if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
                 this.selectionKeyControl.enableWrites();
             }
+        } else {
+            LOGGER.warn("Repeated unthrottling");
         }
     }
 
