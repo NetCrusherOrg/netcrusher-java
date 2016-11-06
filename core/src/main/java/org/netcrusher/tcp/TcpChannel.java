@@ -150,27 +150,6 @@ class TcpChannel {
             LOGGER.error("Exception on {}", name, e);
             closeAll();
         }
-
-        processPostOperations();
-    }
-
-    private void processPostOperations() {
-        if (!incomingQueue.hasReadable() && other.state.isReadEof()) {
-            while (!postOperations.isEmpty()) {
-                Runnable operation = postOperations.poll();
-                operation.run();
-            }
-        }
-    }
-
-    private void shutdownWrite() {
-        if (channel.isOpen()) {
-            try {
-                channel.shutdownOutput();
-            } catch (IOException e) {
-                LOGGER.error("Fail to shutdown output", e);
-            }
-        }
     }
 
     private void handleWritableEvent(boolean forced) throws IOException {
@@ -206,6 +185,8 @@ class TcpChannel {
         }
 
         other.suggestDeferredRead();
+
+        processPostOperations();
     }
 
     private void handleReadableEvent() throws IOException {
@@ -248,6 +229,25 @@ class TcpChannel {
         }
 
         other.suggestDeferredSent();
+    }
+
+    private void processPostOperations() {
+        if (!incomingQueue.hasReadable() && other.state.isReadEof()) {
+            while (!postOperations.isEmpty()) {
+                Runnable operation = postOperations.poll();
+                operation.run();
+            }
+        }
+    }
+
+    private void shutdownWrite() {
+        if (channel.isOpen()) {
+            try {
+                channel.shutdownOutput();
+            } catch (IOException e) {
+                LOGGER.error("Fail to shutdown output", e);
+            }
+        }
     }
 
     private void suggestDeferredRead() {

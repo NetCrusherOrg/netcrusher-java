@@ -27,10 +27,7 @@ class TcpQueue implements Serializable {
 
     private final Throttler throttler;
 
-    private final InetSocketAddress clientAddress;
-
     TcpQueue(
-            InetSocketAddress clientAddress,
             BufferOptions bufferOptions,
             TransformFilter filter,
             Throttler throttler)
@@ -45,7 +42,6 @@ class TcpQueue implements Serializable {
 
         this.filter = filter;
         this.throttler = throttler;
-        this.clientAddress = clientAddress;
 
         for (int i = 0; i < count; i++) {
             this.writable.add(new BufferEntry(bufferOptions.getSize(), bufferOptions.isDirect()));
@@ -72,7 +68,7 @@ class TcpQueue implements Serializable {
             throttler = null;
         }
 
-        return new TcpQueue(clientAddress, bufferOptions, transformFilter, throttler);
+        return new TcpQueue(bufferOptions, transformFilter, throttler);
     }
 
     public void reset() {
@@ -250,11 +246,11 @@ class TcpQueue implements Serializable {
             this.scheduledNs = System.nanoTime();
         }
 
-        public void schedule(long delayNs) {
+        private void schedule(long delayNs) {
             this.scheduledNs = System.nanoTime() + delayNs;
         }
 
-        public ByteBuffer getBuffer() {
+        private ByteBuffer getBuffer() {
             return buffer;
         }
 
