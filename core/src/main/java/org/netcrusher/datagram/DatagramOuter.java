@@ -333,7 +333,7 @@ class DatagramOuter {
     }
 
     private void throttleSend(long delayNs) {
-        if (!this.state.isSendThrottled()) {
+        if (this.state.is(State.OPEN) && !this.state.isSendThrottled()) {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Outer sent is throttled on {}ns", delayNs);
             }
@@ -345,13 +345,11 @@ class DatagramOuter {
             }
 
             reactor.getSelector().schedule(this::unthrottleSend, delayNs);
-        } else {
-            LOGGER.debug("Repeated throttling");
         }
     }
 
     private void unthrottleSend() {
-        if (this.state.isSendThrottled()) {
+        if (this.state.is(State.OPEN) && this.state.isSendThrottled()) {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Outer sent is unthrottled");
             }
@@ -361,8 +359,6 @@ class DatagramOuter {
             if (this.selectionKeyControl.isValid() && state.isWritable() && !incoming.isEmpty()) {
                 this.selectionKeyControl.enableWrites();
             }
-        } else {
-            LOGGER.debug("Repeated unthrotting");
         }
     }
 

@@ -18,6 +18,10 @@ public class ProcessWrapper {
 
     private final static Logger LOGGER = LoggerFactory.getLogger(ProcessWrapper.class);
 
+    private final static long PROCESS_INIT_MS = 1000;
+
+    private final static int DEFAULT_OUTPUT_LINES = 100;
+
     private final List<String> arguments;
 
     private final Map<String, String> environments;
@@ -73,7 +77,7 @@ public class ProcessWrapper {
 
             // poor man's garantee that process started and sockets are opened
             try {
-                Thread.sleep(1000);
+                Thread.sleep(PROCESS_INIT_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -83,7 +87,7 @@ public class ProcessWrapper {
 
         @Override
         public void run() {
-            List<String> output = new ArrayList<>(100);
+            List<String> output = new ArrayList<>(DEFAULT_OUTPUT_LINES);
 
             try {
                 try (InputStream is = process.getInputStream();

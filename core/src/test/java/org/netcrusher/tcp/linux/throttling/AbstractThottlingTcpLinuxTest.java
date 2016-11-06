@@ -13,6 +13,7 @@ import org.netcrusher.test.process.ProcessResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,7 +51,8 @@ public abstract class AbstractThottlingTcpLinuxTest extends AbstractTcpLinuxTest
             .withBufferCount(128)
             .withRcvBufferSize(bytePerSec / 2)
             .withSndBufferSize(bytePerSec / 2)
-            .withOutgoingThrottlerFactory((addr) -> new ByteRateThrottler(bytePerSec, 1, TimeUnit.SECONDS))
+            .withOutgoingThrottlerFactory((addr) ->
+                new ByteRateThrottler(bytePerSec / 50, 1000 / 50, TimeUnit.MILLISECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
@@ -71,13 +73,26 @@ public abstract class AbstractThottlingTcpLinuxTest extends AbstractTcpLinuxTest
 
     @Test
     public void test() throws Exception {
-        ProcessResult result = direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, durationSec * bytePerSec, FULL_THROUGHPUT);
+        ProcessResult result = loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, durationSec * bytePerSec, FULL_THROUGHPUT);
 
-        Matcher matcher = DURATION.matcher(result.getOutputText());
-        Assert.assertTrue(matcher.find());
+        String consumerDuration = result.getOutput().stream()
+            .map((s) -> {
+                Matcher matcher = DURATION.matcher(s);
+                if (matcher.find()) {
+                    return matcher.group(1);
+                } else {
+                    return null;
+                }
+            })
+            .filter(Objects::nonNull)
+            .skip(1)
+            .findFirst()
+            .orElse("none");
 
-        double duration = Double.parseDouble(matcher.group(1));
-        Assert.assertEquals(durationSec, duration - SOCAT_TIMEOUT_SEC, durationSec * PRECISION);
+        double duration = Double.parseDouble(consumerDuration);
+        LOGGER.info("Duration: {} sec", duration);
+
+        Assert.assertEquals(this.durationSec, duration, this.bytePerSec * PRECISION);
     }
 
 }

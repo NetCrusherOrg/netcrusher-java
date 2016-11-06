@@ -176,13 +176,15 @@ public class NioSelector {
                 while (keyIterator.hasNext()) {
                     SelectionKey selectionKey = keyIterator.next();
 
-                    if (selectionKey.isValid() && selectionKey.channel().isOpen()) {
+                    if (selectionKey.isValid()) {
                         SelectionKeyCallback callback = (SelectionKeyCallback) selectionKey.attachment();
                         try {
                             callback.execute(selectionKey);
                         } catch (Exception e) {
                             LOGGER.error("Error while executing selection key callback", e);
                         }
+                    } else {
+                        LOGGER.debug("Selection key is invalid: {}", selectionKey);
                     }
 
                     keyIterator.remove();

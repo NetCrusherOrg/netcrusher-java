@@ -28,19 +28,19 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
         SOCAT4 + " - tcp4:127.0.0.1:50100,ignoreeof";
 
     protected static final String SOCAT4_REFLECTOR_DIRECT =
-        SOCAT4 + " -b 16384 PIPE tcp4-listen:50100,bind=127.0.0.1,reuseaddr";
+        SOCAT4 + " -b 16384 PIPE tcp4-listen:50100,bind=127.0.0.1,reuseaddr,ignoreeof";
 
     protected static final String SOCAT4_REFLECTOR_PROXIED =
-        SOCAT4 + " -b 16384 PIPE tcp4-listen:50101,bind=127.0.0.1,reuseaddr";
+        SOCAT4 + " -b 16384 PIPE tcp4-listen:50101,bind=127.0.0.1,reuseaddr,ignoreeof";
 
     protected static final String SOCAT4_PRODUCER =
-        SOCAT4 + " - tcp4:127.0.0.1:50100";
+        SOCAT4 + " - tcp4:127.0.0.1:50100,ignoreeof";
 
     protected static final String SOCAT4_CONSUMER_DIRECT =
-        SOCAT4 + " - tcp4-listen:50100,bind=127.0.0.1,reuseaddr";
+        SOCAT4 + " - tcp4-listen:50100,bind=127.0.0.1,reuseaddr,ignoreeof";
 
     protected static final String SOCAT4_CONSUMER_PROXIED =
-        SOCAT4 + " - tcp4-listen:50101,bind=127.0.0.1,reuseaddr";
+        SOCAT4 + " - tcp4-listen:50101,bind=127.0.0.1,reuseaddr,ignoreeof";
 
     /* IP6 */
 
@@ -48,19 +48,19 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
         SOCAT6 + " - tcp6:[::1]:50100,ignoreeof";
 
     protected static final String SOCAT6_REFLECTOR_DIRECT =
-        SOCAT6 + " -b 16384 PIPE tcp6-listen:50100,bind=[::1],reuseaddr";
+        SOCAT6 + " -b 16384 PIPE tcp6-listen:50100,bind=[::1],reuseaddr,ignoreeof";
 
     protected static final String SOCAT6_REFLECTOR_PROXIED =
-        SOCAT6 + " -b 16384 PIPE tcp6-listen:50101,bind=[::1],reuseaddr";
+        SOCAT6 + " -b 16384 PIPE tcp6-listen:50101,bind=[::1],reuseaddr,ignoreeof";
 
     protected static final String SOCAT6_PRODUCER =
-        SOCAT6 + " - tcp6:[::1]:50100";
+        SOCAT6 + " - tcp6:[::1]:50100,ignoreeof";
 
     protected static final String SOCAT6_CONSUMER_DIRECT =
-        SOCAT6 + " - tcp6-listen:50100,bind=[::1],reuseaddr";
+        SOCAT6 + " - tcp6-listen:50100,bind=[::1],reuseaddr,ignoreeof";
 
     protected static final String SOCAT6_CONSUMER_PROXIED =
-        SOCAT6 + " - tcp6-listen:50101,bind=[::1],reuseaddr";
+        SOCAT6 + " - tcp6-listen:50101,bind=[::1],reuseaddr,ignoreeof";
 
     protected ProcessResult loop(String processorCmd, String reflectorCmd, int bytes, int throughputKbSec)
         throws Exception

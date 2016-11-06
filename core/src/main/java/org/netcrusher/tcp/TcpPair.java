@@ -87,8 +87,12 @@ class TcpPair implements NetFreezer {
     public void freeze() {
         reactor.getSelector().execute(() -> {
             if (state.is(State.OPEN)) {
-                innerChannel.freeze();
-                outerChannel.freeze();
+                if (!innerChannel.isFrozen()) {
+                    innerChannel.freeze();
+                }
+                if (!outerChannel.isFrozen()) {
+                    outerChannel.freeze();
+                }
 
                 state.set(State.FROZEN);
 
@@ -103,8 +107,12 @@ class TcpPair implements NetFreezer {
     public void unfreeze() {
         reactor.getSelector().execute(() -> {
             if (state.is(State.FROZEN)) {
-                innerChannel.unfreeze();
-                outerChannel.unfreeze();
+                if (innerChannel.isFrozen()) {
+                    innerChannel.unfreeze();
+                }
+                if (outerChannel.isFrozen()) {
+                    outerChannel.unfreeze();
+                }
 
                 state.set(State.OPEN);
 

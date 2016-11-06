@@ -4,7 +4,7 @@ public class CrusherThottling20KTcpLinuxTest extends AbstractThottlingTcpLinuxTe
 
     private static final int BYTES_PER_SEC = 20_000;
 
-    private static final int DURATION_SEC = 5;
+    private static final int DURATION_SEC = 20;
 
     public CrusherThottling20KTcpLinuxTest() {
         super(BYTES_PER_SEC, DURATION_SEC);

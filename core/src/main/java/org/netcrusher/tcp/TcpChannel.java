@@ -14,13 +14,15 @@ import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 
 class TcpChannel {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TcpChannel.class);
 
-    private static final long LINGER_PERIOD_NS = TimeUnit.SECONDS.toNanos(10);
+    private static final long LINGER_PERIOD_NS = TimeUnit.MILLISECONDS.toNanos(500);
 
     private final String name;
 
@@ -40,6 +42,8 @@ class TcpChannel {
 
     private final State state;
 
+    private final Queue<Runnable> postOperations;
+
     private TcpChannel other;
 
     TcpChannel(String name, NioReactor reactor, Runnable ownerClose, SocketChannel channel,
@@ -49,6 +53,8 @@ class TcpChannel {
         this.reactor = reactor;
         this.ownerClose = ownerClose;
         this.channel = channel;
+
+        this.postOperations = new LinkedList<>();
 
         this.incomingQueue = incomingQueue;
         this.outgoingQueue = outgoingQueue;
@@ -102,17 +108,10 @@ class TcpChannel {
     private void closeEOF() {
         this.state.setReadEof(true);
 
-        if (other.state.isReadEof() && !incomingQueue.hasReadable()) {
-            this.close();
-        }
+        other.postOperations.add(() -> other.shutdownWrite());
+        other.processPostOperations();
 
-        if (this.state.is(State.CLOSED)) {
-            if (other.state.is(State.CLOSED) || !outgoingQueue.hasReadable()) {
-                closeAll();
-            } else {
-                closeAllDeferred();
-            }
-        } else {
+        if (other.state.isReadEof() && !incomingQueue.hasReadable() && !outgoingQueue.hasReadable()) {
             closeAllDeferred();
         }
     }
@@ -120,16 +119,27 @@ class TcpChannel {
     private void closeLocal() {
         this.close();
 
-        if (other.state.not(State.CLOSED) && outgoingQueue.hasReadable()) {
-            closeAllDeferred();
-        } else {
-            closeAll();
-        }
+        other.postOperations.add(() -> other.closeAll());
+        other.processPostOperations();
     }
 
     private void callback(SelectionKey selectionKey) throws IOException {
         try {
-            handleEvent(selectionKey);
+            if (selectionKey.isWritable()) {
+                handleWritableEvent(false);
+            }
+        } catch (ClosedChannelException e) {
+            LOGGER.debug("Channel closed on write {}", name);
+            closeLocal();
+        } catch (Exception e) {
+            LOGGER.error("Exception on {}", name, e);
+            closeAll();
+        }
+
+        try {
+            if (selectionKey.isReadable()) {
+                handleReadableEvent();
+            }
         } catch (EOFException e) {
             LOGGER.debug("EOF on transfer on {}", name);
             closeEOF();
@@ -137,23 +147,29 @@ class TcpChannel {
             LOGGER.debug("Channel closed on {}", name);
             closeLocal();
         } catch (Exception e) {
-            LOGGER.debug("Exception on {}", name, e);
+            LOGGER.error("Exception on {}", name, e);
             closeAll();
         }
 
-        // if other side is closed and there is no incoming data - close the pair
-        if (this.state.is(State.OPEN) && other.state.not(State.OPEN) && !incomingQueue.hasReadable()) {
-            closeAll();
+        processPostOperations();
+    }
+
+    private void processPostOperations() {
+        if (!incomingQueue.hasReadable() && other.state.isReadEof()) {
+            while (!postOperations.isEmpty()) {
+                Runnable operation = postOperations.poll();
+                operation.run();
+            }
         }
     }
 
-    private void handleEvent(SelectionKey selectionKey) throws IOException {
-        if (selectionKey.isWritable()) {
-            handleWritableEvent(false);
-        }
-
-        if (selectionKey.isReadable()) {
-            handleReadableEvent();
+    private void shutdownWrite() {
+        if (channel.isOpen()) {
+            try {
+                channel.shutdownOutput();
+            } catch (IOException e) {
+                LOGGER.error("Fail to shutdown output", e);
+            }
         }
     }
 
@@ -210,8 +226,12 @@ class TcpChannel {
             }
 
             if (read < 0) {
-                selectionKeyControl.disableReads();
-                throw new EOFException();
+                if (channel.isOpen()) {
+                    selectionKeyControl.disableReads();
+                    throw new EOFException();
+                } else {
+                    throw new ClosedChannelException();
+                }
             }
 
             if (read == 0) {
@@ -274,8 +294,12 @@ class TcpChannel {
         }
     }
 
+    boolean isFrozen() {
+        return state.isAnyOf(State.CLOSED | State.FROZEN);
+    }
+
     private void throttleSend(long delayNs) {
-        if (!this.state.isSendThrottled()) {
+        if (this.state.is(State.OPEN) && !this.state.isSendThrottled()) {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Channel {} is throttled on {}ns", name, delayNs);
             }
@@ -287,13 +311,11 @@ class TcpChannel {
             }
 
             reactor.getSelector().schedule(this::unthrottleSend, delayNs);
-        } else {
-            LOGGER.warn("Repeated throttling");
         }
     }
 
     private void unthrottleSend() {
-        if (this.state.isSendThrottled()) {
+        if (this.state.is(State.OPEN) && this.state.isSendThrottled()) {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Channel {} is unthrottled", name);
             }
@@ -303,8 +325,6 @@ class TcpChannel {
             if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
                 this.selectionKeyControl.enableWrites();
             }
-        } else {
-            LOGGER.warn("Repeated unthrottling");
         }
     }
 
