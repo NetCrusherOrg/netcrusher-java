@@ -19,6 +19,8 @@ public class TcpCrusherOptions {
 
     private InetSocketAddress connectAddress;
 
+    private InetSocketAddress bindBeforeConnectAddress;
+
     private NioReactor reactor;
 
     private TcpCrusherSocketOptions socketOptions;
@@ -86,6 +88,14 @@ public class TcpCrusherOptions {
 
     public void setConnectAddress(InetSocketAddress connectAddress) {
         this.connectAddress = connectAddress;
+    }
+
+    public InetSocketAddress getBindBeforeConnectAddress() {
+        return bindBeforeConnectAddress;
+    }
+
+    public void setBindBeforeConnectAddress(InetSocketAddress bindBeforeConnectAddress) {
+        this.bindBeforeConnectAddress = bindBeforeConnectAddress;
     }
 
     public NioReactor getReactor() {

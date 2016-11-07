@@ -57,21 +57,6 @@ public class PacketRateThrottlerTest {
     }
 
     @Test
-    public void testExcess() throws Exception {
-        long delayNs;
-
-        for (int i = 0; i < 9; i++) {
-            delayNs = throttler.calculateDelayNs(stubBuffer);
-            Assert.assertEquals(0, delayNs);
-
-            mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));
-        }
-
-        delayNs = throttler.calculateDelayNs(stubBuffer);
-        Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(100), delayNs);
-    }
-
-    @Test
     public void testSmallRate() throws Exception {
         // 1 packet per 100 seconds
         PacketRateThrottler lazyThrottler = new PacketRateThrottler(1, 100, TimeUnit.SECONDS) {

@@ -11,6 +11,10 @@ public abstract class AbstractRateThrottler implements Throttler {
 
     private static final long MIN_PERIOD_MILLIS = 10;
 
+    private static final long MIN_AUTOFACTOR_PERIOD_MS = 20;
+
+    private static final long MIN_AUTOFACTOR_RATE = 5;
+
     private final long periodNs;
 
     private final long rate;
@@ -20,19 +24,27 @@ public abstract class AbstractRateThrottler implements Throttler {
     private int count;
 
     protected AbstractRateThrottler(long rate, long rateTime, TimeUnit rateTimeUnit) {
-        if (rate < 1 || rate > Integer.MAX_VALUE) {
+        this(rate, rateTime, rateTimeUnit,
+            autofactor(rate, rateTime, rateTimeUnit));
+    }
+
+    protected AbstractRateThrottler(long rate, long rateTime, TimeUnit rateTimeUnit, int factor) {
+        final long effectiveRate = rate / factor;
+        final long effectivePeriodNs = rateTimeUnit.toNanos(rateTime) / factor;
+
+        if (effectiveRate < 1 || effectiveRate > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Rate value is invalid");
         }
 
-        if (rateTimeUnit.toHours(rateTime) > MAX_PERIOD_HOURS) {
+        if (effectivePeriodNs > TimeUnit.HOURS.toNanos(MAX_PERIOD_HOURS)) {
             throw new IllegalArgumentException("Period is too high");
         }
-        if (rateTimeUnit.toMillis(rateTime) < MIN_PERIOD_MILLIS) {
+        if (effectivePeriodNs < TimeUnit.MILLISECONDS.toNanos(MIN_PERIOD_MILLIS)) {
             throw new IllegalArgumentException("Period is too small");
         }
 
-        this.periodNs = rateTimeUnit.toNanos(rateTime);
-        this.rate = rate;
+        this.periodNs = effectivePeriodNs;
+        this.rate = effectiveRate;
 
         this.markerNs = nowNs();
         this.count = 0;
@@ -46,7 +58,7 @@ public abstract class AbstractRateThrottler implements Throttler {
 
         count += events(bb);
 
-        long delayNs = 0;
+        long delayNs = Throttler.NO_DELAY_NS;
 
         if (elapsedNs >= periodNs || count >= rate) {
             final double registered = count;
@@ -70,4 +82,12 @@ public abstract class AbstractRateThrottler implements Throttler {
 
     protected abstract int events(ByteBuffer bb);
 
+    private static int autofactor(long rate, long rateTime, TimeUnit rateTimeUnit) {
+        final int estimate1 = (int) (rate / MIN_AUTOFACTOR_RATE);
+        final int estimate2 = (int) (rateTimeUnit.toMillis(rateTime) / MIN_AUTOFACTOR_PERIOD_MS);
+
+        final int estimate = Math.min(estimate1, estimate2);
+
+        return Math.max(1, estimate);
+    }
 }

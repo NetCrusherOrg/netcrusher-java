@@ -49,6 +49,8 @@ public class TcpCrusher implements NetCrusher {
 
     private final InetSocketAddress connectAddress;
 
+    private final InetSocketAddress bindBeforeConnectAddress;
+
     private final TcpCrusherSocketOptions socketOptions;
 
     private final NioReactor reactor;
@@ -88,6 +90,7 @@ public class TcpCrusher implements NetCrusher {
         this.reactor = options.getReactor();
         this.bindAddress = options.getBindAddress();
         this.connectAddress = options.getConnectAddress();
+        this.bindBeforeConnectAddress = options.getBindBeforeConnectAddress();
         this.socketOptions = options.getSocketOptions().copy();
         this.bufferOptions = options.getBufferOptions().copy();
         this.creationListener = options.getCreationListener();
@@ -125,8 +128,9 @@ public class TcpCrusher implements NetCrusher {
     public void open() {
         reactor.getSelector().execute(() -> {
             if (state.is(State.CLOSED)) {
-                this.acceptor = new TcpAcceptor(this, reactor, bindAddress, connectAddress, socketOptions,
-                    filters, bufferOptions);
+                this.acceptor = new TcpAcceptor(this, reactor,
+                    bindAddress, connectAddress, bindBeforeConnectAddress,
+                    socketOptions, filters, bufferOptions);
 
                 clientTotalCount.set(0);
 

@@ -32,7 +32,7 @@ public class BulkDatagramTest {
 
     private static final String HOSTNAME = "127.0.0.1";
 
-    private static final long COUNT = 10_000;
+    private static final long COUNT = 2_000;
 
     private static final long SEND_WAIT_MS = 120_000;
 

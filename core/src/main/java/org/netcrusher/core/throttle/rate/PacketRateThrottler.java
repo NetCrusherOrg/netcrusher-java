@@ -13,6 +13,17 @@ public class PacketRateThrottler extends AbstractRateThrottler {
      * @param rate How many packets (datagrams) are expected per period
      * @param rateTime Period time
      * @param rateTimeUnit Period time unit
+     * @param factor Division factor
+     */
+    public PacketRateThrottler(long rate, long rateTime, TimeUnit rateTimeUnit, int factor) {
+        super(rate, rateTime, rateTimeUnit, factor);
+    }
+
+    /**
+     * Create new throttler
+     * @param rate How many packets (datagrams) are expected per period
+     * @param rateTime Period time
+     * @param rateTimeUnit Period time unit
      */
     public PacketRateThrottler(long rate, long rateTime, TimeUnit rateTimeUnit) {
         super(rate, rateTime, rateTimeUnit);

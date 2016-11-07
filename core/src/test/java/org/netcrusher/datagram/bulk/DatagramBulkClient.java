@@ -217,7 +217,7 @@ public class DatagramBulkClient implements AutoCloseable {
                         InetSocketAddress connectAddress,
                         CyclicBarrier barrier) {
             this.channel = channel;
-            this.throttler = new PacketRateThrottler(10, 50, TimeUnit.MILLISECONDS);
+            this.throttler = new PacketRateThrottler(100, 1, TimeUnit.SECONDS);
             this.name = name;
             this.limit = limit;
             this.connectAddress = connectAddress;

@@ -24,7 +24,7 @@ public class OutgoingByteThottlingDatagramTest extends AbstractRateThottlingData
             .withBindAddress(host, bindPort)
             .withConnectAddress(host, connectPort)
             .withOutgoingThrottlerFactory((addr) ->
-                new ByteRateThrottler(BYTES_PER_SEC / 20, 1000 / 20, TimeUnit.MILLISECONDS))
+                new ByteRateThrottler(BYTES_PER_SEC, 1, TimeUnit.SECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();

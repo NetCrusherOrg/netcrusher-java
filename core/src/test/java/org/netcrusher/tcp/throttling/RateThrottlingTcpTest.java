@@ -57,9 +57,9 @@ public class RateThrottlingTcpTest {
             .withBindAddress(HOSTNAME, PORT_CRUSHER)
             .withConnectAddress(HOSTNAME, PORT_SERVER)
             .withIncomingThrottlerFactory((addr) ->
-                new ByteRateThrottler(INCOMING_BYTES_PER_SEC / 20, 1000 / 20, TimeUnit.MILLISECONDS))
+                new ByteRateThrottler(INCOMING_BYTES_PER_SEC, 1, TimeUnit.SECONDS))
             .withOutgoingThrottlerFactory((addr) ->
-                new ByteRateThrottler(OUTGOING_BYTES_PER_SEC / 20, 1000 / 20, TimeUnit.MILLISECONDS))
+                new ByteRateThrottler(OUTGOING_BYTES_PER_SEC, 1, TimeUnit.SECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();

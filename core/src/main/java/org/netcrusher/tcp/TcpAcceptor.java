@@ -28,6 +28,8 @@ class TcpAcceptor implements NetFreezer {
 
     private final InetSocketAddress connectAddress;
 
+    private final InetSocketAddress bindBeforeConnectAddress;
+
     private final TcpCrusherSocketOptions socketOptions;
 
     private final NioReactor reactor;
@@ -49,6 +51,7 @@ class TcpAcceptor implements NetFreezer {
         NioReactor reactor,
         InetSocketAddress bindAddress,
         InetSocketAddress connectAddress,
+        InetSocketAddress bindBeforeConnectAddress,
         TcpCrusherSocketOptions socketOptions,
         TcpFilters filters,
         BufferOptions bufferOptions) throws IOException
@@ -56,6 +59,7 @@ class TcpAcceptor implements NetFreezer {
         this.crusher = crusher;
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
+        this.bindBeforeConnectAddress = bindBeforeConnectAddress;
         this.socketOptions = socketOptions;
         this.reactor = reactor;
         this.bufferOptions = bufferOptions;
@@ -111,6 +115,11 @@ class TcpAcceptor implements NetFreezer {
         socketChannel2.configureBlocking(false);
         socketOptions.setupSocketChannel(socketChannel2);
         bufferOptions.checkTcpSocket(socketChannel2.socket());
+
+        if (bindBeforeConnectAddress != null) {
+            socketChannel2.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+            socketChannel2.bind(bindBeforeConnectAddress);
+        }
 
         final boolean connectedImmediately;
         try {

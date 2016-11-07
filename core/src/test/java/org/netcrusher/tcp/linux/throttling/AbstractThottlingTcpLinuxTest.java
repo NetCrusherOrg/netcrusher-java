@@ -52,7 +52,7 @@ public abstract class AbstractThottlingTcpLinuxTest extends AbstractTcpLinuxTest
             .withRcvBufferSize(bytePerSec / 2)
             .withSndBufferSize(bytePerSec / 2)
             .withOutgoingThrottlerFactory((addr) ->
-                new ByteRateThrottler(bytePerSec / 50, 1000 / 50, TimeUnit.MILLISECONDS))
+                new ByteRateThrottler(bytePerSec, 1, TimeUnit.SECONDS))
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
             .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();

@@ -60,25 +60,6 @@ public class ByteRateThrottlerTest {
     }
 
     @Test
-    public void testExcess() throws Exception {
-        long delayNs;
-        stubBuffer.limit(500);
-
-        delayNs = throttler.calculateDelayNs(stubBuffer);
-        Assert.assertEquals(0, delayNs);
-
-        mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(250));
-
-        delayNs = throttler.calculateDelayNs(stubBuffer);
-        Assert.assertEquals(TimeUnit.MILLISECONDS.toNanos(750), delayNs);
-
-        mockNowNs.addAndGet(TimeUnit.MILLISECONDS.toNanos(750));
-
-        delayNs = throttler.calculateDelayNs(stubBuffer);
-        Assert.assertEquals(0, delayNs);
-    }
-
-    @Test
     public void testSmallRate() throws Exception {
         // 1 byte per 100 seconds
         ByteRateThrottler lazyThrottler = new ByteRateThrottler(1, 100, TimeUnit.SECONDS) {

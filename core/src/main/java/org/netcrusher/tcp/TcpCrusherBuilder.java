@@ -71,6 +71,26 @@ public final class TcpCrusherBuilder {
     }
 
     /**
+     * Set bind-before-connect address
+     * @param address Inet address
+     * @return This builder instance to chain with other methods
+     */
+    public TcpCrusherBuilder withBindBeforeConnectAddress(InetSocketAddress address) {
+        this.options.setBindBeforeConnectAddress(address);
+        return this;
+    }
+
+    /**
+     * Set bind-before-connect address
+     * @param hostname Remote host name or IP address of remote host
+     * @param port Port number
+     * @return This builder instance to chain with other methods
+     */
+    public TcpCrusherBuilder withBindBeforeConnectAddress(String hostname, int port) {
+        return withBindBeforeConnectAddress(new InetSocketAddress(hostname, port));
+    }
+
+    /**
      * Set reactor instance for this proxy
      * @param reactor Reactor
      * @return This builder instance to chain with other methods
