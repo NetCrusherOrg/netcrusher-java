@@ -26,5 +26,4 @@ public class InverseFilter implements TransformFilter {
             }
         }
     }
-
 }

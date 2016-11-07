@@ -4,7 +4,8 @@ NetCrusher is TCP/UDP proxy for Java that is placed in the middle between client
 
 * emulates network failures
 * emulates frozen connection
-* support multiple dynamic connections through the same proxy tunnel
+* supports both TCP and UDP
+* supports multiple dynamic connections through the same proxy tunnel
 * allows to check the state of connections
 * allows to filter/dump data
 * supports throttling (delay and/or throughput control)
