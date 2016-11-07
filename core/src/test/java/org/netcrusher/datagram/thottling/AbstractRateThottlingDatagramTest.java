@@ -75,20 +75,26 @@ public abstract class AbstractRateThottlingDatagramTest {
         reflector.open();
         client.open();
 
+        DatagramBulkResult producerResult;
         try {
-            client.awaitProducerResult(SEND_WAIT_MS);
+            producerResult = client.awaitProducerResult(SEND_WAIT_MS);
         } finally {
             NioUtils.close(client);
             NioUtils.close(reflector);
         }
 
         DatagramBulkResult consumerResult = client.awaitConsumerResult(READ_WAIT_MS);
+        DatagramBulkResult reflectorResult = reflector.awaitReflectorResult(READ_WAIT_MS);
 
-        verify(consumerResult, RATE_PRECISION);
+        verify(producerResult, consumerResult, reflectorResult, RATE_PRECISION);
     }
 
     protected abstract DatagramCrusher createCrusher(NioReactor reactor, String host, int bindPort, int connectPort);
 
-    protected abstract void verify(DatagramBulkResult consumerResult, double precisionAllowed);
+    protected abstract void verify(
+        DatagramBulkResult producerResult,
+        DatagramBulkResult consumerResult,
+        DatagramBulkResult reflectorResult,
+        double precisionAllowed);
 
 }

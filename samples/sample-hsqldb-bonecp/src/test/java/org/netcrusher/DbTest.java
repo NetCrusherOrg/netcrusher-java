@@ -91,6 +91,8 @@ public class DbTest {
     public void testDisconnect() throws Exception {
         // create a connection
         Connection connection = connectionPool.getConnection();
+
+        Thread.sleep(1000);
         Assert.assertEquals(1, crusher.getClientAddresses().size());
 
         // query some data
@@ -137,6 +139,8 @@ public class DbTest {
     public void testFreeze() throws Exception {
         // create a connection
         Connection connection = connectionPool.getConnection();
+
+        Thread.sleep(1000);
         Assert.assertEquals(1, crusher.getClientAddresses().size());
 
         // query some data

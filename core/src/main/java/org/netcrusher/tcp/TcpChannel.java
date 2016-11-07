@@ -322,7 +322,7 @@ class TcpChannel {
 
             this.state.setSendThrottled(false);
 
-            if (this.selectionKeyControl.isValid() && state.is(State.OPEN)) {
+            if (this.selectionKeyControl.isValid()) {
                 this.selectionKeyControl.enableWrites();
             }
         }

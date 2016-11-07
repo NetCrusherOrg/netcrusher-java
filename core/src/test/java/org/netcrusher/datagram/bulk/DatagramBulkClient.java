@@ -197,6 +197,8 @@ public class DatagramBulkClient implements AutoCloseable {
 
     private static final class Producer extends Thread {
 
+        private static final int DATAGRAM_PER_SEC = 100;
+
         private final DatagramChannel channel;
 
         private final String name;
@@ -217,7 +219,7 @@ public class DatagramBulkClient implements AutoCloseable {
                         InetSocketAddress connectAddress,
                         CyclicBarrier barrier) {
             this.channel = channel;
-            this.throttler = new PacketRateThrottler(100, 1, TimeUnit.SECONDS);
+            this.throttler = new PacketRateThrottler(DATAGRAM_PER_SEC, 1, TimeUnit.SECONDS);
             this.name = name;
             this.limit = limit;
             this.connectAddress = connectAddress;

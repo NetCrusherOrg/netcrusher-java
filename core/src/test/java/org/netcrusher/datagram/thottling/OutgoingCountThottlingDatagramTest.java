@@ -15,7 +15,7 @@ public class OutgoingCountThottlingDatagramTest extends AbstractRateThottlingDat
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OutgoingCountThottlingDatagramTest.class);
 
-    private static final int PACKET_PER_SEC = 100;
+    private static final int PACKET_PER_SEC = 80;
 
     @Override
     protected DatagramCrusher createCrusher(NioReactor reactor, String host, int bindPort, int connectPort) {
@@ -31,12 +31,17 @@ public class OutgoingCountThottlingDatagramTest extends AbstractRateThottlingDat
     }
 
     @Override
-    protected void verify(DatagramBulkResult consumerResult, double precisionAllowed) {
+    protected void verify(
+        DatagramBulkResult producerResult,
+        DatagramBulkResult consumerResult,
+        DatagramBulkResult reflectorResult,
+        double precisionAllowed)
+    {
         double consumerRate = 1000.0 * consumerResult.getCount() / consumerResult.getElapsedMs();
         LOGGER.info("Consumer rate is {} packet/sec", consumerRate);
 
         Assert.assertEquals(PACKET_PER_SEC, consumerRate, PACKET_PER_SEC * precisionAllowed);
+        Assert.assertArrayEquals(consumerResult.getDigest(), reflectorResult.getDigest());
     }
-
 
 }

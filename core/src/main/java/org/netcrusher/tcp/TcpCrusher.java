@@ -16,7 +16,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -67,8 +66,6 @@ public class TcpCrusher implements NetCrusher {
 
     private final TcpFilters filters;
 
-    private final AtomicInteger clientTotalCount;
-
     private final State state;
 
     private TcpAcceptor acceptor;
@@ -98,14 +95,11 @@ public class TcpCrusher implements NetCrusher {
         this.deferredListeners = options.isDeferredListeners();
 
         this.pairs = new ConcurrentHashMap<>(DEFAULT_PAIR_CAPACITY);
-        this.clientTotalCount = new AtomicInteger(0);
         this.state = new State(State.CLOSED);
     }
 
     void notifyPairCreated(TcpPair pair) {
         LOGGER.debug("Pair is created for <{}>", pair.getClientAddress());
-
-        clientTotalCount.incrementAndGet();
 
         pairs.put(pair.getClientAddress(), pair);
 
@@ -131,8 +125,6 @@ public class TcpCrusher implements NetCrusher {
                 this.acceptor = new TcpAcceptor(this, reactor,
                     bindAddress, connectAddress, bindBeforeConnectAddress,
                     socketOptions, filters, bufferOptions);
-
-                clientTotalCount.set(0);
 
                 state.set(State.FROZEN);
 
@@ -380,7 +372,13 @@ public class TcpCrusher implements NetCrusher {
 
     @Override
     public int getClientTotalCount() {
-        return clientTotalCount.get();
+        return reactor.getSelector().execute(() -> {
+            if (state.not(State.CLOSED)) {
+                return acceptor.getTotalAccepted();
+            } else {
+                return 0;
+            }
+        });
     }
 
     private static final class State extends BitState {

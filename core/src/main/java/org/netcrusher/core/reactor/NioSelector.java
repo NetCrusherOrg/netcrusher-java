@@ -37,8 +37,8 @@ public class NioSelector {
     private volatile boolean open;
 
     NioSelector(long tickMs) throws IOException {
-        if (tickMs < 0) {
-            throw new IllegalArgumentException("Tick period must be non-negative");
+        if (tickMs <= 0) {
+            throw new IllegalArgumentException("Tick period must be positive");
         }
 
         this.selector = Selector.open();

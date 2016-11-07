@@ -5,7 +5,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.filter.LoggingFilter;
-import org.netcrusher.core.filter.LoggingFilterLevel;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.datagram.DatagramCrusher;
@@ -38,8 +37,10 @@ public class DatagramCrusherRFC868Test {
                 .withReactor(reactor)
                 .withBindAddress(LOCAL_ADDRESS)
                 .withConnectAddress(REMOTE_ADDRESS)
-                .withIncomingTransformFilter(new LoggingFilter("incoming", LoggingFilterLevel.DEBUG))
-                .withOutgoingTransformFilter(new LoggingFilter("outgoing", LoggingFilterLevel.DEBUG))
+                .withIncomingTransformFilterFactory((addr) ->
+                        new LoggingFilter(addr, "org.netcrusher.dump.incoming", LoggingFilter.Level.DEBUG))
+                .withOutgoingTransformFilterFactory((addr) ->
+                        new LoggingFilter(addr, "org.netcrusher.dump.outgoing", LoggingFilter.Level.DEBUG))
                 .buildAndOpen();
     }
 
@@ -68,17 +69,8 @@ public class DatagramCrusherRFC868Test {
         Assert.assertEquals(1, packetMeters.getReadMeter().getTotalCount());
 
         RateMeters byteMeters = crusher.getClientByteMeters(clientAddress);
-        Assert.assertEquals(1, byteMeters.getSentMeter().getTotalCount());
+        Assert.assertEquals(0, byteMeters.getSentMeter().getTotalCount());
         Assert.assertEquals(4, byteMeters.getReadMeter().getTotalCount());
-
-        crusher.reopen();
-
-        check();
-
-        crusher.freeze();
-        crusher.unfreeze();
-
-        check();
     }
 
     private void check() throws IOException {
@@ -87,8 +79,6 @@ public class DatagramCrusherRFC868Test {
             buffer.order(ByteOrder.BIG_ENDIAN);
 
             buffer.clear();
-            buffer.put((byte) 0xFF);
-
             buffer.flip();
             channel.send(buffer, LOCAL_ADDRESS);
 

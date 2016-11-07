@@ -177,4 +177,5 @@ public class TcpCrusherOptions {
     public void setBufferOptions(BufferOptions bufferOptions) {
         this.bufferOptions = bufferOptions;
     }
+
 }

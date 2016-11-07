@@ -19,6 +19,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.nio.channels.UnsupportedAddressTypeException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class TcpAcceptor implements NetFreezer {
 
@@ -46,6 +47,8 @@ class TcpAcceptor implements NetFreezer {
 
     private final State state;
 
+    private final AtomicInteger totalAccepted;
+
     TcpAcceptor(
         TcpCrusher crusher,
         NioReactor reactor,
@@ -64,6 +67,7 @@ class TcpAcceptor implements NetFreezer {
         this.reactor = reactor;
         this.bufferOptions = bufferOptions;
         this.filters = filters;
+        this.totalAccepted = new AtomicInteger(0);
 
         this.serverSocketChannel = ServerSocketChannel.open();
         this.serverSocketChannel.configureBlocking(false);
@@ -183,8 +187,9 @@ class TcpAcceptor implements NetFreezer {
 
     private void appendPair(SocketChannel socketChannel1, SocketChannel socketChannel2) {
         try {
-            InetSocketAddress clientAddress = (InetSocketAddress) socketChannel1.getRemoteAddress();
+            totalAccepted.incrementAndGet();
 
+            InetSocketAddress clientAddress = (InetSocketAddress) socketChannel1.getRemoteAddress();
             Runnable pairShutdown = () -> crusher.closeClient(clientAddress);
 
             TcpPair pair = new TcpPair(reactor, filters, socketChannel1, socketChannel2, bufferOptions, pairShutdown);
@@ -200,6 +205,10 @@ class TcpAcceptor implements NetFreezer {
             NioUtils.closeNoLinger(socketChannel1);
             NioUtils.closeNoLinger(socketChannel2);
         }
+    }
+
+    int getTotalAccepted() {
+        return totalAccepted.get();
     }
 
     @Override
