@@ -77,30 +77,35 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
             return ERR_EXIT_INITIALIZATION;
         }
 
+        Runnable closer = () -> {
+            try {
+                if (crusher.isOpen()) {
+                    close(crusher);
+                }
+            } catch (Exception e) {
+                LOGGER.error("Fail to close the crusher", e);
+            }
+
+            try {
+                if (reactor.isOpen()) {
+                    reactor.close();
+                }
+            } catch (Exception e) {
+                LOGGER.error("Fail to close the reactor", e);
+            }
+        };
+
+        Runtime.getRuntime().addShutdownHook(new Thread(closer));
+
         final String version = getClass().getPackage().getImplementationVersion();
         if (version != null && !version.isEmpty()) {
             System.out.printf("# Version: %s\n", version);
         }
 
         System.out.println("# Print `HELP` for the list of the commands");
-
         repl(crusher);
 
-        try {
-            if (crusher.isOpen()) {
-                close(crusher);
-            }
-        } catch (Exception e) {
-            LOGGER.error("Fail to close the crusher", e);
-        }
-
-        try {
-            if (reactor.isOpen()) {
-                reactor.close();
-            }
-        } catch (Exception e) {
-            LOGGER.error("Fail to close the reactor", e);
-        }
+        closer.run();
 
         LOGGER.info("Exiting..");
 
