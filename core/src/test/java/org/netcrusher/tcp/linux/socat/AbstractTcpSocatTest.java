@@ -22,6 +22,10 @@ public abstract class AbstractTcpSocatTest extends AbstractLinuxTest {
 
     protected static final int FULL_THROUGHPUT = 0;
 
+    protected static final int PORT_DIRECT = 50100;
+
+    protected static final int PORT_PROXY = 50101;
+
     protected static final int SOCAT_TIMEOUT_SEC = 5;
 
     /* IP4 */

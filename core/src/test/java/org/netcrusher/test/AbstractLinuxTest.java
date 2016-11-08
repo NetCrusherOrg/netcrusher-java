@@ -18,10 +18,6 @@ public abstract class AbstractLinuxTest {
 
     protected static final String ADDR_LOOPBACK6 = "::1";
 
-    protected static final int PORT_DIRECT = 50100;
-
-    protected static final int PORT_PROXY = 50101;
-
     @BeforeClass
     public static void checkLinux() throws Exception {
         String os = System.getProperty("os.name");

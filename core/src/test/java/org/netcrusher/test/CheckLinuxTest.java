@@ -15,6 +15,7 @@ public class CheckLinuxTest extends AbstractLinuxTest {
     @Test
     public void check() throws Exception {
         Assert.assertTrue("<socat> is not found", ensureCommand(Arrays.asList("socat", "-V")));
+        Assert.assertTrue("<iperf3> is not found", ensureCommand(Arrays.asList("iperf3", "-v")));
         Assert.assertTrue("<openssl> is not found", ensureCommand(Arrays.asList("openssl", "version")));
         Assert.assertTrue("<pv> is not found", ensureCommand(Arrays.asList("pv", "-V")));
         Assert.assertTrue("<tee> is not found", ensureCommand(Arrays.asList("tee", "--version")));

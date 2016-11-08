@@ -20,6 +20,10 @@ public abstract class AbstractDatagramSocatTest extends AbstractLinuxTest {
 
     protected static final int DEFAULT_THROUGHPUT_KBPERSEC = 500;
 
+    protected static final int PORT_DIRECT = 50100;
+
+    protected static final int PORT_PROXY = 50101;
+
     protected static final int SOCAT_TIMEOUT_SEC = 5;
 
     /* IP4 */
