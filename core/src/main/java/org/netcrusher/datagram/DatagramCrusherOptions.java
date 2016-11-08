@@ -21,6 +21,8 @@ public class DatagramCrusherOptions {
 
     private InetSocketAddress connectAddress;
 
+    private InetSocketAddress bindBeforeConnectAddress;
+
     private NioReactor reactor;
 
     private DatagramCrusherSocketOptions socketOptions;
@@ -92,6 +94,14 @@ public class DatagramCrusherOptions {
 
     public void setConnectAddress(InetSocketAddress connectAddress) {
         this.connectAddress = connectAddress;
+    }
+
+    public InetSocketAddress getBindBeforeConnectAddress() {
+        return bindBeforeConnectAddress;
+    }
+
+    public void setBindBeforeConnectAddress(InetSocketAddress bindBeforeConnectAddress) {
+        this.bindBeforeConnectAddress = bindBeforeConnectAddress;
     }
 
     public NioReactor getReactor() {

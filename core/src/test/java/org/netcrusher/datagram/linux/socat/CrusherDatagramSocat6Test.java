@@ -1,33 +1,36 @@
-package org.netcrusher.tcp.linux;
+package org.netcrusher.datagram.linux.socat;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.reactor.NioReactor;
-import org.netcrusher.tcp.TcpCrusher;
-import org.netcrusher.tcp.TcpCrusherBuilder;
+import org.netcrusher.datagram.DatagramCrusher;
+import org.netcrusher.datagram.DatagramCrusherBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
+import java.net.StandardProtocolFamily;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherTcp6LinuxTest.class);
+public class CrusherDatagramSocat6Test extends AbstractDatagramSocatTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherDatagramSocat6Test.class);
 
     private NioReactor reactor;
 
-    private TcpCrusher crusher;
+    private DatagramCrusher crusher;
 
     @Before
     public void setUp() throws Exception {
         reactor = new NioReactor();
 
-        crusher = TcpCrusherBuilder.builder()
+        crusher = DatagramCrusherBuilder.builder()
             .withReactor(reactor)
             .withBindAddress(ADDR_LOOPBACK6, PORT_DIRECT)
             .withConnectAddress(ADDR_LOOPBACK6, PORT_PROXY)
+            .withProtocolFamily(StandardProtocolFamily.INET6)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
-            .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
+            .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
     }
 
@@ -46,7 +49,7 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void loop() throws Exception {
-        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
+        loop(SOCAT6_PROCESSOR, SOCAT6_REFLECTOR_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT_KBPERSEC);
     }
 
     @Test
@@ -61,7 +64,7 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
 
     @Test
     public void direct() throws Exception {
-        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
+        direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT_KBPERSEC);
     }
 
     @Test
@@ -73,4 +76,5 @@ public class CrusherTcp6LinuxTest extends AbstractTcpLinuxTest {
     public void directSlowest() throws Exception {
         direct(SOCAT6_PRODUCER, SOCAT6_CONSUMER_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT_KBPERSEC / 100);
     }
+
 }

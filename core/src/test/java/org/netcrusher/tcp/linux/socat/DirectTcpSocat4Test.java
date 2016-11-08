@@ -1,8 +1,8 @@
-package org.netcrusher.tcp.linux;
+package org.netcrusher.tcp.linux.socat;
 
 import org.junit.Test;
 
-public class DirectTcp4LinuxTest extends AbstractTcpLinuxTest {
+public class DirectTcpSocat4Test extends AbstractTcpSocatTest {
 
     @Test
     public void loop() throws Exception {

@@ -1,4 +1,4 @@
-package org.netcrusher.tcp.linux.throttling;
+package org.netcrusher.tcp.linux.socat.throttling;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -8,7 +8,7 @@ import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.rate.ByteRateThrottler;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
-import org.netcrusher.tcp.linux.AbstractTcpLinuxTest;
+import org.netcrusher.tcp.linux.socat.AbstractTcpSocatTest;
 import org.netcrusher.test.process.ProcessResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +18,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public abstract class AbstractThottlingTcpLinuxTest extends AbstractTcpLinuxTest {
+public abstract class AbstractThottlingTcpSocatTest extends AbstractTcpSocatTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractThottlingTcpLinuxTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractThottlingTcpSocatTest.class);
 
     private static final double PRECISION = 0.05;
 
@@ -34,7 +34,7 @@ public abstract class AbstractThottlingTcpLinuxTest extends AbstractTcpLinuxTest
 
     private final int durationSec;
 
-    public AbstractThottlingTcpLinuxTest(int bytePerSec, int durationSec) {
+    public AbstractThottlingTcpSocatTest(int bytePerSec, int durationSec) {
         this.bytePerSec = bytePerSec;
         this.durationSec = durationSec;
     }

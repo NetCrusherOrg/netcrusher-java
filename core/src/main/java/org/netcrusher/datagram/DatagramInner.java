@@ -44,6 +44,8 @@ class DatagramInner {
 
     private final InetSocketAddress connectAddress;
 
+    private final InetSocketAddress bindBeforeConnectAddress;
+
     private final DatagramChannel channel;
 
     private final SelectionKeyControl selectionKeyControl;
@@ -62,10 +64,11 @@ class DatagramInner {
             DatagramCrusher crusher,
             NioReactor reactor,
             DatagramCrusherSocketOptions socketOptions,
+            BufferOptions bufferOptions,
             DatagramFilters filters,
             InetSocketAddress bindAddress,
             InetSocketAddress connectAddress,
-            BufferOptions bufferOptions) throws IOException
+            InetSocketAddress bindBeforeConnectAddress) throws IOException
     {
         this.crusher = crusher;
         this.reactor = reactor;
@@ -73,6 +76,7 @@ class DatagramInner {
         this.socketOptions = socketOptions;
         this.bindAddress = bindAddress;
         this.connectAddress = connectAddress;
+        this.bindBeforeConnectAddress = bindBeforeConnectAddress;
         this.outers = new ConcurrentHashMap<>(DEFAULT_OUTER_CAPACITY);
         this.incoming = new DatagramQueue(bufferOptions);
         this.bufferOptions = bufferOptions;
@@ -351,7 +355,8 @@ class DatagramInner {
         DatagramOuter outer = outers.get(address);
 
         if (outer == null) {
-            outer = new DatagramOuter(this, reactor, socketOptions, filters, bufferOptions, address, connectAddress);
+            outer = new DatagramOuter(this, reactor, socketOptions, filters, bufferOptions,
+                address, connectAddress, bindBeforeConnectAddress);
             outer.unfreeze();
 
             outers.put(address, outer);

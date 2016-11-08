@@ -49,6 +49,8 @@ public class DatagramCrusher implements NetCrusher {
 
     private final InetSocketAddress connectAddress;
 
+    private final InetSocketAddress bindBeforeConnectAddress;
+
     private final BufferOptions bufferOptions;
 
     private final DatagramFilters filters;
@@ -82,6 +84,7 @@ public class DatagramCrusher implements NetCrusher {
         this.reactor = options.getReactor();
         this.bindAddress = options.getBindAddress();
         this.connectAddress = options.getConnectAddress();
+        this.bindBeforeConnectAddress = options.getBindBeforeConnectAddress();
         this.socketOptions = options.getSocketOptions().copy();
         this.bufferOptions = options.getBufferOptions().copy();
         this.creationListener = options.getCreationListener();
@@ -113,7 +116,8 @@ public class DatagramCrusher implements NetCrusher {
         reactor.getSelector().execute(() -> {
             if (state.is(State.CLOSED)) {
                 this.inner = new DatagramInner(this,
-                    reactor, socketOptions, filters, bindAddress, connectAddress, bufferOptions);
+                    reactor, socketOptions, bufferOptions, filters,
+                    bindAddress, connectAddress, bindBeforeConnectAddress);
                 this.inner.unfreeze();
 
                 LOGGER.info("DatagramCrusher <{}>-<{}> is started", bindAddress, connectAddress);

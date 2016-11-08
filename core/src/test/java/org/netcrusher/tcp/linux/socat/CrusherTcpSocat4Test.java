@@ -1,36 +1,33 @@
-package org.netcrusher.datagram.linux;
+package org.netcrusher.tcp.linux.socat;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.netcrusher.core.reactor.NioReactor;
-import org.netcrusher.datagram.DatagramCrusher;
-import org.netcrusher.datagram.DatagramCrusherBuilder;
+import org.netcrusher.tcp.TcpCrusher;
+import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.StandardProtocolFamily;
+public class CrusherTcpSocat4Test extends AbstractTcpSocatTest {
 
-public class CrusherDatagram4LinuxTest extends AbstractDatagramLinuxTest {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherDatagram4LinuxTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CrusherTcpSocat4Test.class);
 
     private NioReactor reactor;
 
-    private DatagramCrusher crusher;
+    private TcpCrusher crusher;
 
     @Before
     public void setUp() throws Exception {
         reactor = new NioReactor();
 
-        crusher = DatagramCrusherBuilder.builder()
+        crusher = TcpCrusherBuilder.builder()
             .withReactor(reactor)
             .withBindAddress(ADDR_LOOPBACK4, PORT_DIRECT)
             .withConnectAddress(ADDR_LOOPBACK4, PORT_PROXY)
-            .withProtocolFamily(StandardProtocolFamily.INET)
             .withCreationListener((addr) -> LOGGER.info("Client is created <{}>", addr))
-            .withDeletionListener((addr, byteMeters, packetMeters) -> LOGGER.info("Client is deleted <{}>", addr))
+            .withDeletionListener((addr, byteMeters) -> LOGGER.info("Client is deleted <{}>", addr))
             .buildAndOpen();
     }
 
@@ -49,7 +46,7 @@ public class CrusherDatagram4LinuxTest extends AbstractDatagramLinuxTest {
 
     @Test
     public void loop() throws Exception {
-        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT_KBPERSEC);
+        loop(SOCAT4_PROCESSOR, SOCAT4_REFLECTOR_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
     }
 
     @Test
@@ -64,7 +61,7 @@ public class CrusherDatagram4LinuxTest extends AbstractDatagramLinuxTest {
 
     @Test
     public void direct() throws Exception {
-        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES, DEFAULT_THROUGHPUT_KBPERSEC);
+        direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES, FULL_THROUGHPUT);
     }
 
     @Test
@@ -76,5 +73,4 @@ public class CrusherDatagram4LinuxTest extends AbstractDatagramLinuxTest {
     public void directSlowest() throws Exception {
         direct(SOCAT4_PRODUCER, SOCAT4_CONSUMER_PROXIED, DEFAULT_BYTES / 100, DEFAULT_THROUGHPUT_KBPERSEC / 100);
     }
-
 }

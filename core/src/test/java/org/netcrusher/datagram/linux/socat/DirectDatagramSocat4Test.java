@@ -1,8 +1,8 @@
-package org.netcrusher.datagram.linux;
+package org.netcrusher.datagram.linux.socat;
 
 import org.junit.Test;
 
-public class DirectDatagram4LinuxTest extends AbstractDatagramLinuxTest {
+public class DirectDatagramSocat4Test extends AbstractDatagramSocatTest {
 
     @Test
     public void loop() throws Exception {

@@ -1,4 +1,4 @@
-package org.netcrusher.tcp.linux;
+package org.netcrusher.tcp.linux.socat;
 
 import org.junit.Assert;
 import org.netcrusher.test.AbstractLinuxTest;
@@ -12,9 +12,9 @@ import java.util.List;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
-public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
+public abstract class AbstractTcpSocatTest extends AbstractLinuxTest {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTcpLinuxTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractTcpSocatTest.class);
 
     protected static final int DEFAULT_BYTES = 256 * 1024 * 1024;
 
@@ -22,7 +22,12 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
 
     protected static final int FULL_THROUGHPUT = 0;
 
+    protected static final int SOCAT_TIMEOUT_SEC = 5;
+
     /* IP4 */
+
+    protected static final String SOCAT4 =
+        String.format("socat -T%d -4 -d", SOCAT_TIMEOUT_SEC);
 
     protected static final String SOCAT4_PROCESSOR =
         SOCAT4 + " - tcp4:127.0.0.1:50100,ignoreeof";
@@ -43,6 +48,9 @@ public abstract class AbstractTcpLinuxTest extends AbstractLinuxTest {
         SOCAT4 + " - tcp4-listen:50101,bind=127.0.0.1,reuseaddr,ignoreeof";
 
     /* IP6 */
+
+    protected static final String SOCAT6 =
+        String.format("socat -T%d -6 -d", SOCAT_TIMEOUT_SEC);
 
     protected static final String SOCAT6_PROCESSOR =
         SOCAT6 + " - tcp6:[::1]:50100,ignoreeof";

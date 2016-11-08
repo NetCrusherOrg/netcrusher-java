@@ -19,6 +19,7 @@ import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.DatagramChannel;
@@ -60,7 +61,8 @@ class DatagramOuter {
             DatagramFilters filters,
             BufferOptions bufferOptions,
             InetSocketAddress clientAddress,
-            InetSocketAddress connectAddress) throws IOException
+            InetSocketAddress connectAddress,
+            InetSocketAddress bindBeforeConnectAddress) throws IOException
     {
         this.inner = inner;
         this.reactor = reactor;
@@ -74,11 +76,17 @@ class DatagramOuter {
 
         this.channel = DatagramChannel.open(socketOptions.getProtocolFamily());
         socketOptions.setupSocketChannel(this.channel);
+        this.channel.configureBlocking(false);
+        bufferOptions.checkDatagramSocket(channel.socket());
+
+        if (bindBeforeConnectAddress != null) {
+            this.channel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+            this.channel.bind(bindBeforeConnectAddress);
+        }
+
         // Connected DatagramChannel doesn't work with empty datagrams
         // https://bugs.openjdk.java.net/browse/JDK-8013175
         // this.channel.connect(connectAddress);
-        this.channel.configureBlocking(false);
-        bufferOptions.checkDatagramSocket(channel.socket());
 
         this.bb = NioUtils.allocaleByteBuffer(channel.socket().getReceiveBufferSize(), bufferOptions.isDirect());
 
