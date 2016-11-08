@@ -27,7 +27,7 @@
         <dependency>
             <groupId>com.github.netcrusherorg</groupId>
             <artifactId>netcrusher-core</artifactId>
-            <version>0.8</version>
+            <version>0.9</version>
             <scope>runtime</scope>
         </dependency>
     </dependencies>

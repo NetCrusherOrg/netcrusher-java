@@ -88,107 +88,19 @@ OPEN
 [20:19:21.655] INFO  Crusher is open
 ```
 
-# TCP performance
-
-## iperf3 without a proxy (loopback interface)
-
-```
-onnecting to host 127.0.0.1, port 50100
-[  4] local 127.0.0.1 port 32960 connected to 127.0.0.1 port 50100
-[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
-[  4]   0.00-1.00   sec  4.17 GBytes  35843 Mbits/sec    0   1.69 MBytes       
-[  4]   1.00-2.00   sec  3.80 GBytes  32660 Mbits/sec    0   1.69 MBytes       
-[  4]   2.00-3.00   sec  4.88 GBytes  41934 Mbits/sec    0   1.69 MBytes       
-[  4]   3.00-4.00   sec  5.00 GBytes  42985 Mbits/sec    0   1.69 MBytes       
-[  4]   4.00-5.00   sec  4.52 GBytes  38808 Mbits/sec    0   1.69 MBytes       
-[  4]   5.00-6.00   sec  4.10 GBytes  35203 Mbits/sec    0   1.69 MBytes       
-[  4]   6.00-7.00   sec  4.89 GBytes  42027 Mbits/sec    0   1.81 MBytes       
-[  4]   7.00-8.00   sec  4.81 GBytes  41336 Mbits/sec    0   1.94 MBytes       
-[  4]   8.00-9.00   sec  4.58 GBytes  39336 Mbits/sec    0   1.94 MBytes       
-[  4]   9.00-10.00  sec  4.56 GBytes  39145 Mbits/sec    0   1.94 MBytes       
-- - - - - - - - - - - - - - - - - - - - - - - - -
-[ ID] Interval           Transfer     Bandwidth       Retr
-[  4]   0.00-10.00  sec  45.3 GBytes  38928 Mbits/sec    0             sender
-[  4]   0.00-10.00  sec  45.3 GBytes  38921 Mbits/sec                  receiver
-```
-
-## iperf3 with TcpCrusher (loopback interface)
-
-```
-Connecting to host 127.0.0.1, port 50101
-[  4] local 127.0.0.1 port 33826 connected to 127.0.0.1 port 50101
-[ ID] Interval           Transfer     Bandwidth       Retr  Cwnd
-[  4]   0.00-1.00   sec  1.38 GBytes  11886 Mbits/sec    0   3.00 MBytes       
-[  4]   1.00-2.00   sec  1.77 GBytes  15203 Mbits/sec    0   3.12 MBytes       
-[  4]   2.00-3.00   sec  1.96 GBytes  16801 Mbits/sec    0   3.12 MBytes       
-[  4]   3.00-4.00   sec  2.03 GBytes  17480 Mbits/sec    0   3.12 MBytes       
-[  4]   4.00-5.00   sec  1.75 GBytes  15004 Mbits/sec    0   3.12 MBytes       
-[  4]   5.00-6.00   sec  2.09 GBytes  17995 Mbits/sec    0   3.12 MBytes       
-[  4]   6.00-7.00   sec  2.02 GBytes  17332 Mbits/sec    0   3.12 MBytes       
-[  4]   7.00-8.00   sec  2.13 GBytes  18297 Mbits/sec    0   3.12 MBytes       
-[  4]   8.00-9.00   sec  2.14 GBytes  18363 Mbits/sec    0   3.12 MBytes       
-[  4]   9.00-10.00  sec  2.07 GBytes  17763 Mbits/sec    0   3.25 MBytes       
-- - - - - - - - - - - - - - - - - - - - - - - - -
-[ ID] Interval           Transfer     Bandwidth       Retr
-[  4]   0.00-10.00  sec  19.3 GBytes  16612 Mbits/sec    0             sender
-[  4]   0.00-10.00  sec  19.3 GBytes  16612 Mbits/sec                  receiver
-```
-
-# UDP performance
-
-## iperf3 without a proxy (loopback interface)
-
-```
-Connecting to host 127.0.0.1, port 50100
-[  4] local 127.0.0.1 port 56010 connected to 127.0.0.1 port 50100
-[ ID] Interval           Transfer     Bandwidth       Total Datagrams
-[  4]   0.00-1.00   sec   112 KBytes  0.92 Mbits/sec  14  
-[  4]   1.00-2.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   2.00-3.00   sec   128 KBytes  1.05 Mbits/sec  16  
-[  4]   3.00-4.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   4.00-5.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   5.00-6.00   sec   128 KBytes  1.05 Mbits/sec  16  
-[  4]   6.00-7.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   7.00-8.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   8.00-9.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   9.00-10.00  sec   128 KBytes  1.05 Mbits/sec  16  
-- - - - - - - - - - - - - - - - - - - - - - - - -
-[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
-[  4]   0.00-10.00  sec  1.19 MBytes  1.00 Mbits/sec  0.044 ms  0/152 (0%)  
-[  4] Sent 152 datagrams
-```
-
-## iperf3 with DatagramCrusher (loopback interface)
-
-```
-Connecting to host 127.0.0.1, port 50101
-[  4] local 127.0.0.1 port 46245 connected to 127.0.0.1 port 50101
-[ ID] Interval           Transfer     Bandwidth       Total Datagrams
-[  4]   0.00-1.00   sec   112 KBytes  0.92 Mbits/sec  14  
-[  4]   1.00-2.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   2.00-3.00   sec   128 KBytes  1.05 Mbits/sec  16  
-[  4]   3.00-4.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   4.00-5.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   5.00-6.00   sec   128 KBytes  1.05 Mbits/sec  16  
-[  4]   6.00-7.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   7.00-8.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   8.00-9.00   sec   120 KBytes  0.98 Mbits/sec  15  
-[  4]   9.00-10.00  sec   128 KBytes  1.05 Mbits/sec  16  
-- - - - - - - - - - - - - - - - - - - - - - - - -
-[ ID] Interval           Transfer     Bandwidth       Jitter    Lost/Total Datagrams
-[  4]   0.00-10.00  sec  1.19 MBytes  1.00 Mbits/sec  0.057 ms  0/152 (0%)  
-[  4] Sent 152 datagrams
-```
-
 # Maven
 
 ```xml
 <dependency>
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.8</version>
+    <version>0.9</version>
 </dependency>
 ```
+
+# Performance
+
+See [wiki page](https://github.com/NetCrusherOrg/netcrusher-java/wiki/Performance)
 
 # License
 
