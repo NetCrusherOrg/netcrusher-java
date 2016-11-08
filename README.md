@@ -10,6 +10,7 @@ NetCrusher is TCP/UDP proxy for Java that is placed in the middle between client
 * allows to filter/dump data
 * supports throttling (delay and/or throughput control)
 * garbage-less buffering
+* high perfomance (no excessive copying for TCP)
 * supports IP4/IP6
 
 NetCrusher is build on top of Java 8 NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
