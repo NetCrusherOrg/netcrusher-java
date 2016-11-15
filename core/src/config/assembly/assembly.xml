@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
+
+    <id>dist</id>
+
+    <formats>
+        <format>tar.gz</format>
+    </formats>
+
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <includeSiteDirectory>false</includeSiteDirectory>
+
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>${project.artifactId}-${project.version}/lib</outputDirectory>
+            <useProjectArtifact>true</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <scope>test</scope>
+        </dependencySet>
+    </dependencySets>
+
+    <fileSets>
+        <fileSet>
+            <directory>src/config/assembly/bin</directory>
+            <outputDirectory>${project.artifactId}-${project.version}/bin</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>src/config/assembly/bin-mvn</directory>
+            <outputDirectory>${project.artifactId}-${project.version}/bin-mvn</outputDirectory>
+        </fileSet>
+    </fileSets>
+
+    <files>
+        <file>
+            <source>LICENSE.txt</source>
+            <outputDirectory>${project.artifactId}-${project.version}</outputDirectory>
+        </file>
+    </files>
+
+</assembly>

@@ -97,9 +97,14 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
         Runtime.getRuntime().addShutdownHook(new Thread(closer));
 
-        final String version = getClass().getPackage().getImplementationVersion();
-        if (version != null && !version.isEmpty()) {
-            System.out.printf("# Version: %s\n", version);
+        final String crusherVersion = getClass().getPackage().getImplementationVersion();
+        if (crusherVersion != null && !crusherVersion.isEmpty()) {
+            System.out.printf("# Version: %s\n", crusherVersion);
+        }
+
+        final String javaVersion = System.getProperty("java.version");
+        if (javaVersion != null && !javaVersion.isEmpty()) {
+            System.out.printf("# Java: %s\n", javaVersion);
         }
 
         System.out.println("# Print `HELP` for the list of the commands");
