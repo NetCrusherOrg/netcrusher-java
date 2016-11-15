@@ -118,7 +118,8 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
                  BufferedReader br = new BufferedReader(isr))
             {
                 while (true) {
-                    System.out.println("# enter the command in the next line");
+                    System.out.printf("# enter the command in the next line (crusher is %s)\n",
+                        crusher.isOpen() ? "OPEN" : "CLOSED");
 
                     String line = br.readLine();
                     if (line == null) {
@@ -231,7 +232,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
                 statusClient(crusher, clientAddress);
             }
         } else {
-            LOGGER.warn("Crusher is not open");
+            LOGGER.info("Crusher is closed");
         }
     }
 
@@ -264,7 +265,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
         LOGGER.info("\t" + CMD_OPEN + "     - opens the crusher");
         LOGGER.info("\t" + CMD_CLOSE + "    - closes the crusher (sockets will be closed)");
         LOGGER.info("\t" + CMD_REOPEN + "   - closes and opens the crusher again");
-        LOGGER.info("\t" + CMD_FREEZE + "   - freezes the crusher (open but transfer engine is not working)");
+        LOGGER.info("\t" + CMD_FREEZE + "   - freezes the crusher (socket are open but data is not transferred)");
         LOGGER.info("\t" + CMD_UNFREEZE + " - unfreezes the crusher");
         LOGGER.info("\t" + CMD_STATUS + "   - prints the status of the connection");
         LOGGER.info("\t" + CMD_HELP + "     - prints this help");

@@ -1,15 +1,18 @@
 package org.netcrusher.tcp.main;
 
 import org.netcrusher.NetFreezer;
+import org.netcrusher.core.filter.LoggingFilter;
 import org.netcrusher.core.main.AbstractCrusherMain;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.throttle.rate.ByteRateThrottler;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
 import org.netcrusher.tcp.TcpCrusherOptions;
 import org.netcrusher.tcp.TcpCrusherSocketOptions;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 
 public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
@@ -24,29 +27,48 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
                                 InetSocketAddress bindAddress,
                                 InetSocketAddress connectAddress)
     {
-        return TcpCrusherBuilder.builder()
+        TcpCrusherBuilder builder = TcpCrusherBuilder.builder()
             .withReactor(reactor)
             .withBindAddress(bindAddress)
-            .withConnectAddress(connectAddress)
-            .withCreationListener((address) -> {
-                LOGGER.info("Client for <{}> is created", address);
-            })
-            .withDeletionListener((address, byteMeters) -> {
-                LOGGER.info("Client for <{}> is deleted", address);
-                statusClientMeters(byteMeters);
-            })
-            .withBufferCount(
-                Integer.getInteger("crusher.buffer.count", TcpCrusherOptions.DEFAULT_BUFFER_COUNT))
-            .withBufferSize(
-                Integer.getInteger("crusher.buffer.size", TcpCrusherOptions.DEFAULT_BUFFER_SIZE))
-            .withBacklog(
-                Integer.getInteger("crusher.socket.backlog", TcpCrusherSocketOptions.DEFAULT_BACKLOG))
+            .withConnectAddress(connectAddress);
+
+        builder.withCreationListener((address) ->
+            LOGGER.info("Client for <{}> is created", address));
+
+        builder.withDeletionListener((address, byteMeters) -> {
+            LOGGER.info("Client for <{}> is deleted", address);
+            statusClientMeters(byteMeters);
+        });
+
+        builder
+            .withBufferCount(Integer.getInteger("crusher.buffer.count", TcpCrusherOptions.DEFAULT_BUFFER_COUNT))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size", TcpCrusherOptions.DEFAULT_BUFFER_SIZE));
+
+        builder
+            .withBacklog(Integer.getInteger("crusher.socket.backlog", TcpCrusherSocketOptions.DEFAULT_BACKLOG))
             .withConnectionTimeoutMs(
                 Long.getLong("crusher.socket.conn.timeout", TcpCrusherSocketOptions.DEFAULT_CONNECTION_TIMEOUT_MS))
             .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
             .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))
-            .withKeepAlive(Boolean.getBoolean("crusher.socker.keepalive"))
-            .buildAndOpen();
+            .withKeepAlive(Boolean.getBoolean("crusher.socket.keepalive"));
+
+        final String loggerName = System.getProperty("crusher.logger", null);
+        if (loggerName != null) {
+            builder.withOutgoingTransformFilterFactory((addr) ->
+                new LoggingFilter(addr, loggerName + ".outgoing", LoggingFilter.Level.INFO));
+            builder.withIncomingTransformFilterFactory((addr) ->
+                new LoggingFilter(addr, loggerName + ".incoming", LoggingFilter.Level.INFO));
+        }
+
+        final int byteRatePerSec = Integer.getInteger("crusher.throttler.bytes", 0);
+        if (byteRatePerSec > 0) {
+            builder.withOutgoingThrottlerFactory((addr) ->
+                new ByteRateThrottler(byteRatePerSec, 1, TimeUnit.SECONDS));
+            builder.withIncomingThrottlerFactory((addr) ->
+                new ByteRateThrottler(byteRatePerSec, 1, TimeUnit.SECONDS));
+        }
+
+        return builder.buildAndOpen();
     }
 
     @Override

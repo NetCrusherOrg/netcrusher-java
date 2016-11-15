@@ -1,8 +1,11 @@
 package org.netcrusher.datagram.main;
 
+import org.netcrusher.core.filter.LoggingFilter;
 import org.netcrusher.core.main.AbstractCrusherMain;
 import org.netcrusher.core.meter.RateMeters;
 import org.netcrusher.core.reactor.NioReactor;
+import org.netcrusher.core.throttle.rate.ByteRateThrottler;
+import org.netcrusher.core.throttle.rate.PacketRateThrottler;
 import org.netcrusher.datagram.DatagramCrusher;
 import org.netcrusher.datagram.DatagramCrusherBuilder;
 import org.netcrusher.datagram.DatagramCrusherOptions;
@@ -21,22 +24,54 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
                                 InetSocketAddress bindAddress,
                                 InetSocketAddress connectAddress)
     {
-        return DatagramCrusherBuilder.builder()
+        DatagramCrusherBuilder builder = DatagramCrusherBuilder.builder();
+
+        builder
             .withReactor(reactor)
             .withBindAddress(bindAddress)
-            .withConnectAddress(connectAddress)
-            .withCreationListener((address) -> {
-                LOGGER.info("Client for <{}> is created", address);
-            })
+            .withConnectAddress(connectAddress);
+
+        builder
+            .withCreationListener((address) ->
+                LOGGER.info("Client for <{}> is created", address));
+
+        builder
             .withDeletionListener((address, byteMeters, packetMeters) -> {
                 LOGGER.info("Client for <{}> is deleted", address);
                 statusClientMeters(byteMeters, packetMeters);
-            })
-            .withBufferCount(Integer.getInteger("crusher.buffer.count", DatagramCrusherOptions.DEFAULT_BUFFER_COUNT))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size", DatagramCrusherOptions.DEFAULT_BUFFER_SIZE))
+            });
+
+        builder
+            .withBufferCount(Integer.getInteger("crusher.buffer.count",
+                DatagramCrusherOptions.DEFAULT_BUFFER_COUNT))
+            .withBufferSize(Integer.getInteger("crusher.buffer.size",
+                DatagramCrusherOptions.DEFAULT_BUFFER_SIZE));
+
+        builder
             .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
-            .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))
-            .buildAndOpen();
+            .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0));
+
+        final String loggerName = System.getProperty("crusher.logger", null);
+        if (loggerName != null) {
+            builder.withOutgoingTransformFilterFactory((addr) ->
+                new LoggingFilter(addr, loggerName + ".outgoing", LoggingFilter.Level.INFO));
+            builder.withIncomingTransformFilterFactory((addr) ->
+                new LoggingFilter(addr, loggerName + ".incoming", LoggingFilter.Level.INFO));
+        }
+
+        final int packetRatePerSec = Integer.getInteger("crusher.throttler.packets", 0);
+        if (packetRatePerSec > 0) {
+            builder.withOutgoingThrottlerFactory((addr) ->
+                new PacketRateThrottler(packetRatePerSec, 1, TimeUnit.SECONDS));
+        }
+
+        final int byteRatePerSec = Integer.getInteger("crusher.throttler.bytes", 0);
+        if (byteRatePerSec > 0) {
+            builder.withOutgoingThrottlerFactory((addr) ->
+                new ByteRateThrottler(byteRatePerSec, 1, TimeUnit.SECONDS));
+        }
+
+        return builder.buildAndOpen();
     }
 
     @Override
@@ -50,13 +85,13 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
     @Override
     protected void command(DatagramCrusher crusher, String command) {
         if (command.startsWith(CMD_CLOSE_IDLE)) {
-            closeIdle(crusher, command);
+            closeIdle(crusher);
         } else {
             super.command(crusher, command);
         }
     }
 
-    protected void closeIdle(DatagramCrusher crusher, String command) {
+    private void closeIdle(DatagramCrusher crusher) {
         if (crusher.isOpen()) {
             int closed = crusher.closeIdleClients(DEFAULT_IDLE_PERIOD_SEC, TimeUnit.SECONDS);
             LOGGER.info("Idle clients are closed: {}", closed);
