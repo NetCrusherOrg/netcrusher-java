@@ -26,10 +26,6 @@
             <directory>src/config/assembly/bin</directory>
             <outputDirectory>${project.artifactId}-${project.version}/bin</outputDirectory>
         </fileSet>
-        <fileSet>
-            <directory>src/config/assembly/bin-mvn</directory>
-            <outputDirectory>${project.artifactId}-${project.version}/bin-mvn</outputDirectory>
-        </fileSet>
     </fileSets>
 
     <files>

@@ -1,6 +1,6 @@
 @ECHO OFF
 
-set JAVA_OPTS=%JAVA_OPTS% -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -Dlogback.configurationFile=logback-plain.xml
+set JAVA_OPTS=-XX:+UseParNewGC -XX:+UseConcMarkSweepGC -Dlogback.configurationFile=logback.xml %JAVA_OPTS%
 
 set CRUSHER_BIN=%~dp0
 set CRUSHER_LIB=%CRUSHER_BIN%\..\lib

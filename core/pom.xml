@@ -73,6 +73,12 @@
             <version>${version.logback}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.fusesource.jansi</groupId>
+            <artifactId>jansi</artifactId>
+            <version>1.14</version>
+            <scope>test</scope>
+        </dependency>
         <!-- junit -->
         <dependency>
             <groupId>junit</groupId>
@@ -155,25 +161,6 @@
                     </dependency>
                 </dependencies>
             </plugin>
-            <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.6</version>
-                <configuration>
-                    <descriptors>
-                        <descriptor>src/config/assembly/assembly.xml</descriptor>
-                    </descriptors>
-                    <finalName>${project.artifactId}-${project.version}</finalName>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>make-assembly</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>single</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
         </plugins>
 
     </build>
@@ -227,6 +214,25 @@
                         <configuration>
                             <additionalparam>-Xdoclint:none</additionalparam>
                         </configuration>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <version>2.6</version>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/config/assembly/assembly.xml</descriptor>
+                            </descriptors>
+                            <finalName>${project.artifactId}-${project.version}</finalName>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-assembly</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
