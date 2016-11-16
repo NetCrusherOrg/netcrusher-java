@@ -88,6 +88,8 @@ OPEN
 [20:19:21.655] INFO  Crusher is open
 ```
 
+More about the command line mode in [wiki](https://github.com/NetCrusherOrg/netcrusher-java/wiki/CommandLine).
+
 # Maven
 
 ```xml
