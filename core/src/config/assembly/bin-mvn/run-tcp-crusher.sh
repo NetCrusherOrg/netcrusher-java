@@ -10,6 +10,6 @@ export MAVEN_OPTS="-XX:+UseParNewGC -XX:+UseConcMarkSweepGC"
 
 mvn \
     exec:java \
-    -Dlogback.configurationFile=logback.xml \
+    -Dlogback.configurationFile=logback-highlight.xml \
     -Dexec.mainClass=org.netcrusher.tcp.main.TcpCrusherMain \
     -Dexec.args="$1 $2"

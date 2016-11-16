@@ -9,7 +9,7 @@ fi
 CRUSHER_BIN="$(dirname -- $(readlink -f -- $0))"
 CRUSHER_LIB="$(dirname -- $CRUSHER_BIN)/lib"
 
-JAVA_OPTS="$JAVA_OPTS -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -Dlogback.configurationFile=logback.xml"
+JAVA_OPTS="$JAVA_OPTS -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -Dlogback.configurationFile=logback-highlight.xml"
 
 if [ -n "$JAVA_HOME" ]
 then
