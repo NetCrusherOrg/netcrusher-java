@@ -1,5 +1,10 @@
 @ECHO OFF
 
-set MAVEN_OPTS=-XX:+UseParNewGC -XX:+UseConcMarkSweepGC
+set JAVA_OPTS=%JAVA_OPTS% -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -Dlogback.configurationFile=logback-plain.xml
 
-mvn exec:java -Dlogback.configurationFile=logback-plain.xml -Dexec.mainClass=org.netcrusher.tcp.main.TcpCrusherMain -Dexec.args="%1 %2"
+set CRUSHER_BIN=%~dp0
+set CRUSHER_LIB=%CRUSHER_BIN%\..\lib
+
+set CLASSPATH=%CRUSHER_LIB%\*
+
+java %JAVA_OPTS% -classpath %CLASSPATH% org.netcrusher.tcp.main.TcpCrusherMain %1 %2
