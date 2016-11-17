@@ -8,7 +8,6 @@ import org.netcrusher.core.throttle.rate.ByteRateThrottler;
 import org.netcrusher.core.throttle.rate.PacketRateThrottler;
 import org.netcrusher.datagram.DatagramCrusher;
 import org.netcrusher.datagram.DatagramCrusherBuilder;
-import org.netcrusher.datagram.DatagramCrusherOptions;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
@@ -21,8 +20,7 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
 
     @Override
     protected DatagramCrusher create(NioReactor reactor,
-                                InetSocketAddress bindAddress,
-                                InetSocketAddress connectAddress)
+            InetSocketAddress bindAddress, InetSocketAddress connectAddress)
     {
         DatagramCrusherBuilder builder = DatagramCrusherBuilder.builder();
 
@@ -31,45 +29,35 @@ public class DatagramCrusherMain extends AbstractCrusherMain<DatagramCrusher> {
             .withBindAddress(bindAddress)
             .withConnectAddress(connectAddress);
 
-        builder
-            .withCreationListener((address) ->
-                LOGGER.info("Client for <{}> is created", address));
+        builder.withCreationListener((address) ->
+            LOGGER.info("Client for <{}> is created", address)
+        );
 
-        builder
-            .withDeletionListener((address, byteMeters, packetMeters) -> {
-                LOGGER.info("Client for <{}> is deleted", address);
-                statusClientMeters(byteMeters, packetMeters);
-            });
+        builder.withDeletionListener((address, byteMeters, packetMeters) -> {
+            LOGGER.info("Client for <{}> is deleted", address);
+            statusClientMeters(byteMeters, packetMeters);
+        });
 
-        builder
-            .withBufferCount(Integer.getInteger("crusher.buffer.count",
-                DatagramCrusherOptions.DEFAULT_BUFFER_COUNT))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size",
-                DatagramCrusherOptions.DEFAULT_BUFFER_SIZE));
+        withIntProperty("crusher.buffer.count", builder::withBufferCount);
+        withIntProperty("crusher.buffer.size", builder::withBufferSize);
 
-        builder
-            .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
-            .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0));
+        withIntProperty("crusher.socket.rcvbuf.size", builder::withRcvBufferSize);
+        withIntProperty("crusher.socket.sndbuf.size", builder::withSndBufferSize);
 
-        final String loggerName = System.getProperty("crusher.logger", null);
-        if (loggerName != null) {
+        withStrProperty("crusher.logger", (loggerName) -> {
             builder.withOutgoingTransformFilterFactory((addr) ->
                 new LoggingFilter(addr, loggerName + ".outgoing", LoggingFilter.Level.INFO));
             builder.withIncomingTransformFilterFactory((addr) ->
                 new LoggingFilter(addr, loggerName + ".incoming", LoggingFilter.Level.INFO));
-        }
+        });
 
-        final int packetRatePerSec = Integer.getInteger("crusher.throttler.packets", 0);
-        if (packetRatePerSec > 0) {
-            builder.withOutgoingThrottlerFactory((addr) ->
-                new PacketRateThrottler(packetRatePerSec, 1, TimeUnit.SECONDS));
-        }
+        withIntProperty("crusher.throttler.packets", (packetPerSec) ->
+            builder.withOutgoingThrottlerFactory((addr) -> new PacketRateThrottler(packetPerSec, 1, TimeUnit.SECONDS))
+        );
 
-        final int byteRatePerSec = Integer.getInteger("crusher.throttler.bytes", 0);
-        if (byteRatePerSec > 0) {
-            builder.withOutgoingThrottlerFactory((addr) ->
-                new ByteRateThrottler(byteRatePerSec, 1, TimeUnit.SECONDS));
-        }
+        withIntProperty("crusher.throttler.bytes", (bytePerSec) ->
+            builder.withOutgoingThrottlerFactory((addr) -> new ByteRateThrottler(bytePerSec, 1, TimeUnit.SECONDS))
+        );
 
         return builder.buildAndOpen();
     }

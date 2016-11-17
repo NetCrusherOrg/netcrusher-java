@@ -8,8 +8,6 @@ import org.netcrusher.core.reactor.NioReactor;
 import org.netcrusher.core.throttle.rate.ByteRateThrottler;
 import org.netcrusher.tcp.TcpCrusher;
 import org.netcrusher.tcp.TcpCrusherBuilder;
-import org.netcrusher.tcp.TcpCrusherOptions;
-import org.netcrusher.tcp.TcpCrusherSocketOptions;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
@@ -24,8 +22,7 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
 
     @Override
     protected TcpCrusher create(NioReactor reactor,
-                                InetSocketAddress bindAddress,
-                                InetSocketAddress connectAddress)
+            InetSocketAddress bindAddress, InetSocketAddress connectAddress)
     {
         TcpCrusherBuilder builder = TcpCrusherBuilder.builder()
             .withReactor(reactor)
@@ -33,40 +30,35 @@ public class TcpCrusherMain extends AbstractCrusherMain<TcpCrusher> {
             .withConnectAddress(connectAddress);
 
         builder.withCreationListener((address) ->
-            LOGGER.info("Client for <{}> is created", address));
+            LOGGER.info("Client for <{}> is created", address)
+        );
 
         builder.withDeletionListener((address, byteMeters) -> {
             LOGGER.info("Client for <{}> is deleted", address);
             statusClientMeters(byteMeters);
         });
 
-        builder
-            .withBufferCount(Integer.getInteger("crusher.buffer.count", TcpCrusherOptions.DEFAULT_BUFFER_COUNT))
-            .withBufferSize(Integer.getInteger("crusher.buffer.size", TcpCrusherOptions.DEFAULT_BUFFER_SIZE));
+        withIntProperty("crusher.buffer.count", builder::withBufferCount);
+        withIntProperty("crusher.buffer.size", builder::withBufferSize);
 
-        builder
-            .withBacklog(Integer.getInteger("crusher.socket.backlog", TcpCrusherSocketOptions.DEFAULT_BACKLOG))
-            .withConnectionTimeoutMs(
-                Long.getLong("crusher.socket.conn.timeout", TcpCrusherSocketOptions.DEFAULT_CONNECTION_TIMEOUT_MS))
-            .withRcvBufferSize(Integer.getInteger("crusher.socket.rcvbuf.size", 0))
-            .withSndBufferSize(Integer.getInteger("crusher.socket.sndbuf.size", 0))
-            .withKeepAlive(Boolean.getBoolean("crusher.socket.keepalive"));
+        withIntProperty("crusher.socket.backlog", builder::withBacklog);
+        withLongProperty("crusher.socket.conn.timeout", builder::withConnectionTimeoutMs);
+        withIntProperty("crusher.socket.rcvbuf.size", builder::withRcvBufferSize);
+        withIntProperty("crusher.socket.sndbuf.size", builder::withSndBufferSize);
+        withBoolProperty("crusher.socket.keepalive", builder::withKeepAlive);
+        withIntProperty("crusher.socket.linger", builder::withLingerMs);
 
-        final String loggerName = System.getProperty("crusher.logger", null);
-        if (loggerName != null) {
+        withStrProperty("crusher.logger", (loggerName) -> {
             builder.withOutgoingTransformFilterFactory((addr) ->
                 new LoggingFilter(addr, loggerName + ".outgoing", LoggingFilter.Level.INFO));
             builder.withIncomingTransformFilterFactory((addr) ->
                 new LoggingFilter(addr, loggerName + ".incoming", LoggingFilter.Level.INFO));
-        }
+        });
 
-        final int byteRatePerSec = Integer.getInteger("crusher.throttler.bytes", 0);
-        if (byteRatePerSec > 0) {
-            builder.withOutgoingThrottlerFactory((addr) ->
-                new ByteRateThrottler(byteRatePerSec, 1, TimeUnit.SECONDS));
-            builder.withIncomingThrottlerFactory((addr) ->
-                new ByteRateThrottler(byteRatePerSec, 1, TimeUnit.SECONDS));
-        }
+        withIntProperty("crusher.throttler.bytes", (bytePerSec) -> {
+            builder.withOutgoingThrottlerFactory((addr) -> new ByteRateThrottler(bytePerSec, 1, TimeUnit.SECONDS));
+            builder.withIncomingThrottlerFactory((addr) -> new ByteRateThrottler(bytePerSec, 1, TimeUnit.SECONDS));
+        });
 
         return builder.buildAndOpen();
     }

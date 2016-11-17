@@ -13,9 +13,9 @@ import java.net.InetSocketAddress;
 
 public class DatagramCrusherOptions {
 
-    public static final int DEFAULT_BUFFER_COUNT = 1024;
+    private static final int DEFAULT_BUFFER_COUNT = 1024;
 
-    public static final int DEFAULT_BUFFER_SIZE = 8192;
+    private static final int DEFAULT_BUFFER_SIZE = 8192;
 
     private InetSocketAddress bindAddress;
 

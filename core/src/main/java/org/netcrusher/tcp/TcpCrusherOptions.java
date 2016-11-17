@@ -11,9 +11,9 @@ import java.net.InetSocketAddress;
 
 public class TcpCrusherOptions {
 
-    public static final int DEFAULT_BUFFER_COUNT = 64;
+    private static final int DEFAULT_BUFFER_COUNT = 64;
 
-    public static final int DEFAULT_BUFFER_SIZE = 32 * 1024;
+    private static final int DEFAULT_BUFFER_SIZE = 32 * 1024;
 
     private InetSocketAddress bindAddress;
 

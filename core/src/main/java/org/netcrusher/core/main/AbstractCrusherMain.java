@@ -10,6 +10,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.util.function.Consumer;
 
 public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
@@ -292,6 +293,46 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected abstract T create(NioReactor reactor,
         InetSocketAddress bindAddress, InetSocketAddress connectAddress);
+
+    protected static void withLongProperty(String name, Consumer<Long> consumer) {
+        final String text = System.getProperty(name);
+        if (text != null && !text.isEmpty()) {
+            try {
+                consumer.accept(Long.decode(text));
+                LOGGER.info("Property '{}={}' is loaded", name, text);
+            } catch (NumberFormatException e) {
+                LOGGER.error("Fail to load long property {}={}", name, text);
+            }
+        }
+    }
+
+    protected static void withIntProperty(String name, Consumer<Integer> consumer) {
+        final String text = System.getProperty(name);
+        if (text != null && !text.isEmpty()) {
+            try {
+                consumer.accept(Integer.decode(text));
+                LOGGER.info("Property '{}={}' is loaded", name, text);
+            } catch (NumberFormatException e) {
+                LOGGER.error("Fail to load integer property {}={}", name, text);
+            }
+        }
+    }
+
+    protected static void withBoolProperty(String name, Consumer<Boolean> consumer) {
+        final String text = System.getProperty(name);
+        if (text != null && !text.isEmpty()) {
+            consumer.accept(Boolean.parseBoolean(text));
+            LOGGER.info("Property '{}={}' is loaded", name, text);
+        }
+    }
+
+    protected static void withStrProperty(String name, Consumer<String> consumer) {
+        final String text = System.getProperty(name);
+        if (text != null && !text.isEmpty()) {
+            consumer.accept(text);
+            LOGGER.info("Property '{}={}' is loaded", name, text);
+        }
+    }
 
 }
 
