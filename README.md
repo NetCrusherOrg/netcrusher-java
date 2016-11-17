@@ -96,7 +96,7 @@ More about the command line mode in [wiki](https://github.com/NetCrusherOrg/netc
 <dependency>
     <groupId>com.github.netcrusherorg</groupId>
     <artifactId>netcrusher-core</artifactId>
-    <version>0.9</version>
+    <version>0.10</version>
 </dependency>
 ```
 
