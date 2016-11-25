@@ -6,15 +6,16 @@ import org.netcrusher.core.reactor.NioReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
+import java.util.Scanner;
 import java.util.function.Consumer;
 
 public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrusherMain.class);
+
+    private static final Charset PLATFORM_CHARSET = Charset.defaultCharset();
 
     private static final int ERR_EXIT_CODE_NO_ARGUMENT = 1;
     private static final int ERR_EXIT_CODE_INVALID_ADDRESS = 2;
@@ -100,12 +101,12 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
         final String crusherVersion = getClass().getPackage().getImplementationVersion();
         if (crusherVersion != null && !crusherVersion.isEmpty()) {
-            System.out.printf("# Version: %s\n", crusherVersion);
+            System.out.printf("# Version: %s%n", crusherVersion);
         }
 
         final String javaVersion = System.getProperty("java.version");
         if (javaVersion != null && !javaVersion.isEmpty()) {
-            System.out.printf("# Java: %s\n", javaVersion);
+            System.out.printf("# Java: %s%n", javaVersion);
         }
 
         System.out.println("# Print `HELP` for the list of the commands");
@@ -120,14 +121,12 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected void repl(T crusher) {
         try {
-            try (InputStreamReader isr = new InputStreamReader(System.in);
-                 BufferedReader br = new BufferedReader(isr))
-            {
+            try (Scanner scanner = new Scanner(System.in, PLATFORM_CHARSET.name())) {
                 while (true) {
-                    System.out.printf("# enter the command in the next line (crusher is %s)\n",
+                    System.out.printf("# enter the command in the next line (crusher is %s)%n",
                         crusher.isOpen() ? "OPEN" : "CLOSED");
 
-                    String line = br.readLine();
+                    String line = scanner.nextLine();
                     if (line == null) {
                         break;
                     }
@@ -145,7 +144,7 @@ public abstract class AbstractCrusherMain<T extends NetCrusher> {
                     }
                 }
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOGGER.error("REPL error", e);
         }
     }

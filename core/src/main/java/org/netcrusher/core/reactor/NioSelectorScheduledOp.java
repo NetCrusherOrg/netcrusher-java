@@ -1,12 +1,12 @@
 package org.netcrusher.core.reactor;
 
-public class NioSelectorScheduledOp implements Runnable, Comparable<NioSelectorScheduledOp> {
+public class NioSelectorScheduledOp implements Runnable {
 
     private final long scheduledNs;
 
     private final Runnable delegate;
 
-    public NioSelectorScheduledOp(long scheduledNs, Runnable delegate) {
+    NioSelectorScheduledOp(long scheduledNs, Runnable delegate) {
         this.scheduledNs = scheduledNs;
         this.delegate = delegate;
     }
@@ -16,13 +16,11 @@ public class NioSelectorScheduledOp implements Runnable, Comparable<NioSelectorS
         delegate.run();
     }
 
-    @Override
-    public int compareTo(NioSelectorScheduledOp that) {
-        return Long.compare(this.scheduledNs, that.scheduledNs);
-    }
-
     boolean isReady() {
         return scheduledNs <= System.nanoTime();
     }
 
+    long getScheduledNs() {
+        return scheduledNs;
+    }
 }

@@ -10,6 +10,7 @@ import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -23,6 +24,9 @@ public class NioSelector {
     private static final Logger LOGGER = LoggerFactory.getLogger(NioSelector.class);
 
     private static final long THREAD_TERMINATION_TIMEOUT_MS = 5000;
+
+    private static final Comparator<NioSelectorScheduledOp> SCHEDULE_COMPARATOR =
+        (o1, o2) -> Long.compare(o1.getScheduledNs(), o2.getScheduledNs());
 
     private final Thread thread;
 
@@ -43,7 +47,7 @@ public class NioSelector {
 
         this.selector = Selector.open();
         this.postOperationQueue = new ConcurrentLinkedQueue<>();
-        this.scheduledOperationQueue = new PriorityQueue<>();
+        this.scheduledOperationQueue = new PriorityQueue<>(SCHEDULE_COMPARATOR);
 
         this.thread = new Thread(this::loop);
         this.thread.setName("NetCrusher selector event loop");

@@ -6,12 +6,12 @@ public class MultiBitState extends BitState {
         super(state);
     }
 
-    public void include(int state) {
-        set(get() | state);
+    public void include(int mask) {
+        set(get() | mask);
     }
 
-    public void exclude(int state) {
-        set(get() & ~state);
+    public void exclude(int mask) {
+        set(get() & ~mask);
     }
 
 }

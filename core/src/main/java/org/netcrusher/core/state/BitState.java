@@ -30,12 +30,16 @@ public class BitState implements Serializable {
         return this.state != state;
     }
 
-    public boolean isAnyOf(int state) {
-        return (this.state & state) != 0;
+    public boolean isAnyOf(int mask) {
+        return (this.state & mask) != 0;
     }
 
-    public boolean isNotOf(int state) {
-        return (this.state & state) == 0;
+    public boolean isNotOf(int mask) {
+        return (this.state & mask) == 0;
+    }
+
+    public boolean equalTo(BitState that) {
+        return this.state == that.state;
     }
 
     @Override
@@ -43,23 +47,4 @@ public class BitState implements Serializable {
         return "state=" + state;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        BitState that = (BitState) o;
-
-        return this.state == that.state;
-    }
-
-    @Override
-    public int hashCode() {
-        return state;
-    }
 }

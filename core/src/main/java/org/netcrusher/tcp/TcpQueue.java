@@ -7,13 +7,12 @@ import org.netcrusher.core.nio.NioUtils;
 import org.netcrusher.core.throttle.Throttler;
 import org.netcrusher.core.throttle.ThrottlerFactory;
 
-import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
-class TcpQueue implements Serializable {
+class TcpQueue {
 
     private final Queue<BufferEntry> readable;
 
@@ -235,7 +234,7 @@ class TcpQueue implements Serializable {
         }
     }
 
-    private static final class BufferEntry implements Serializable {
+    private static final class BufferEntry {
 
         private final ByteBuffer buffer;
 

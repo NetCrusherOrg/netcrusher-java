@@ -5,14 +5,13 @@ import org.netcrusher.core.nio.NioUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Queue;
 
-class DatagramQueue implements Serializable {
+class DatagramQueue {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DatagramQueue.class);
 
@@ -77,7 +76,7 @@ class DatagramQueue implements Serializable {
         pending.add(entry);
     }
 
-    public static final class BufferEntry implements Serializable {
+    public static final class BufferEntry {
 
         private final ByteBuffer buffer;
 

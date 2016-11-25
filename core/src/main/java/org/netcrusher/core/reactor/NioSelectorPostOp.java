@@ -12,7 +12,7 @@ public class NioSelectorPostOp<T> implements Runnable {
 
     private final Callable<T> delegate;
 
-    public NioSelectorPostOp(Callable<T> delegate) {
+    NioSelectorPostOp(Callable<T> delegate) {
         this.delegate = delegate;
         this.future = new CompletableFuture<>();
     }
@@ -27,11 +27,11 @@ public class NioSelectorPostOp<T> implements Runnable {
         }
     }
 
-    public T await() throws InterruptedException, ExecutionException {
+    T await() throws InterruptedException, ExecutionException {
         return future.get();
     }
 
-    public T await(long timeout, TimeUnit timeUnit) throws TimeoutException, InterruptedException, ExecutionException {
+    T await(long timeout, TimeUnit timeUnit) throws TimeoutException, InterruptedException, ExecutionException {
         return future.get(timeout, timeUnit);
     }
 }
