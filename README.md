@@ -15,7 +15,7 @@ NetCrusher is TCP/UDP proxy framework for Java and a command line tool that coul
 
 NetCrusher is build on top of Java 8 NIO and has no external dependencies except [SLF4J](http://www.slf4j.org/).
 
-Documentation is available on [wiki](https://github.com/NetCrusherOrg/netcrusher-java/wiki)
+Read [documentation](https://netcrusherorg.github.io/netcrusher-java/).
 
 Download [latest dist.tar.gz](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.github.netcrusherorg%22%20AND%20a%3A%22netcrusher-core%22) to get the command line tool.
 
