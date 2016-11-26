@@ -1,0 +1,11 @@
+<div>
+
+<h1>DatagramCrusher</h1>
+
+<p>
+DatagramCrusher is a managed proxy for UDP protocol (datagrams).
+</p>
+
+<img src="i/datagramcrusher.png" title="DatagramCrusher scheme"/>
+
+</div>

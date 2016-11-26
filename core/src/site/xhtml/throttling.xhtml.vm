@@ -1,0 +1,68 @@
+<div>
+
+<h1>Throttling</h1>
+
+<p>
+Throttling and delay can be made with special throttle handlers.
+</p>
+
+<h2>Delay</h2>
+
+<pre class="code java">
+<![CDATA[
+TcpCrusherBuilder.builder()
+    // ...
+    // 200 ms constant delay with 20 ms random jitter
+    .withIncomingThrottlerFactory((addr) -> 
+        new DelayThrottler(200, 20, TimeUnit.MILLISECONDS))
+    .withOutgoingThrottlerFactory((addr) -> 
+        new DelayThrottler(200, 20, TimeUnit.MILLISECONDS))
+    // ...
+    buildAndOpen();
+]]>
+</pre>
+
+<h2>Throttling</h2>
+
+<p>
+Throttler filter limits throughput for the crusher.
+</p>
+
+<pre class="code java">
+<![CDATA[
+TcpCrusherBuilder.builder()
+    // ...
+    .withIncomingThrottlerFactory((addr) ->
+        new ByteRateThrottler(INCOMING_BYTES_PER_SEC, 1, TimeUnit.SECONDS))
+    .withOutgoingThrottlerFactory((addr) ->
+        new ByteRateThrottler(OUTGOING_BYTES_PER_SEC, 1, TimeUnit.SECONDS))
+    // ...
+    buildAndOpen();
+]]>
+</pre>
+
+<p>
+Also for DatagramCrusher a packet throttler is available:
+</p>
+
+<pre class="code java">
+<![CDATA[
+DatagramCrusherBuilder.builder()
+    // ...
+    .withIncomingGlobalThrottler(new PacketRateThrottler(PACKET_PER_SEC, 1, TimeUnit.SECONDS))
+    .withOutgoingThrottlerFactory((addr) ->
+        new PacketRateThrottler(PACKET_PER_SEC, 1, TimeUnit.SECONDS))
+    // ...
+    buildAndOpen();
+]]>
+</pre>
+
+<p>
+Note that DatagramCrusher has a single incoming throttler for all incoming traffic.
+</p>
+
+<p>
+Any throttling of DatagramCrusher could lead to potential packet loss as UDP is not reliable protocol.
+</p>
+
+</div>

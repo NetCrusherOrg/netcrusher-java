@@ -1,0 +1,118 @@
+<div>
+
+<h1>Reactor</h1>
+
+<p>
+Reactor is a unit that contains NIO selector, single selector's thread and scheduler executor.
+</p>
+
+<h2>Usage</h2>
+
+<p>
+The same single instance of reactor could be shared across multiple crushers. To utilize more CPU you can create separate instances of NioReactor for each crusher.
+</p>
+
+<pre class="code java">
+<![CDATA[
+DatagramCrusherBuilder.builder()
+    .withReactor(reactor)
+    // ...
+    .buildAndOpen();
+]]>
+</pre>
+
+<h2>Closing</h2>
+
+<p>
+NioReactor implements java.io.Closeable and must be explicitly closed after usage:
+</p>
+
+<pre class="code java">
+<![CDATA[
+NioReactor reactor = new NioReactor();
+
+// ... operate
+
+reactor.close();
+]]>
+</pre>
+
+<p>
+or even more shorter usage:
+</p>
+
+<pre class="code java">
+<![CDATA[
+try (NioReactor reactor = new NioReactor()) {
+
+    // ... operate
+
+}
+]]>
+</pre>
+
+<h2>Tick duration</h2>
+
+<p>
+NioReactor can be constructed with "tick" duration parameters that specifies the sleep period of the selector's thread.
+The lower values of tick make throttling more precise, the larger values of tick save CPU usage.
+The default value of tick is 20 milliseconds.
+</p>
+
+<pre class="code java">
+<![CDATA[
+// Tick value is 5 millisecond
+NioReactor reactor = new NioReactor(5);
+]]>
+</pre>
+
+<h2>Scheduler</h2>
+
+<p>
+NioReactor's scheduler can be used for scheduling delayed crusher operation.
+</p>
+
+<pre class="code java">
+<![CDATA[
+reactor.getScheduler().scheduleFreeze(crusher, 3000, TimeUnit.MILLISECONDS);
+]]>
+</pre>
+
+<p>
+Or any arbitrary operation.
+</p>
+
+<pre class="code java">
+<![CDATA[
+reactor.getScheduler().schedule(() -> {
+        crusher.unfreezeAllPairs();
+        return true;
+    }, 3000, TimeUnit.MILLISECONDS);
+]]>
+</pre>
+
+<h2>Listeners</h2>
+
+<p>
+Also all listener will be called with scheduler executor thread in deferred mode (is on by default).
+</p>
+
+<pre class="code java">
+<![CDATA[
+TcpCrusherBuilder.builder()
+    // ...
+    .withDeferredListeners(true)
+    .withCreationListener((addr) ->
+        LOGGER.info("Client is created <{}>", addr))
+    .withDeletionListener((addr, byteMeters) ->
+        LOGGER.info("Client is deleted <{}>", addr))
+    // ...
+    buildAndOpen();
+]]>
+</pre>
+
+<p>
+When deferred mode is off all listener calls will be made right within selector thread so there should be no any long blocking operation in listener code.
+</p>
+
+</div>

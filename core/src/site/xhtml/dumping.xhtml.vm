@@ -1,0 +1,37 @@
+<div>
+
+<h1>Dumping</h1>
+
+<p>
+Data dumping could be made with filtering feature.
+</p>
+
+<p>
+Currently a special logging filter is implemented. The filter dumps all the data to standard SLF4J logger.
+</p>
+
+<pre class="code java">
+<![CDATA[
+NetCrusher crusher = DatagramCrusherBuilder.builder()
+    // ...
+    .withIncomingTransformFilterFactory((addr) ->
+        new LoggingFilter(addr, "org.netcrusher.dump.incoming", LoggingFilter.Level.DEBUG))
+    .withOutgoingTransformFilterFactory((addr) ->
+        new LoggingFilter(addr, "org.netcrusher.dump.outgoing", LoggingFilter.Level.DEBUG))
+    // ...
+    buildAndOpen();
+]]>
+</pre>
+
+<p>
+Produces the following output:
+</p>
+
+<pre class="code log">
+<![CDATA[
+22:21:02.832 [NetCrusher selector event loop] DEBUG org.netcrusher.dump.outgoing - </127.0.0.1:59744> (0): 
+22:21:03.033 [NetCrusher selector event loop] DEBUG org.netcrusher.dump.incoming - </127.0.0.1:59744> (4): dbcb52a0
+]]>
+</pre>
+
+</div>

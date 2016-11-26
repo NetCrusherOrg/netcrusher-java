@@ -1,0 +1,53 @@
+<div>
+
+<h1>Command line tools</h1>
+
+<p>
+NetCrusher command line tools can be used for manual QA.
+</p>
+
+<h2>Run</h2>
+
+<p>
+Download latest <a href="http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.github.netcrusherorg%22%20AND%20a%3A%22netcrusher-core%22">dist.tar.gz</a> and unpack the archive.
+</p>
+
+<p>
+Usage:
+</p>
+
+<pre class="code bash">
+<![CDATA[
+$ ./run-tcp-crusher.sh 127.0.0.1:12345 google.com:80
+[22:37:42.171] INFO  TcpCrusher </127.0.0.1:12345>-<google.com/74.125.232.225:80> is open
+# Version: ${project.version}
+# Print `HELP` for the list of the commands
+# enter the command in the next line
+]]>
+</pre>
+
+<h2>Run with Maven</h2>
+
+<p>
+Maven mode can be used when all you can is to download Maven artifacts from repository.
+</p>
+
+<p>
+<a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/core/src/config/run-mvn">These script files</a> should be recreated on the target host:
+</p>
+
+<p>
+Usage:
+</p>
+
+<pre class="code bash">
+<![CDATA[
+$ ./mvn-tcp-crusher.sh 127.0.0.1:12345 google.com:80
+[22:37:42.171] INFO  TcpCrusher </127.0.0.1:12345>-<google.com/74.125.232.225:80> is open
+# Version: ${project.version}
+# Print `HELP` for the list of the commands
+# enter the command in the next line
+]]>
+</pre>
+
+</div>

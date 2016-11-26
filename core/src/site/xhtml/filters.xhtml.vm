@@ -1,0 +1,69 @@
+<div>
+
+<h1>Filtering</h1>
+
+<p>
+Filtering allows to modify data or to control how data packets go through crusher.
+</p>
+
+<p>
+All filtering is made in selector's thread so no any long blocking operation is allowed in filter's code.
+</p>
+
+<p>
+Note that byte buffer specified in the filter's parameter must have correct position and limit after filter method returned.
+</p>
+
+<h2>Data filter</h2>
+
+<p>
+Data filter can modify ByteBuffer data.
+</p>
+
+<pre class="code java">
+<![CDATA[
+public class InverseFilter implements TransformFilter {
+
+    public static final TransformFilter INSTANCE = new InverseFilter();
+
+    @Override
+    public void transform(ByteBuffer bb) {
+        if (bb.hasArray()) {
+            final byte[] bytes = bb.array();
+
+            final int offset = bb.arrayOffset() + bb.position();
+            final int limit = bb.arrayOffset() + bb.limit();
+
+            for (int i = offset; i < limit; i++) {
+                bytes[i] = (byte) ~bytes[i];
+            }
+        } else {
+            for (int i = bb.position(); i < bb.limit(); i++) {
+                bb.put(i, (byte) ~bb.get(i));
+            }
+        }
+    }
+}
+]]>
+</pre>
+
+<h2>Pass filters</h2>
+
+<p>
+Pass filter is used in DatagramCrusher and allows to control which packets are transferred to the other side.
+</p>
+
+<pre class="code java">
+<![CDATA[
+public class LengthPassFilter implements PassFilter {
+
+    @Override
+    public boolean check(ByteBuffer bb) {
+        // only small packets will pass
+        return bb.remaining() < 100;
+    }
+}
+]]>
+</pre>
+
+</div>

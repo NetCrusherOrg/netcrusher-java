@@ -1,0 +1,37 @@
+<div>
+
+<h1>Samples</h1>
+
+<p>
+These samples show usage of NetCrusher library in different scenarios.
+</p>
+
+<h2>Apache HTTP client</h2>
+
+<p>
+Timeout and disconnections while connecting to HTTP resources.
+<a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-apache-http/src/test/java/org/netcrusher">Sources</a>
+</p>
+
+<h2>Datagram rfc868 client</h2>
+
+<p>
+Shows usage of DatagramCrusher.
+<a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-datagram-rfc868/src/test/java/org/netcrusher">Sources</a>
+</p>
+
+<h2>BoneCP connection pool and HSQLDB</h2>
+
+<p>
+Disconnections and freezes.
+<a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-hsqldb-bonecp/src/test/java/org/netcrusher">Sources</a>
+</p>
+
+<h2>ZooKeeper</h2>
+
+<p>
+Disconnections in ZooKeeper embedded cluster.
+<a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-zookeeper/src/test/java/org/netcrusher">Sources</a>
+</p>
+
+</div>

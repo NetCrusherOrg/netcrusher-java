@@ -1,0 +1,157 @@
+<div>
+<h1>NetCrusher for Java</h1>
+
+<p>
+NetCrusher is a java TCP/UDP proxy framework and command line tool that allows to test software service for network failover.
+</p>
+
+<p>
+NetCrusher:
+</p>
+
+<ul>
+<li>emulates network failures</li>
+<li>emulates frozen connection</li>
+<li>supports both TCP and UDP</li>
+<li>supports multiple dynamic connections through the same proxy tunnel</li>
+<li>allows to check the state of connections</li>
+<li>allows to filter/dump data</li>
+<li>supports throttling (delay and/or throughput control)</li>
+<li>high perfomance (no excessive copying for TCP)</li>
+<li>garbage-less buffering</li>
+<li>supports IP4/IP6</li>
+</ul>
+
+<p>
+NetCrusher is build on top of Java 8 NIO and has no external dependencies except <a href="http://www.slf4j.org/">SLF4J</a>.
+</p>
+
+<p>
+Project is hosted on <a href="https://github.com/NetCrusherOrg/netcrusher-java">GitHub</a>
+</p>
+
+<p>
+Download the latest <a href="http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.github.netcrusherorg%22%20AND%20a%3A%22netcrusher-core%22">dist.tar.gz</a> to get the command line tool.
+</p>
+
+<h2>TCP</h2>
+
+<pre class="code java">
+<![CDATA[
+NioReactor reactor = new NioReactor();
+
+TcpCrusher crusher = TcpCrusherBuilder.builder()
+    .withReactor(reactor)
+    .withBindAddress("localhost", 10080)
+    .withConnectAddress("google.com", 80)
+    .buildAndOpen();
+
+// ... some actions
+
+// emulate reconnect
+crusher.reopen();
+
+// ... check the client connection is reestablished successfully
+
+// closing
+crusher.close();
+reactor.close();
+]]>
+</pre>
+
+<h2>UDP</h2>
+
+<pre class="code java">
+<![CDATA[
+NioReactor reactor = new NioReactor();
+
+DatagramCrusher crusher = DatagramCrusherBuilder.builder()
+    .withReactor(reactor)
+    .withBindAddress("localhost", 10188)
+    .withConnectAddress("time-nw.nist.gov", 37)
+    .buildAndOpen();
+
+// ... some actions
+
+// check data is sent
+Assert.assertTrue(crusher.getInner().getReadDatagramMeter().getTotal() > 0);
+
+// closing
+crusher.close();
+reactor.close();
+]]>
+</pre>
+
+<h2>Additional samples</h2>
+
+<p>
+Checks additional samples in the project root folder:
+</p>
+
+<ul>
+    <li><a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-hsqldb-bonecp">sample-hsqldb-bonecp</a></li>
+    <li><a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-datagram-rfc868">sample-datagram-rfc868</a></li>
+    <li><a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-apache-http">sample-apache-http</a></li>
+    <li><a href="https://github.com/NetCrusherOrg/netcrusher-java/tree/master/samples/sample-zookeeper">sample-zookeeper</a></li>
+</ul>
+
+<h2>Command line</h2>
+
+<p>
+For manual QA the command-line wrapper is available both for TCP and Datagram mode
+</p>
+
+<pre class="code bash">
+<![CDATA[
+$ ./run-tcp-crusher.sh 127.0.0.1:12345 google.com:80
+# Version: ${project.version}
+# Print `HELP` for the list of the commands
+# enter the command in the next line
+CLOSE
+[20:19:20.586] INFO  TcpCrusher </127.0.0.1:12345>-<google.com/64.233.161.101:80> is closed
+[20:19:20.586] INFO  Crusher is closed
+# enter the command in the next line
+OPEN
+[20:19:21.655] INFO  TcpCrusher </127.0.0.1:12345>-<google.com/64.233.161.101:80> is open
+[20:19:21.655] INFO  Crusher is open
+]]>
+</pre>
+
+<p>
+<a href="commandline.html">Read more</a> about the command line mode.
+</p>
+
+<h2>Maven</h2>
+
+<pre class="code xml">
+<![CDATA[
+<dependency>
+    <groupId>${project.groupId}</groupId>
+    <artifactId>${project.artifactId}</artifactId>
+    <version>${project.version}</version>
+</dependency>
+]]>
+</pre>
+
+<h2>Performance</h2>
+
+<p>
+<a href="performance.html">iperf test</a> made with TcpProxy
+</p>
+
+<h2>License</h2>
+
+<p>
+Apache License Version 2.0, <a href="http://www.apache.org/licenses/LICENSE-2.0.html">http://www.apache.org/licenses/LICENSE-2.0.html</a>
+</p>
+
+<h2>Links to the similar projects</h2>
+
+<ul>
+    <li><a href="http://jepsen.io">Jepsen</a> - Distributed Systems Safety Analysis</li>
+    <li><a href="https://github.com/terma/java-nio-tcp-proxy/wiki">Java-NIO-TCP-Proxy</a> - Simple TCP proxy</li>
+    <li><a href="https://wiki.linuxfoundation.org/networking/netem">netem</a> - Linux kernel module allows to distort network facilities</li>
+    <li><a href="https://linux.die.net/man/1/socat">socat</a> - bridges everything with everything</li>
+</ul>
+
+</div>

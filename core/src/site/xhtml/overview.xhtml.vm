@@ -1,0 +1,137 @@
+<div>
+
+<h1>NetCrusher</h1>
+
+<p>
+NetCrusher is a managed TCP/UDP proxy that can be placed between a client and a server.
+</p>
+
+<img src="i/netcrusher.png" title="NetCrusher scheme"/>
+
+<p>
+That allows to (A) control the connection and (B) get required information about the connection state and traffic statistics data. Both possibilities are very usefull for QA purpose.
+</p>
+
+<p>
+NetCrusher suggest the following type of proxy engines:
+</p>
+
+<ul>
+<li><a href="tcpcrusher.html">TcpCrusher</a> - TCP managed proxy</li>
+<li><a href="datagramcrusher.html">DatagramCrusher</a> - UDP managed proxy</li>
+</ul>
+
+<h2>Common methods</h2>
+
+<p>
+Both TcpCrusher and DatagramCrusher implement the same interfaces and have the same methods in common.
+</p>
+
+<h3>NetCrusher.open()</h3>
+
+<p>
+Method opens network proxy. After the crusher is open incoming connection is accepted and proxied.
+</p>        
+
+<pre class="code java">
+<![CDATA[
+crusher.open();
+]]>
+</pre>
+
+<p>
+Crusher can be opened right on creation with `buildAndOpen()` method.
+</p>
+
+<pre class="code java">
+<![CDATA[
+TcpCrusherBuilder.builder()
+    // ...
+    .buildAndOpen();
+]]>
+</pre>
+
+<h3>NetCrusher.close()</h3>
+
+<p>
+Closes the crusher proxy and all proxied connections.
+</p>
+
+<pre class="code java">
+<![CDATA[
+crusher.close();
+]]>
+</pre>
+
+<p>
+As crusher implements java.io.Closeable a shorter pattern can be used.
+</p>
+
+<pre class="code java">
+<![CDATA[
+try (TcpCrusher crusher = builder.buildAndOpen()) {
+}
+]]>
+</pre>
+
+<h3>NetCrusher.reopen()</h3>
+
+<p>
+Closes the crusher and opens again.
+</p>
+
+<h3>NetCrusher.isOpen()</h3>
+
+<p>
+Returns `true` if the crusher is in open state.
+</p>
+
+<h3>NetCrusher.getBindAddress()</h3>
+
+<p>
+Returns the address where the listening crusher socket is binded.
+</p>
+
+<h3>NetCrusher.getConnectAddress()</h3>
+
+<p>
+Returns the address where the crusher will connect to.
+</p>
+
+<h3>NetCrusher.getClientAddresses()</h3>
+
+<p>
+Returns the collection of crusher client addresses
+</p>
+
+<h3>NetCrusher.getClientByteMeters()</h3>
+
+<p>
+Retruns statistics on how many bytes passed through the crusher for the specified client.
+</p>
+
+<h3>NetCrusher.closeClient()</h3>
+
+<p>
+Closes the proxy channel for the specified client
+</p>
+
+<h3>NetFreezer.freeze()</h3>
+
+<p>
+Stops transferring the data. Sockets remain open but the data is not transferred between clients and target destination.
+</p>
+
+<h3>NetFreezer.unfreeze()</h3>
+
+<p>
+Restore transferring the data after freeze.
+</p>
+
+<h3>NetFreezer.isFrozen()</h3>
+
+<p>
+Returns `true` if the crusher is in the frozen state.
+</p>
+
+</div>
