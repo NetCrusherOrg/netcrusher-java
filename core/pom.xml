@@ -8,7 +8,7 @@
     <version>0.11-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>${project.groupId}:${project.artifactId}</name>
+    <name>NetCrusher</name>
     <url>https://github.com/NetCrusherOrg/netcrusher-java</url>
     <description>NetCrusher is a TCP/UDP proxy that allows yout to test your services for failover</description>
 
@@ -172,7 +172,7 @@
                         <configuration>
                             <effort>Max</effort>
                             <failOnError>true</failOnError>
-                            <fork>fork</fork>
+                            <fork>true</fork>
                         </configuration>
                         <goals>
                             <goal>check</goal>
@@ -187,8 +187,23 @@
                     </dependency>
                 </dependencies>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>3.6</version>
+            </plugin>
         </plugins>
     </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>2.9</version>
+            </plugin>
+        </plugins>
+    </reporting>
 
     <profiles>
         <profile>
