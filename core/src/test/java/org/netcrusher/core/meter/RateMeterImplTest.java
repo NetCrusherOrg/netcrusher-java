@@ -2,33 +2,21 @@ package org.netcrusher.core.meter;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.netcrusher.core.chronometer.MockChronometer;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class RateMeterImplTest {
 
     @Test
     public void test() throws Exception {
-        AtomicLong mockNowMs = new AtomicLong(System.currentTimeMillis());
-        AtomicLong mockNowNs = new AtomicLong(System.nanoTime());
+        MockChronometer mockChronometer = new MockChronometer();
 
-        RateMeterImpl rateMeter = new RateMeterImpl() {
-            @Override
-            protected long nowNs() {
-                return mockNowNs.get();
-            }
-
-            @Override
-            protected long nowMs() {
-                return mockNowMs.get();
-            }
-        };
+        RateMeterImpl rateMeter = new RateMeterImpl(mockChronometer);
 
         rateMeter.update(100);
 
-        mockNowMs.addAndGet(TimeUnit.SECONDS.toMillis(1));
-        mockNowNs.addAndGet(TimeUnit.SECONDS.toNanos(1));
+        mockChronometer.add(1, TimeUnit.SECONDS);
 
         Assert.assertEquals(100, rateMeter.getTotalCount());
         Assert.assertEquals(1000, rateMeter.getTotalElapsedMs());

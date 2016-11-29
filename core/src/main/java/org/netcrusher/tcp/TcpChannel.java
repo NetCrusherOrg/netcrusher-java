@@ -178,7 +178,7 @@ class TcpChannel {
             }
 
             if (LOGGER.isTraceEnabled()) {
-                LOGGER.trace("Written {} bytes to {}", sent, name);
+                LOGGER.trace("Written {} bytes to {} (forced={})", new Object[] { sent, name, forced });
             }
 
             meters.sentBytes.update(sent);

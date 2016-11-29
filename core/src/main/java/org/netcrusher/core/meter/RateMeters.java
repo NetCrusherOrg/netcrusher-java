@@ -1,11 +1,9 @@
 package org.netcrusher.core.meter;
 
-import java.io.Serializable;
-
 /**
  * Sent and read statistics
  */
-public class RateMeters implements Serializable {
+public class RateMeters {
 
     private final RateMeter readMeter;
 

@@ -1,10 +1,12 @@
 package org.netcrusher.core.meter;
 
-import java.io.Serializable;
+import org.netcrusher.core.chronometer.Chronometer;
+import org.netcrusher.core.chronometer.SystemChronometer;
+
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class RateMeterImpl implements RateMeter, Serializable {
+public class RateMeterImpl implements RateMeter {
 
     private final long createdMs;
 
@@ -14,16 +16,23 @@ public class RateMeterImpl implements RateMeter, Serializable {
 
     private final AtomicLong periodMarkerNs;
 
-    public RateMeterImpl() {
-        this.createdMs = nowMs();
+    private final Chronometer chronometer;
+
+    public RateMeterImpl(Chronometer chronometer) {
+        this.chronometer = chronometer;
+        this.createdMs = chronometer.getEpochMs();
         this.totalCount = new AtomicLong(0);
         this.periodCount = new AtomicLong(0);
-        this.periodMarkerNs = new AtomicLong(nowNs());
+        this.periodMarkerNs = new AtomicLong(chronometer.getTickNs());
+    }
+
+    public RateMeterImpl() {
+        this(SystemChronometer.INSTANCE);
     }
 
     @Override
     public long getTotalElapsedMs() {
-        return Math.max(0, nowMs() - createdMs);
+        return Math.max(0, chronometer.getEpochMs() - createdMs);
     }
 
     @Override
@@ -38,7 +47,7 @@ public class RateMeterImpl implements RateMeter, Serializable {
 
     @Override
     public RateMeterPeriod getPeriod(boolean reset) {
-        final long nowNs = nowNs();
+        final long nowNs = chronometer.getTickNs();
         final long elapsedNs = Math.max(0, nowNs - periodMarkerNs.get());
         final long elapsedMs = TimeUnit.NANOSECONDS.toMillis(elapsedNs);
 
@@ -65,11 +74,4 @@ public class RateMeterImpl implements RateMeter, Serializable {
         update(-1);
     }
 
-    protected long nowNs() {
-        return System.nanoTime();
-    }
-
-    protected long nowMs() {
-        return System.currentTimeMillis();
-    }
 }

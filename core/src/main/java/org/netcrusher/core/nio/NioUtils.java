@@ -103,14 +103,14 @@ public final class NioUtils {
         try {
             port = Integer.parseInt(portStr);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Port is not integer in address: " + text);
+            throw new IllegalArgumentException("Port is not integer in address: " + text, e);
         }
 
         final InetSocketAddress address;
         try {
             address = new InetSocketAddress(host, port);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Failed to parse address: " + text);
+            throw new IllegalArgumentException("Failed to parse address: " + text, e);
         }
 
         return address;

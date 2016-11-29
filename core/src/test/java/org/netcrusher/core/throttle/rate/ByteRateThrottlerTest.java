@@ -3,11 +3,11 @@ package org.netcrusher.core.throttle.rate;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.netcrusher.core.chronometer.MockChronometer;
 
 import java.nio.ByteBuffer;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class ByteRateThrottlerTest {
 
@@ -15,7 +15,7 @@ public class ByteRateThrottlerTest {
 
     private ByteBuffer stubBuffer;
 
-    private AtomicLong mockNowNs;
+    private MockChronometer mockChronometer;
 
     private ByteRateThrottler throttler;
 
@@ -23,14 +23,10 @@ public class ByteRateThrottlerTest {
     public void setUp() throws Exception {
         this.stubBuffer = ByteBuffer.allocate(10000);
 
-        this.mockNowNs = new AtomicLong(System.nanoTime());
+        this.mockChronometer = new MockChronometer();
 
-        this.throttler = new ByteRateThrottler(RATE_PER_SEC, 1, TimeUnit.SECONDS) {
-            @Override
-            protected long nowNs() {
-                return mockNowNs.get();
-            }
-        };
+        this.throttler = new ByteRateThrottler(RATE_PER_SEC, 1, TimeUnit.SECONDS,
+            AbstractRateThrottler.AUTO_FACTOR, mockChronometer);
     }
 
     @Test
@@ -45,10 +41,10 @@ public class ByteRateThrottlerTest {
             stubBuffer.limit(bufferSize);
 
             long elapsedNs = random.nextInt(100_000);
-            mockNowNs.addAndGet(elapsedNs);
+            mockChronometer.add(elapsedNs, TimeUnit.NANOSECONDS);
 
             long delayNs = throttler.calculateDelayNs(stubBuffer);
-            mockNowNs.addAndGet(delayNs);
+            mockChronometer.add(delayNs, TimeUnit.NANOSECONDS);
 
             totalSent += bufferSize;
             totalElapsedNs += elapsedNs;
@@ -62,14 +58,10 @@ public class ByteRateThrottlerTest {
     @Test
     public void testSmallRate() throws Exception {
         // 1 byte per 100 seconds
-        ByteRateThrottler lazyThrottler = new ByteRateThrottler(1, 100, TimeUnit.SECONDS) {
-            @Override
-            protected long nowNs() {
-                return mockNowNs.get();
-            }
-        };
+        ByteRateThrottler lazyThrottler = new ByteRateThrottler(1, 100, TimeUnit.SECONDS,
+            AbstractRateThrottler.AUTO_FACTOR, mockChronometer);
 
-        mockNowNs.addAndGet(TimeUnit.SECONDS.toNanos(1));
+        mockChronometer.add(1, TimeUnit.SECONDS);
 
         stubBuffer.limit(1);
 

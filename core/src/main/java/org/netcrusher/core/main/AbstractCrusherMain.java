@@ -11,6 +11,7 @@ import java.nio.charset.Charset;
 import java.util.Scanner;
 import java.util.function.Consumer;
 
+@SuppressWarnings("PMD.SystemPrintln")
 public abstract class AbstractCrusherMain<T extends NetCrusher> {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(AbstractCrusherMain.class);

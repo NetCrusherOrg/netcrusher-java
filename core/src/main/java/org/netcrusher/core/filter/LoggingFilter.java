@@ -16,6 +16,7 @@ public class LoggingFilter implements TransformFilter {
 
     private final InetSocketAddress clientAddress;
 
+    @SuppressWarnings("PMD.LoggerIsNotStaticFinal")
     private final Logger logger;
 
     private final Level level;

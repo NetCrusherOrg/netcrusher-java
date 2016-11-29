@@ -87,10 +87,8 @@ class TcpQueue {
         }
 
         BufferEntry writableEntry = writable.peek();
-        if (writableEntry != null) {
-            if (writableEntry.getBuffer().position() > 0) {
-                return true;
-            }
+        if (writableEntry != null && writableEntry.getBuffer().position() > 0) {
+            return true;
         }
 
         return false;
