@@ -6,7 +6,14 @@
 
     <body>
         <head>
+            <![CDATA[<link rel="shortcut icon" href="i/favicon.ico"/>]]>
+
+            <![CDATA[<meta name="description" content="TCP and UDP proxy framework for testing"/>]]>
+            <![CDATA[<meta name="keywords" content="java,tcp,udp,proxy,nio,socket"/>]]>
+            <![CDATA[<meta name="author" content="NetCrusher team"/>]]>
+
             <![CDATA[<link rel="stylesheet" href="css/highlight.min.css"/>]]>
+
             <![CDATA[<script src="js/highlight.min.js"></script>]]>
             <![CDATA[<script src="js/jquery-3.1.1.min.js"></script>]]>
             <![CDATA[<script src="js/init.js"></script>]]>

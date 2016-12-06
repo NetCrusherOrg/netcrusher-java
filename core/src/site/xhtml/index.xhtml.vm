@@ -1,12 +1,12 @@
 <div>
-<h1>NetCrusher for Java</h1>
+<h1>NetCrusher TCP and UDP proxy for Java</h1>
 
 <p>
 NetCrusher is a java TCP/UDP proxy framework and command line tool that allows to test software service for network failover.
 </p>
 
 <p>
-NetCrusher:
+NetCrusher proxy framework:
 </p>
 
 <ul>
@@ -34,7 +34,7 @@ Project is hosted on <a href="https://github.com/NetCrusherOrg/netcrusher-java">
 Download the latest <a href="http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.github.netcrusherorg%22%20AND%20a%3A%22netcrusher-core%22">dist.tar.gz</a> to get the command line tool.
 </p>
 
-<h2>TCP</h2>
+<h2>TCP proxy</h2>
 
 <pre class="code java">
 <![CDATA[
@@ -59,7 +59,7 @@ reactor.close();
 ]]>
 </pre>
 
-<h2>UDP</h2>
+<h2>UDP datagram proxy</h2>
 
 <pre class="code java">
 <![CDATA[
@@ -98,7 +98,7 @@ Checks additional samples in the project root folder:
 <h2>Command line</h2>
 
 <p>
-For manual QA the command-line wrapper is available both for TCP and Datagram mode
+For manual QA the command-line proxy is available both for TCP and Datagram mode
 </p>
 
 <pre class="code bash">
@@ -118,7 +118,7 @@ OPEN
 </pre>
 
 <p>
-<a href="commandline.html">Read more</a> about the command line mode.
+<a href="commandline.html">Read more</a> about the command line proxy mode.
 </p>
 
 <h2>Maven</h2>

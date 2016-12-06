@@ -1,6 +1,6 @@
 <div>
 
-<h1>NetCrusher</h1>
+<h1>NetCrusher TCP and UDP proxy</h1>
 
 <p>
 NetCrusher is a managed TCP/UDP proxy that can be placed between a client and a server.

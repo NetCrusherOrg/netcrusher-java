@@ -6,6 +6,6 @@
 DatagramCrusher is a managed proxy for UDP protocol (datagrams).
 </p>
 
-<img src="i/datagramcrusher.png" title="DatagramCrusher scheme"/>
+<img src="i/datagramcrusher.png" title="UDP datagram java proxy"/>
 
 </div>
